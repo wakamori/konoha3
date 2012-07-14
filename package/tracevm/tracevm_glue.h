@@ -110,7 +110,6 @@ static kbool_t tracevm_setupPackage(KonohaContext *kctx, kNameSpace *ns, kfileli
 
 static kbool_t tracevm_initNameSpace(KonohaContext *kctx, kNameSpace *ns, kfileline_t pline)
 {
-
 	return true;
 }
 
