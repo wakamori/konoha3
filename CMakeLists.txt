@@ -134,6 +134,7 @@ set(PACKAGES
 ##	jansson
 	python
 	apache
+	tracevm
 	konoha.import
 #	openssl
 )
