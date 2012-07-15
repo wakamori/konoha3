@@ -138,6 +138,8 @@ set(PACKAGES
 ##	mecab
 	python
 	apache
+	tracevm
+	konoha.import
 #	openssl
 	logpool
 )
