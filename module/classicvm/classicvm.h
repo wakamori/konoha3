@@ -1,6 +1,6 @@
 #include <minikonoha/float.h>
-#ifndef TYICVM_H_
-#define TYICVM_H_
+#ifndef CLASSICVM_H_
+#define CLASSICVM_H_
 
 static void EXPR_asm(KonohaContext *kctx, int a, kExpr *expr, int shift, int espidx);
 static kBasicBlockVar* new_BasicBlockLABEL(KonohaContext *kctx);
@@ -29,7 +29,7 @@ static void BUILD_asm(KonohaContext *kctx, VirtualMachineInstruction *op, size_t
 #define MN_opLSFT MN_("opLSFT")
 #define MN_opRSFT MN_("opRSFT")
 
-static kbool_t TYICVM_BUILD_asmJMPF(KonohaContext *kctx, kBasicBlock *bb, klr_JMPF_t *op, int *swap)
+static kbool_t CLASSICVM_BUILD_asmJMPF(KonohaContext *kctx, kBasicBlock *bb, klr_JMPF_t *op, int *swap)
 {
 	while(bb->op.bytesize > 0) {
 		VirtualMachineInstruction *opP = BBOP(bb) + (BBSIZE(bb) - 1);
@@ -88,7 +88,7 @@ static kbool_t TYICVM_BUILD_asmJMPF(KonohaContext *kctx, kBasicBlock *bb, klr_JM
 #define _REMOVE2(opX, opX2)       TONOP(opX); _REMOVE(opX2)
 #define _REMOVE3(opX, opX2, opX3) TONOP(opX); _REMOVE2(opX2, opX3)
 
-static void TYICVM_BasicBlock_peephole(KonohaContext *kctx, kBasicBlock *bb)
+static void CLASSICVM_BasicBlock_peephole(KonohaContext *kctx, kBasicBlock *bb)
 {
 	size_t i;
 	for(i = 1; i < BBSIZE(bb); i++) {
@@ -308,9 +308,9 @@ static kbool_t OPR_hasCONST(KonohaContext *kctx, kExpr *expr, kmethodn_t *mn, in
 	return isCONST;
 }
 
-static kbool_t TYICVM_CALL_asm(KonohaContext *kctx, kMethod *mtd, kExpr *expr, int shift, int espidx)
+static kbool_t CLASSICVM_CALL_asm(KonohaContext *kctx, kMethod *mtd, kExpr *expr, int shift, int espidx)
 {
-	ktype_t mtd_cid = (mtd)->cid;
+	ktype_t mtd_cid = (mtd)->classId;
 	kmethodn_t mtd_mn = (mtd)->mn;
 	int a = espidx + 1;
 #if 1/*TODO*/
@@ -319,7 +319,7 @@ static kbool_t TYICVM_CALL_asm(KonohaContext *kctx, kMethod *mtd, kExpr *expr, i
 		if(mtd_mn == MN_get) {
 			EXPR_asm(kctx, a, kExpr_at(expr, 1), shift, a);
 			if(kExpr_at(expr, 2)->build == TEXPR_NCONST) {
-				intptr_t n = kExpr_at(expr, 2)->ndata;
+				intptr_t n = kExpr_at(expr, 2)->unboxValue;
 				if(n < 0) {
 					return 0;
 				}
@@ -349,7 +349,7 @@ static kbool_t TYICVM_CALL_asm(KonohaContext *kctx, kMethod *mtd, kExpr *expr, i
 			EXPR_asm(kctx, a, kExpr_at(expr, 1), shift, a);
 			EXPR_asm(kctx, v, kExpr_at(expr, 3), shift, v);
 			if(kExpr_at(expr, 2)->build == TEXPR_NCONST) {
-				intptr_t n = kExpr_at(expr, 2)->ndata;
+				intptr_t n = kExpr_at(expr, 2)->unboxValue;
 				if(n < 0) {
 					return 0;
 				}
@@ -382,7 +382,7 @@ static kbool_t TYICVM_CALL_asm(KonohaContext *kctx, kMethod *mtd, kExpr *expr, i
 		if(mtd_mn == MN_get) {
 			EXPR_asm(kctx, a, kExpr_at(expr, 1), shift, a);
 			if(kExpr_at(expr, 2)->build == TEXPR_NCONST) {
-				intptr_t n = kExpr_at(expr, 2)->ndata;
+				intptr_t n = kExpr_at(expr, 2)->unboxValue;
 				ASM_CHKIDXC(kctx, OC_(a), n);
 				ASM(BGETIDXC, NC_(espidx), OC_(a), n);
 			}
@@ -399,7 +399,7 @@ static kbool_t TYICVM_CALL_asm(KonohaContext *kctx, kMethod *mtd, kExpr *expr, i
 			EXPR_asm(kctx, a, kExpr_at(expr, 1), shift, a);
 			EXPR_asm(kctx, v, kExpr_at(expr, 3), shift, v);
 			if(kExpr_at(expr, 2)->build == TEXPR_NCONST) {
-				intptr_t n = kExpr_at(expr, 2)->ndata;
+				intptr_t n = kExpr_at(expr, 2)->unboxValue;
 				if(n < 0) {
 					return 0;
 				}
@@ -450,7 +450,7 @@ static kbool_t TYICVM_CALL_asm(KonohaContext *kctx, kMethod *mtd, kExpr *expr, i
 				mn == MN_opLSFT || mn == MN_opRSFT) swap = 0;
 		if(OPR_hasCONST(kctx, expr, &mn, swap)) {
 			EXPR_asm(kctx, a, kExpr_at(expr, 1), shift, a);
-			kint_t b = kExpr_at(expr, 2)->ndata;
+			kint_t b = kExpr_at(expr, 2)->unboxValue;
 			if(b == 0 && (mn == MN_opDIV || mn == MN_opMOD)) {
 				b = 1;
 				//TODO
@@ -477,8 +477,8 @@ static kbool_t TYICVM_CALL_asm(KonohaContext *kctx, kMethod *mtd, kExpr *expr, i
 		if(mn == MN_opSUB || mn == MN_opDIV || mn == MN_opMOD) swap = 0;
 		if(OPR_hasCONST(kctx, expr, &mn, swap)) {
 			EXPR_asm(kctx, a, kExpr_at(expr, 1), shift, a);
-			union { uintptr_t ndata; kfloat_t fvalue; } v;
-			v.ndata = kExpr_at(expr, 2)->ndata;
+			union { uintptr_t unboxValue; kfloat_t fvalue; } v;
+			v.unboxValue = kExpr_at(expr, 2)->unboxValue;
 			kfloat_t b = v.fvalue;
 			/* TODO */
 #define KFLOAT_ZERO 0.0

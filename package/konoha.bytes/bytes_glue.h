@@ -220,7 +220,7 @@ static kBytes* convFromTo(KonohaContext *kctx, kBytes *fromBa, const char *fromC
 				KEYVALUE_s("to", toCoding),
 				KEYVALUE_s("error", strerror(errno))
 			);
-			return (kBytes*)(CT_Bytes->nulvalNULL);
+			return (kBytes*)(CT_Bytes->defaultValueAsNull);
 		} else {
 			// finished. iconv_ret != -1
 			processedSize = CONV_BUFSIZE - outBytesLeft;
@@ -241,7 +241,7 @@ static kBytes* convFromTo(KonohaContext *kctx, kBytes *fromBa, const char *fromC
 static KMETHOD Bytes_encodeTo(KonohaContext *kctx, KonohaStack *sfp)
 {
 	kBytes *ba = sfp[0].ba;
-	kString *toCoding = sfp[1].toString;
+	kString *toCoding = sfp[1].asString;
 	RETURN_(convFromTo(kctx, ba, "UTF-8", S_text(toCoding)));
 }
 
@@ -249,9 +249,9 @@ static KMETHOD Bytes_encodeTo(KonohaContext *kctx, KonohaStack *sfp)
 static KMETHOD Bytes_decodeFrom(KonohaContext *kctx, KonohaStack *sfp)
 {
 	kBytes* fromBa = sfp[0].ba;
-	kString*fromCoding = sfp[1].toString;
+	kString*fromCoding = sfp[1].asString;
 	kBytes *toBa;
-	if (fromCoding != (kString*)(CT_String->nulvalNULL)) {
+	if (fromCoding != (kString*)(CT_String->defaultValueAsNull)) {
 		toBa = convFromTo(kctx, fromBa, S_text(fromCoding), "UTF-8");
 	} else {
 		// conv from default encoding
@@ -275,7 +275,7 @@ static KMETHOD String_toBytes(KonohaContext *kctx, KonohaStack *sfp)
 // this methodList needs string_glue.h for counting mlen...
 //#include "../konoha.string/string_glue.h"
 
-//## @Const method String Bytes.toString();
+//## @Const method String Bytes.asString();
 static KMETHOD Bytes_toString(KonohaContext *kctx, KonohaStack *sfp)
 {
 	kBytes *from = sfp[0].ba;
@@ -346,7 +346,7 @@ static kbool_t bytes_initPackage(KonohaContext *kctx, kNameSpace *ns, int argc, 
 	base->h.free     = kmodiconv_free;
 	KLIB Konoha_setModule(kctx, MOD_iconv, &base->h, pline);
 
-	KDEFINE_TY defBytes = {
+	KDEFINE_CLASS defBytes = {
 		STRUCTNAME(Bytes),
 		.cflag   = kClass_Final,
 		.free    = Bytes_free,
@@ -405,13 +405,12 @@ static int parseSQUOTE(KonohaContext *kctx, kTokenVar *tk, TokenizerEnv *tenv, i
 
 static KMETHOD ExprTyCheck_Squote(KonohaContext *kctx, KonohaStack *sfp)
 {
-	USING_SUGAR;
 	VAR_ExprTyCheck(stmt, expr, gma, reqty);
-	kToken *tk = expr->tk;
+	kToken *tk = expr->termToken;
 	kString *s = tk->text;
 	if (S_size(s) == 1) {
 		int ch = S_text(s)[0];
-		RETURN_(kExpr_setNConstValue(expr, TY_Int, ch));
+		RETURN_(SUGAR kExpr_setUnboxConstValue(kctx, expr, TY_Int, ch));
 	} else {
 		SUGAR Stmt_p(kctx, stmt, (kToken*)expr, ErrTag, "single quote doesn't accept multi characters, '%s'", S_text(s));
 	}
@@ -420,7 +419,6 @@ static KMETHOD ExprTyCheck_Squote(KonohaContext *kctx, KonohaStack *sfp)
 
 static kbool_t bytes_initNameSpace(KonohaContext *kctx,  kNameSpace *ns, kfileline_t pline)
 {
-	USING_SUGAR;
 	SUGAR NameSpace_setTokenizeFunc(kctx, ns, '\'', parseSQUOTE, NULL, 0);
 	KDEFINE_SYNTAX SYNTAX[] = {
 		{ .keyword = SYM_("$SingleQuote"), _TERM, ExprTyCheck_(Squote)},

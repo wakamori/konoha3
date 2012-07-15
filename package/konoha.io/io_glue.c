@@ -45,9 +45,9 @@ static kString *kwb_newString(KonohaContext *kctx, KUtilsWriteBuffer *wb, int fl
 #define kiomod        ((kiomod_t*)kctx->mod[MOD_IO])
 #define kioshare      ((kioshare_t*)kctx->modshare[MOD_IO])
 #define CT_InputStream       kioshare->cInputStream
-#define TY_InputStream       kioshare->cInputStream->cid
+#define TY_InputStream       kioshare->cInputStream->classId
 #define CT_OutputStream      kioshare->cOutputStream
-#define TY_OutputStream      kioshare->cOutputStream->cid
+#define TY_OutputStream      kioshare->cOutputStream->classId
 
 #define IS_io(O)      ((O)->h.ct == CT_io)
 
@@ -212,14 +212,14 @@ static void OutputStream_free(KonohaContext *kctx, kObject *o)
 	}
 }
 
-static KDEFINE_TY InputStreamDef = {
+static KDEFINE_CLASS InputStreamDef = {
 	STRUCTNAME(InputStream),
 	.cflag = 0,
 	.init = Stream_init,
 	.free = Stream_free,
 };
 
-static KDEFINE_TY OutputStreamDef = {
+static KDEFINE_CLASS OutputStreamDef = {
 	STRUCTNAME(OutputStream),
 	.cflag = 0,
 	.init = Stream_init,
@@ -778,7 +778,7 @@ static KMETHOD OutputStream_isClosed(KonohaContext *kctx, KonohaStack *sfp)
 static KMETHOD InputStream_new(KonohaContext *kctx, KonohaStack *sfp)
 {
 	//kInputStream *in = sfp[0].in;
-	kString *pth = sfp[1].toString;
+	kString *pth = sfp[1].asString;
 	const char *mode = IS_NULL(sfp[2].s) ? "r" : S_text(sfp[2].s);
 	//KSETv(in->path, pth);
 	kio_t *io2 = FILE_openNULL(kctx, pth, mode, NULL);
@@ -810,7 +810,7 @@ static KMETHOD InputStream_readLine(KonohaContext *kctx, KonohaStack *sfp)
 static KMETHOD OutputStream_new(KonohaContext *kctx, KonohaStack *sfp)
 {
 	//kOutputStream *w = sfp[0].w;
-	kString *pth = sfp[1].toString;
+	kString *pth = sfp[1].asString;
 	const char *mode = IS_NULL(sfp[2].s) ? "w" : S_text(sfp[2].s);
 	//KSETv(w->path, pth);
 	kio_t *io2 = FILE_openNULL(kctx, pth, mode, NULL);

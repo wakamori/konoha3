@@ -43,63 +43,7 @@ int verbose_sugar = 0;
 #include "token.h"
 #include "ast.h"
 #include "tycheck.h"
-
-#define PATTERN(T)  .keyword = KW_##T##Pattern
-#define TOKEN(T)    .keyword = KW_##T
-
-static void defineDefaultSyntax(KonohaContext *kctx, kNameSpace *ns)
-{
-	KDEFINE_SYNTAX SYNTAX[] = {
-		{ TOKEN(ERR), .flag = SYNFLAG_StmtBreakExec, },
-		{ PATTERN(Expr), .rule ="$expr", PatternMatch_(Expr), TopStmtTyCheck_(Expr), StmtTyCheck_(Expr),  },
-		{ PATTERN(Symbol),  _TERM, PatternMatch_(Symbol),  ExprTyCheck_(Symbol),},
-		{ PATTERN(Usymbol), _TERM, PatternMatch_(Usymbol), /* .rule = "$USYMBOL \"=\" $expr",*/ TopStmtTyCheck_(ConstDecl), ExprTyCheck_(Usymbol),},
-		{ PATTERN(Text), _TERM, ExprTyCheck_(Text),},
-		{ PATTERN(Int), _TERM, ExprTyCheck_(Int),},
-		{ PATTERN(Float), _TERM, },
-		{ PATTERN(Type), _TERM, PatternMatch_(Type), .rule = "$type $expr", StmtTyCheck_(TypeDecl), ExprTyCheck_(Type), },
-		{ PATTERN(Parenthesis), .flag = SYNFLAG_ExprPostfixOp2, ParseExpr_(Parenthesis), .priority_op2 = 16, ExprTyCheck_(FuncStyleCall),}, //AST_PARENTHESIS
-		{ PATTERN(Bracket),  },  //AST_BRACKET
-		{ PATTERN(Brace),  }, // AST_BRACE
-		{ PATTERN(Block), PatternMatch_(Block), ExprTyCheck_(Block), },
-		{ PATTERN(Params), PatternMatch_(Params), TopStmtTyCheck_(ParamsDecl), ExprTyCheck_(MethodCall),},
-		{ PATTERN(Toks), PatternMatch_(Toks), },
-		{ TOKEN(DOT), ParseExpr_(DOT), .priority_op2 = 16, },
-		{ TOKEN(DIV), _OP, .op2 = "opDIV", .priority_op2 = 32, },
-		{ TOKEN(MOD), _OP, .op2 = "opMOD", .priority_op2 = 32, },
-		{ TOKEN(MUL), _OP, .op2 = "opMUL", .priority_op2 = 32, },
-		{ TOKEN(ADD), _OP, .op1 = "opPLUS", .op2 = "opADD", .priority_op2 = 64, },
-		{ TOKEN(SUB), _OP, .op1 = "opMINUS", .op2 = "opSUB", .priority_op2 = 64, },
-		{ TOKEN(LT), _OP, .op2 = "opLT", .priority_op2 = 256, },
-		{ TOKEN(LTE), _OP, .op2 = "opLTE", .priority_op2 = 256, },
-		{ TOKEN(GT), _OP, .op2 = "opGT", .priority_op2 = 256, },
-		{ TOKEN(GTE), _OP, .op2 = "opGTE", .priority_op2 = 256, },
-		{ TOKEN(EQ), _OP, .op2 = "opEQ", .priority_op2 = 512, },
-		{ TOKEN(NEQ), _OP, .op2 = "opNEQ", .priority_op2 = 512, },
-		{ TOKEN(AND), _OP, /*.op2 = ""unused*/ .priority_op2 = 1024, ExprTyCheck_(AND)},
-		{ TOKEN(OR), _OP, /*.op2 = ""unused*/ .priority_op2 = 2048, ExprTyCheck_(OR)},
-		{ TOKEN(NOT), _OP, .op1 = "opNOT", },
-//		{ TOKEN(":"),  _OP,  .priority_op2 = 3072,},
-		{ TOKEN(LET),  _OPLeft, /*.op2 = "*"*/ .priority_op2 = 4096, },
-		{ TOKEN(COMMA), ParseExpr_(COMMA), .op2 = "*", .priority_op2 = 8192, /*.flag = SYNFLAG_ExprLeftJoinOP2,*/ },
-		{ TOKEN(DOLLAR), ParseExpr_(DOLLAR), },
-		{ TOKEN(void), .type = TY_void, .rule ="$type [$type \".\"] $SYMBOL $params [$block]", TopStmtTyCheck_(MethodDecl)},
-		{ TOKEN(boolean), .type = TY_Boolean, },
-		{ TOKEN(int),     .type = TY_Int, },
-		{ TOKEN(true),  _TERM, ExprTyCheck_(true),},
-		{ TOKEN(false),  _TERM, ExprTyCheck_(false),},
-		{ TOKEN(if), .rule ="\"if\" \"(\" $expr \")\" $block [\"else\" else: $block]", TopStmtTyCheck_(if), StmtTyCheck_(if), },
-		{ TOKEN(else), .rule = "\"else\" $block", TopStmtTyCheck_(else), StmtTyCheck_(else), },
-		{ TOKEN(return), .rule ="\"return\" [$expr]", .flag = SYNFLAG_StmtBreakExec, StmtTyCheck_(return), },
-		{ .keyword = KW_END, },
-	};
-	NameSpace_defineSyntax(kctx, ns, SYNTAX);
-	SugarSyntaxVar *syn = (SugarSyntaxVar*)SYN_(ns, KW_void);
-	syn->ty = TY_void; // it's not cool, but necessary
-	syn = (SugarSyntaxVar*)SYN_(ns, KW_UsymbolPattern);
-	KINITv(syn->syntaxRuleNULL, new_(TokenArray, 0));
-	parseSyntaxRule(kctx, "$USYMBOL \"=\" $expr", 0, syn->syntaxRuleNULL);
-}
+#include "sugarfunc.h"
 
 /* ------------------------------------------------------------------------ */
 /* SugarContext global functions */
@@ -110,11 +54,11 @@ static kstatus_t NameSpace_eval(KonohaContext *kctx, kNameSpace *ns, const char 
 	kmodsugar->h.setup(kctx, (KonohaModule*)kmodsugar, 0/*lazy*/);
 	{
 		INIT_GCSTACK();
-		kArray *tls = ctxsugar->preparedTokenList;
-		size_t pos = kArray_size(tls);
-		NameSpace_tokenize(kctx, ns, script, uline, tls);
-		kBlock *bk = new_Block(kctx, ns, NULL, tls, pos, kArray_size(tls), ';');
-		KLIB kArray_clear(kctx, tls, pos);
+		kArray *tokenArray = ctxsugar->preparedTokenList;
+		size_t pos = kArray_size(tokenArray);
+		NameSpace_tokenize(kctx, ns, script, uline, tokenArray);
+		kBlock *bk = new_Block(kctx, ns, NULL, tokenArray, pos, kArray_size(tokenArray), ';');
+		KLIB kArray_clear(kctx, tokenArray, pos);
 		result = Block_eval(kctx, bk);
 		RESET_GCSTACK();
 	}
@@ -225,33 +169,33 @@ void MODSUGAR_init(KonohaContext *kctx, KonohaContextVar *ctx)
 	KINITv(base->packageList, new_(Array, 8));
 	base->packageMapNO = KLIB Kmap_init(kctx, 0);
 
-	KDEFINE_TY defNameSpace = {
+	KDEFINE_CLASS defNameSpace = {
 		STRUCTNAME(NameSpace),
 		.init = NameSpace_init,
 		.reftrace = NameSpace_reftrace,
 		.free = NameSpace_free,
 	};
-	KDEFINE_TY defToken = {
+	KDEFINE_CLASS defToken = {
 		STRUCTNAME(Token),
 		.init = Token_init,
 		.reftrace = Token_reftrace,
 	};
-	KDEFINE_TY defExpr = {
+	KDEFINE_CLASS defExpr = {
 		STRUCTNAME(Expr),
 		.init = Expr_init,
 		.reftrace = Expr_reftrace,
 	};
-	KDEFINE_TY defStmt = {
+	KDEFINE_CLASS defStmt = {
 		STRUCTNAME(Stmt),
 		.init = Stmt_init,
 		.reftrace = Stmt_reftrace,
 	};
-	KDEFINE_TY defBlock = {
+	KDEFINE_CLASS defBlock = {
 		STRUCTNAME(Block),
 		.init = Block_init,
 		.reftrace = Block_reftrace,
 	};
-	KDEFINE_TY defGamma = {
+	KDEFINE_CLASS defGamma = {
 		STRUCTNAME(Gamma),
 		.init = Gamma_init,
 	};
@@ -261,12 +205,12 @@ void MODSUGAR_init(KonohaContext *kctx, KonohaContextVar *ctx)
 	base->cStmt  = KLIB Konoha_defineClass(kctx, PN_sugar, PN_sugar, NULL, &defStmt, 0);
 	base->cBlock = KLIB Konoha_defineClass(kctx, PN_sugar, PN_sugar, NULL, &defBlock, 0);
 	base->cGamma = KLIB Konoha_defineClass(kctx, PN_sugar, PN_sugar, NULL, &defGamma, 0);
-	base->cTokenArray = CT_p0(kctx, CT_Array, base->cToken->cid);
+	base->cTokenArray = CT_p0(kctx, CT_Array, base->cToken->classId);
 
-	knull(base->cNameSpace);
-	knull(base->cToken);
-	knull(base->cExpr);
-	knull(base->cBlock);
+	KLIB Knull(kctx, base->cNameSpace);
+	KLIB Knull(kctx, base->cToken);
+	KLIB Knull(kctx, base->cExpr);
+	KLIB Knull(kctx, base->cBlock);
 	kmodsugar_setup(kctx, &base->h, 0);
 
 	KINITv(base->UndefinedParseExpr,   new_SugarFunc(UndefinedParseExpr));
@@ -360,7 +304,7 @@ static int isemptychunk(const char *t, size_t len)
 	return 0;
 }
 
-static kstatus_t NameSpace_loadstream(KonohaContext *kctx, kNameSpace *ns, FILE_i *fp, kfileline_t uline, kfileline_t pline)
+static kstatus_t NameSpace_loadStream(KonohaContext *kctx, kNameSpace *ns, FILE_i *fp, kfileline_t uline, kfileline_t pline)
 {
 	kstatus_t status = K_CONTINUE;
 	KUtilsWriteBuffer wb;
@@ -421,13 +365,13 @@ static kstatus_t NameSpace_loadScript(KonohaContext *kctx, kNameSpace *ns, const
 	kstatus_t status = K_BREAK;
 //	if(path[0] == '-' && path[1] == 0) {
 //		kfileline_t uline = FILEID_("<stdin>") | 1;
-//		status = NameSpace_loadstream(kctx, ks, stdin, uline, pline);
+//		status = NameSpace_loadStream(kctx, ks, stdin, uline, pline);
 //	}
 //	else {
 		FILE_i *fp = PLATAPI fopen_i(path, "r");
 		if(fp != NULL) {
 			kfileline_t uline = uline_init(kctx, path, len, 1, 1);
-			status = NameSpace_loadstream(kctx, ns, fp, uline, pline);
+			status = NameSpace_loadStream(kctx, ns, fp, uline, pline);
 			PLATAPI fclose_i(fp);
 		}
 		else {
@@ -496,7 +440,7 @@ static KDEFINE_PACKAGE *NameSpace_openGlueHandler(KonohaContext *kctx, kNameSpac
 
 static kNameSpace* new_NameSpace(KonohaContext *kctx, kpackage_t packageDomain, kpackage_t packageId)
 {
-	kNameSpaceVar *ns = new_Var(NameSpace, KNULL(NameSpace));
+	kNameSpaceVar *ns = GCSAFE_new(NameSpaceVar, KNULL(NameSpace));
 	ns->packageId = packageId;
 	ns->packageDomain = packageId;
 	return (kNameSpace*)ns;
@@ -511,13 +455,12 @@ static KonohaPackage *loadPackageNULL(KonohaContext *kctx, kpackage_t packageId,
 	if(fp != NULL) {
 		INIT_GCSTACK();
 		kNameSpace *ns = new_NameSpace(kctx, packageId, packageId);
-		PUSH_GCSTACK(ns);
 		kfileline_t uline = uline_init(kctx, path, strlen(path), 1, 1);
 		KDEFINE_PACKAGE *packageLoadApi = NameSpace_openGlueHandler(kctx, ns, fbuf, sizeof(fbuf), PN_t(packageId), pline);
 		if(packageLoadApi->initPackage != NULL) {
 			packageLoadApi->initPackage(kctx, ns, 0, NULL, pline);
 		}
-		if(NameSpace_loadstream(kctx, ns, fp, uline, pline) == K_CONTINUE) {
+		if(NameSpace_loadStream(kctx, ns, fp, uline, pline) == K_CONTINUE) {
 			if(packageLoadApi->initPackage != NULL) {
 				packageLoadApi->setupPackage(kctx, ns, pline);
 			}
@@ -584,7 +527,7 @@ static kbool_t NameSpace_importPackage(KonohaContext *kctx, kNameSpace *ns, cons
 				kfileline_t uline = pack->exportScriptUri | (kfileline_t)1;
 				FILE_i *fp = PLATAPI fopen_i(S_text(fname), "r");
 				if(fp != NULL) {
-					res = (NameSpace_loadstream(kctx, ns, fp, uline, pline) == K_CONTINUE);
+					res = (NameSpace_loadStream(kctx, ns, fp, uline, pline) == K_CONTINUE);
 					PLATAPI fclose_i(fp);
 				}
 				else {
@@ -603,22 +546,22 @@ static kbool_t NameSpace_importPackage(KonohaContext *kctx, kNameSpace *ns, cons
 // boolean NameSpace.importPackage(String pkgname);
 static KMETHOD NameSpace_importPackage_(KonohaContext *kctx, KonohaStack *sfp)
 {
-	RETURNb_(NameSpace_importPackage(kctx, sfp[0].toNameSpace, S_text(sfp[1].toString), sfp[K_RTNIDX].uline));
+	RETURNb_(NameSpace_importPackage(kctx, sfp[0].asNameSpace, S_text(sfp[1].asString), sfp[K_RTNIDX].uline));
 }
 
 // boolean NameSpace.loadScript(String path);
 static KMETHOD NameSpace_loadScript_(KonohaContext *kctx, KonohaStack *sfp)
 {
 	kfileline_t pline = sfp[K_RTNIDX].uline;
-	FILE_i *fp = PLATAPI fopen_i(S_text(sfp[1].toString), "r");
+	FILE_i *fp = PLATAPI fopen_i(S_text(sfp[1].asString), "r");
 	if(fp != NULL) {
-		kfileline_t uline = uline_init(kctx, S_text(sfp[1].toString), S_size(sfp[1].toString), 1, 1);
-		kstatus_t status = NameSpace_loadstream(kctx, sfp[0].toNameSpace, fp, uline, 0);
+		kfileline_t uline = uline_init(kctx, S_text(sfp[1].asString), S_size(sfp[1].asString), 1, 1);
+		kstatus_t status = NameSpace_loadStream(kctx, sfp[0].asNameSpace, fp, uline, 0);
 		PLATAPI fclose_i(fp);
 		RETURNb_(status == K_CONTINUE);
 	}
 	else {
-		kreportf(ErrTag, pline, "script not found: %s", S_text(sfp[1].toString));
+		kreportf(ErrTag, pline, "script not found: %s", S_text(sfp[1].asString));
 		RETURNb_(0);
 	}
 }

@@ -130,7 +130,7 @@ static KMETHOD Curl_new (KonohaContext *kctx, KonohaStack *sfp)
 //##  void Curl.setOpt(int type, dynamic data);
 static KMETHOD Curl_setOpt(KonohaContext *kctx, KonohaStack *sfp)
 {
-	CURL* curl = toCURL(sfp[0].toObject);
+	CURL* curl = toCURL(sfp[0].asObject);
 	long curlopt = Int_to(long, sfp[1]);
 //	FILE* fp = NULL;
 	switch(curlopt) {
@@ -285,7 +285,7 @@ static KMETHOD Curl_setOpt(KonohaContext *kctx, KonohaStack *sfp)
 //				}
 	case CURLOPT_READDATA:
 		if (IS_String(sfp[2].o)) {
-			FILE* fp = ((kCurl*)sfp[0].toObject)->fp;
+			FILE* fp = ((kCurl*)sfp[0].asObject)->fp;
 			if ((fp = tmpfile()) == NULL) {
 				ktrace(_DataFault,   // FIXME
 						KEYVALUE_s("Curl.setOpt", "Could not set body CURLOPT.READDATA"),
@@ -313,7 +313,7 @@ static KMETHOD Curl_setOpt(KonohaContext *kctx, KonohaStack *sfp)
 //## void Curl.appendHeader();
 static KMETHOD Curl_appendHeader(KonohaContext *kctx, KonohaStack *sfp)
 {
-	struct _kCurl* kcurl = (struct _kCurl*)sfp[0].toObject;
+	struct _kCurl* kcurl = (struct _kCurl*)sfp[0].asObject;
 	char *h = String_to(char*,sfp[1]);
 	kcurl->headers = curl_slist_append(kcurl->headers, h);
 	RETURNvoid_();
@@ -322,8 +322,8 @@ static KMETHOD Curl_appendHeader(KonohaContext *kctx, KonohaStack *sfp)
 //## boolean Curl.perform();
 static KMETHOD Curl_perform(KonohaContext *kctx, KonohaStack *sfp)
 {
-	kCurl* kcurl = (kCurl*)sfp[0].toObject;
-	CURL* curl = toCURL(sfp[0].toObject);
+	kCurl* kcurl = (kCurl*)sfp[0].asObject;
+	CURL* curl = toCURL(sfp[0].asObject);
 	if (kcurl->headers) {
 		curl_easy_setopt(curl, CURLOPT_HTTPHEADER, kcurl->headers);
 	}
@@ -341,7 +341,7 @@ static KMETHOD Curl_perform(KonohaContext *kctx, KonohaStack *sfp)
 ////## dynamic Curl.getInfo(int type);
 static KMETHOD Curl_getInfo(KonohaContext *kctx, KonohaStack *sfp)
 {
-	CURL* curl = toCURL(sfp[0].toObject);
+	CURL* curl = toCURL(sfp[0].asObject);
 	char *strptr = NULL;
 	long lngptr = 0;
 	double dblptr = 0;
@@ -393,7 +393,7 @@ static KMETHOD Curl_getInfo(KonohaContext *kctx, KonohaStack *sfp)
 #define _F(F)   (intptr_t)(F)
 
 #define CT_Curl     cCurl
-#define TY_Curl     cCurl->cid
+#define TY_Curl     cCurl->classId
 #define IS_Curl(O)  ((O)->h.ct == CT_Curl)
 
 #define _KVi(T)  #T, TY_Int, T
@@ -402,7 +402,7 @@ static	kbool_t curl_initPackage(KonohaContext *kctx, kNameSpace *ns, int argc, c
 {
 	ctx = (struct KonohaContextVar *)kctx;
 
-	KDEFINE_TY defCurl = {
+	KDEFINE_CLASS defCurl = {
 		STRUCTNAME(Curl),
 		.cflag = kClass_Final,
 		.init = Curl_init,
@@ -503,20 +503,20 @@ static	kbool_t curl_initPackage(KonohaContext *kctx, kNameSpace *ns, int argc, c
 		{_KVi(CURLOPT_READDATA)},
 		{_KVi(CURLOPT_STDERR)},
 		{_KVi(CURLOPT_WRITEHEADER)},
-		{_KVi(CURLInfoTagHEADER_SIZE)},
-		{_KVi(CURLInfoTagREQUEST_SIZE)},
-		{_KVi(CURLInfoTagREDIRECT_TIME)},
-		{_KVi(CURLInfoTagTOTAL_TIME)},
-		{_KVi(CURLInfoTagNAMELOOKUP_TIME)},
-		{_KVi(CURLInfoTagCONNECT_TIME)},
-		{_KVi(CURLInfoTagPRETRANSFER_TIME)},
-		{_KVi(CURLInfoTagSTARTTRANSFER_TIME)},
-		{_KVi(CURLInfoTagSIZE_UPLOAD)},
-		{_KVi(CURLInfoTagSIZE_DOWNLOAD)},
-		{_KVi(CURLInfoTagSPEED_DOWNLOAD)},
-		{_KVi(CURLInfoTagSPEED_UPLOAD)},
-		{_KVi(CURLInfoTagEFFECTIVE_URL)},
-		{_KVi(CURLInfoTagCONTENT_TYPE)},
+		{_KVi(CURLINFO_HEADER_SIZE)},
+		{_KVi(CURLINFO_REQUEST_SIZE)},
+		{_KVi(CURLINFO_REDIRECT_TIME)},
+		{_KVi(CURLINFO_TOTAL_TIME)},
+		{_KVi(CURLINFO_NAMELOOKUP_TIME)},
+		{_KVi(CURLINFO_CONNECT_TIME)},
+		{_KVi(CURLINFO_PRETRANSFER_TIME)},
+		{_KVi(CURLINFO_STARTTRANSFER_TIME)},
+		{_KVi(CURLINFO_SIZE_UPLOAD)},
+		{_KVi(CURLINFO_SIZE_DOWNLOAD)},
+		{_KVi(CURLINFO_SPEED_DOWNLOAD)},
+		{_KVi(CURLINFO_SPEED_UPLOAD)},
+		{_KVi(CURLINFO_EFFECTIVE_URL)},
+		{_KVi(CURLINFO_CONTENT_TYPE)},
 		{} // end of const data
 	};
 	KLIB kNameSpace_loadConstData(kctx, ns, KonohaConst_(IntData), pline);

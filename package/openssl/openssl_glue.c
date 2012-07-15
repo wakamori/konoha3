@@ -20,21 +20,21 @@ static KMETHOD kMD5_Init(KonohaContext *kctx, KonohaStack *sfp)
 {
 	MD5state_st* c = malloc(sizeof(*c));
 	int ret_ = MD5_Init(c);
-	RawPtr_init(kctx, sfp[0].toObject, c);
-	RETURN_(sfp[0].toObject);
+	RawPtr_init(kctx, sfp[0].asObject, c);
+	RETURN_(sfp[0].asObject);
 }
 static KMETHOD kMD5_Update(KonohaContext *kctx, KonohaStack *sfp)
 {
-	MD5state_st* c = RawPtr(sfp[0].toObject);
-	unsigned char* data = (unsigned char *) S_text(sfp[1].toString);
-	unsigned long len = S_size(sfp[1].toString);
+	MD5state_st* c = RawPtr(sfp[0].asObject);
+	unsigned char* data = (unsigned char *) S_text(sfp[1].asString);
+	unsigned long len = S_size(sfp[1].asString);
 	int ret_ = MD5_Update(c, data, len);
 	RETURNi_(ret_);
 }
 static KMETHOD kMD5_Final(KonohaContext *kctx, KonohaStack *sfp)
 {
 	unsigned char MD[MD5_DIGEST_LENGTH];
-	MD5state_st* c = RawPtr(sfp[0].toObject);
+	MD5state_st* c = RawPtr(sfp[0].asObject);
 	int ret_ = MD5_Final(MD, c);
 	int i;
 	char MD_S[MD5_DIGEST_LENGTH*2+1];
@@ -47,21 +47,21 @@ static KMETHOD kSHA1_Init(KonohaContext *kctx, KonohaStack *sfp)
 {
 	SHAstate_st* c = malloc(sizeof(*c));
 	int ret_ = SHA1_Init(c);
-	RawPtr_init(kctx, sfp[0].toObject, c);
-	RETURN_(sfp[0].toObject);
+	RawPtr_init(kctx, sfp[0].asObject, c);
+	RETURN_(sfp[0].asObject);
 }
 static KMETHOD kSHA1_Update(KonohaContext *kctx, KonohaStack *sfp)
 {
-	SHAstate_st* c = RawPtr(sfp[0].toObject);
-	unsigned char* data = (unsigned char *) S_text(sfp[1].toString);
-	unsigned long len = S_size(sfp[1].toString);
+	SHAstate_st* c = RawPtr(sfp[0].asObject);
+	unsigned char* data = (unsigned char *) S_text(sfp[1].asString);
+	unsigned long len = S_size(sfp[1].asString);
 	int ret_ = SHA1_Update(c, data, len);
 	RETURNi_(ret_);
 }
 static KMETHOD kSHA1_Final(KonohaContext *kctx, KonohaStack *sfp)
 {
 	unsigned char SHA[SHA_DIGEST_LENGTH];
-	SHAstate_st* c = RawPtr(sfp[0].toObject);
+	SHAstate_st* c = RawPtr(sfp[0].asObject);
 	int ret_ = SHA1_Final(SHA, c);
 	int i;
 	char SHA_S[SHA_DIGEST_LENGTH*2+1];
@@ -76,8 +76,8 @@ static KMETHOD kSHA1_Final(KonohaContext *kctx, KonohaStack *sfp)
 #define _C kMethod_Const
 #define _S kMethod_Static
 #define _F(F)   (intptr_t)(F)
-#define TY_openssl  (ct0->cid)
-#define TY_Log      (ct1->cid)
+#define TY_openssl  (ct0->classId)
+#define TY_Log      (ct1->classId)
 
 static kbool_t openssl_initPackage(KonohaContext *kctx, kNameSpace *ns, int argc, const char**args, kfileline_t pline)
 {
@@ -86,14 +86,14 @@ static kbool_t openssl_initPackage(KonohaContext *kctx, kNameSpace *ns, int argc
 		"SHA1",
 	};
 	KonohaClass *tbls[2];
-	static KDEFINE_TY Def = {
+	static KDEFINE_CLASS Def = {
 			.structname = "",
-			.cid = TY_newid,
+			.classId = TY_newid,
 			.init = RawPtr_init,
 			.free = RawPtr_free,
 	};
-#define TY_MD5  tbls[0]->cid
-#define TY_SHA1 tbls[1]->cid
+#define TY_MD5  tbls[0]->classId
+#define TY_SHA1 tbls[1]->classId
 	int i;
 	for (i = 0; i < 2; i++) {
 		Def.structname = names[i];

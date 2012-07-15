@@ -28,37 +28,35 @@
 
 static KMETHOD StmtTyCheck_import(KonohaContext *kctx, KonohaStack *sfp)
 {
-	USING_SUGAR;
 	int ret = false;
 	VAR_StmtTyCheck(stmt, gma);
-	kTokenArray *tls = (kTokenArray *) kStmt_getObjectNULL(kctx, stmt, KW_ToksPattern);
-	if (tls == NULL) {
+	kTokenArray *tokenArray = (kTokenArray *) kStmt_getObjectNULL(kctx, stmt, KW_ToksPattern);
+	if (tokenArray == NULL) {
 		RETURNb_(false);
 	}
 	KUtilsWriteBuffer wb;
 	KLIB Kwb_init(&(kctx->stack->cwb), &wb);
 	int i = 0;
-	if (i + 2 < kArray_size(tls)) {
-		for (; i < kArray_size(tls)-1; i+=2) {
+	if (i + 2 < kArray_size(tokenArray)) {
+		for (; i < kArray_size(tokenArray)-1; i+=2) {
 			/* name . */
-			kToken *tk  = tls->tokenItems[i+0];
-			kToken *dot = tls->tokenItems[i+1];
+			kToken *tk  = tokenArray->tokenItems[i+0];
+			kToken *dot = tokenArray->tokenItems[i+1];
 			assert(tk->keyword  == TK_SYMBOL);
 			assert(dot->keyword == KW_DOT);
 			KLIB Kwb_write(kctx, &wb, S_text(tk->text), S_size(tk->text));
 			kwb_putc(&wb, '.');
 		}
 	}
-	kString *name = tls->tokenItems[i]->text;
+	kString *name = tokenArray->tokenItems[i]->text;
 	KLIB Kwb_write(kctx, &wb, S_text(name), S_size(name));
 	kString *pkgname = KLIB new_kString(kctx, KLIB Kwb_top(kctx, &wb, 1), Kwb_bytesize(&wb), 0);
-	kNameSpace *ns = gma->genv->ns;
+	kNameSpace *ns = kStmt_nameSpace(stmt);
 	SugarSyntaxVar *syn1 = (SugarSyntaxVar*) SYN_(ns, KW_ExprMethodCall);
-	kTokenVar *tkImport = new_Var(Token, 0);
-	kExpr *ePKG = new_ConstValue(TY_String, pkgname);
+	kTokenVar *tkImport = GCSAFE_new(TokenVar, 0);
+	kExpr *ePKG = new_ConstValueExpr(kctx, TY_String, UPCAST(pkgname));
 	tkImport->keyword = MN_("import");
-	kExpr *expr = SUGAR new_ConsExpr(kctx, syn1, 3,
-			tkImport, new_ConstValue(O_cid(ns), ns), ePKG);
+	kExpr *expr = SUGAR new_ConsExpr(kctx, syn1, 3, tkImport, new_ConstValueExpr(kctx, O_classId(ns), UPCAST(ns)), ePKG);
 	KLIB kObject_setObject(kctx, stmt, KW_ExprPattern, TY_Expr, expr);
 	ret = SUGAR Stmt_tyCheckExpr(kctx, stmt, KW_ExprPattern, gma, TY_Boolean, 0);
 	if (ret) {
@@ -81,7 +79,6 @@ static kbool_t import_setupPackage(KonohaContext *kctx, kNameSpace *ns, kfilelin
 
 static kbool_t import_initNameSpace(KonohaContext *kctx, kNameSpace *ns, kfileline_t pline)
 {
-	USING_SUGAR;
 	KDEFINE_SYNTAX SYNTAX[] = {
 		{ .keyword = SYM_("import"), .rule = "\"import\" $toks", TopStmtTyCheck_(import)},
 		{ .keyword = KW_END, },

@@ -32,7 +32,7 @@
 static void Float_init(KonohaContext *kctx, kObject *o, void *conf)
 {
 	kNumberVar *n = (kNumberVar*)o;  // kFloat has the same structure
-	n->ndata = (uintptr_t)conf;  // conf is unboxed data
+	n->unboxValue = (uintptr_t)conf;  // conf is unboxed data
 }
 
 static void Float_p(KonohaContext *kctx, KonohaStack *sfp, int pos, KUtilsWriteBuffer *wb, int level)
@@ -187,7 +187,7 @@ static	kbool_t float_initPackage(KonohaContext *kctx, kNameSpace *ns, int argc, 
 	base->h.free     = kmodfloat_free;
 	KLIB Konoha_setModule(kctx, MOD_float, &base->h, pline);
 
-	KDEFINE_TY defFloat = {
+	KDEFINE_CLASS defFloat = {
 		STRUCTNAME(Float),
 		.cflag = CFLAG_Int,
 		.init = Float_init,
@@ -232,16 +232,14 @@ static kbool_t float_setupPackage(KonohaContext *kctx, kNameSpace *ns, kfileline
 
 static KMETHOD ExprTyCheck_Float(KonohaContext *kctx, KonohaStack *sfp)
 {
-	USING_SUGAR;
 	VAR_ExprTyCheck(stmt, expr, gma, reqty);
-	kToken *tk = expr->tk;
-	sfp[4].fvalue = strtod(S_text(tk->text), NULL);
-	RETURN_(kExpr_setNConstValue(expr, TY_Float, sfp[4].ndata));
+	kToken *tk = expr->termToken;
+	sfp[4].fvalue = strtod(S_text(tk->text), NULL);   // just using tramsformation float
+	RETURN_(SUGAR kExpr_setUnboxConstValue(kctx, expr, TY_Float, sfp[4].unboxValue));
 }
 
 static kbool_t float_initNameSpace(KonohaContext *kctx,  kNameSpace *ns, kfileline_t pline)
 {
-	USING_SUGAR;
 	KDEFINE_SYNTAX SYNTAX[] = {
 		{ .keyword = SYM_("float"), .type = TY_Float, },
 		{ .keyword = SYM_("double"), .type = TY_Float, },

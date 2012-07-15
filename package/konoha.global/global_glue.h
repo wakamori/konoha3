@@ -43,22 +43,22 @@ static KMETHOD MethodFunc_ProtoGetter(KonohaContext *kctx, KonohaStack *sfp)
 {
 	kMethod *mtd = sfp[K_MTDIDX].mtdNC;
 	ksymbol_t key = (ksymbol_t)mtd->delta;
-	RETURN_(KLIB kObject_getObject(kctx, sfp[0].toObject, key, sfp[K_RTNIDX].o));
+	RETURN_(KLIB kObject_getObject(kctx, sfp[0].asObject, key, sfp[K_RTNIDX].o));
 }
 
 static KMETHOD MethodFunc_ProtoGetterN(KonohaContext *kctx, KonohaStack *sfp)
 {
 	kMethod *mtd = sfp[K_MTDIDX].mtdNC;
 	ksymbol_t key = (ksymbol_t)mtd->delta;
-	RETURNd_(KLIB kObject_getUnboxValue(kctx, sfp[0].toObject, key, 0));
+	RETURNd_(KLIB kObject_getUnboxValue(kctx, sfp[0].asObject, key, 0));
 }
 
 static KMETHOD MethodFunc_ProtoSetter(KonohaContext *kctx, KonohaStack *sfp)
 {
 	kMethod *mtd = sfp[K_MTDIDX].mtdNC;
 	ksymbol_t key = (ksymbol_t)mtd->delta;
-	KLIB kObject_setObject(kctx, sfp[0].toObject, key, O_cid(sfp[1].toObject), sfp[1].toObject);
-	RETURN_(sfp[1].toObject);
+	KLIB kObject_setObject(kctx, sfp[0].asObject, key, O_classId(sfp[1].asObject), sfp[1].asObject);
+	RETURN_(sfp[1].asObject);
 }
 
 static KMETHOD MethodFunc_ProtoSetterN(KonohaContext *kctx, KonohaStack *sfp)
@@ -66,8 +66,8 @@ static KMETHOD MethodFunc_ProtoSetterN(KonohaContext *kctx, KonohaStack *sfp)
 	kMethod *mtd = sfp[K_MTDIDX].mtdNC;
 	ksymbol_t key = (ksymbol_t)mtd->delta;
 	kParam *pa = kMethod_param(mtd);
-	KLIB kObject_setUnboxValue(kctx, sfp[0].toObject, key, pa->p[0].ty, sfp[1].ndata);
-	RETURNd_(sfp[1].ndata);
+	KLIB kObject_setUnboxValue(kctx, sfp[0].asObject, key, pa->paramtypeItems[0].ty, sfp[1].unboxValue);
+	RETURNd_(sfp[1].unboxValue);
 }
 
 static kMethod *new_ProtoGetter(KonohaContext *kctx, ktype_t cid, ksymbol_t sym, ktype_t ty)
@@ -84,7 +84,7 @@ static kMethod *new_ProtoSetter(KonohaContext *kctx, ktype_t cid, ksymbol_t sym,
 {
 	kmethodn_t mn = MN_toSETTER(sym);
 	MethodFunc f = (TY_isUnbox(ty)) ? MethodFunc_ProtoSetterN : MethodFunc_ProtoSetter;
-	kparam_t p = {ty, FN_("x")};
+	kparamtype_t p = {ty, FN_("x")};
 	kMethod *mtd = KLIB new_kMethod(kctx, kMethod_Public, cid, mn, f);
 	KLIB kMethod_setParam(kctx, mtd, ty, 1, &p);
 	((kMethodVar*)mtd)->delta = sym;
@@ -101,8 +101,7 @@ static void CT_addMethod2(KonohaContext *kctx, KonohaClass *ct, kMethod *mtd)
 
 static kMethod *Object_newProtoSetterNULL(KonohaContext *kctx, kObject *o, kStmt *stmt, kNameSpace *ns, ktype_t ty, ksymbol_t fn)
 {
-	USING_SUGAR;
-	ktype_t cid = O_cid(o);
+	ktype_t cid = O_classId(o);
 	kMethod *mtd = KLIB kNameSpace_getMethodNULL(kctx, ns, cid, MN_toSETTER(fn));
 	if(mtd != NULL) {
 		SUGAR Stmt_p(kctx, stmt, NULL, ErrTag, "already defined name: %s.%s", CT_t(O_ct(o)), SYM_t(fn));
@@ -127,7 +126,7 @@ static kMethod *Object_newProtoSetterNULL(KonohaContext *kctx, kObject *o, kStmt
 static ksymbol_t tosymbol(KonohaContext *kctx, kExpr *expr)
 {
 	if(Expr_isTerm(expr)) {
-		kToken *tk = expr->tk;
+		kToken *tk = expr->termToken;
 		if(tk->keyword == TK_SYMBOL) {
 			return ksymbolA(S_text(tk->text), S_size(tk->text), SYM_NEWID);
 		}
@@ -137,11 +136,11 @@ static ksymbol_t tosymbol(KonohaContext *kctx, kExpr *expr)
 
 static KMETHOD StmtTyCheck_var(KonohaContext *kctx, KonohaStack *sfp)
 {
-	USING_SUGAR;
 	VAR_StmtTyCheck(stmt, gma);
 	DBG_P("global assignment .. ");
-	kObject *scr = gma->genv->ns->scriptObject;
-	if(O_cid(scr) == TY_System) {
+	kNameSpace *ns = kStmt_nameSpace(stmt);
+	kObject *scr = ns->scriptObject;
+	if(O_classId(scr) == TY_System) {
 		SUGAR Stmt_p(kctx, stmt, NULL, ErrTag, " global variables are not available");
 		RETURNb_(false);
 	}
@@ -156,12 +155,12 @@ static KMETHOD StmtTyCheck_var(KonohaContext *kctx, KonohaStack *sfp)
 		RETURNb_(false);
 	}
 	/*kExpr **/expr = kStmt_expr(stmt, KW_ExprPattern, K_NULLEXPR);
-	kMethod *mtd = Object_newProtoSetterNULL(kctx, scr, stmt, gma->genv->ns, expr->ty, fn);
+	kMethod *mtd = Object_newProtoSetterNULL(kctx, scr, stmt, ns, expr->ty, fn);
 	if(mtd == NULL) {
 		RETURNb_(false);
 	}
 	SUGAR Stmt_p(kctx, stmt, NULL, InfoTag, "%s has type %s", SYM_t(fn), TY_t(expr->ty));
-	expr = SUGAR new_TypedMethodCall(kctx, stmt, TY_void, mtd, gma, 2, new_ConstValue(O_cid(scr), scr), expr);
+	expr = SUGAR new_TypedMethodCall(kctx, stmt, TY_void, mtd, gma, 2, new_ConstValueExpr(kctx, O_classId(scr), scr), expr);
 	KLIB kObject_setObject(kctx, stmt, KW_ExprPattern, TY_Expr, expr);
 	kStmt_typed(stmt, EXPR);
 	RETURNb_(true);
@@ -171,15 +170,15 @@ static KMETHOD StmtTyCheck_var(KonohaContext *kctx, KonohaStack *sfp)
 
 static kMethod* ExprTerm_getSetterNULL(KonohaContext *kctx, kStmt *stmt, kExpr *expr, kObject *scr, kGamma *gma, ktype_t ty)
 {
-	USING_SUGAR;
-	if(Expr_isTerm(expr) && expr->tk->keyword == TK_SYMBOL) {
-		kToken *tk = expr->tk;
+	kNameSpace *ns = kStmt_nameSpace(stmt);
+	if(Expr_isTerm(expr) && expr->termToken->keyword == TK_SYMBOL) {
+		kToken *tk = expr->termToken;
 		if(tk->keyword != KW_SymbolPattern) {
 			SUGAR Stmt_p(kctx, stmt, NULL, ErrTag, "%s is keyword", S_text(tk->text));
 			return NULL;
 		}
 		ksymbol_t fn = ksymbolA(S_text(tk->text), S_size(tk->text), SYM_NEWID);
-		return Object_newProtoSetterNULL(kctx, scr, stmt, gma->genv->ns, ty, fn);
+		return Object_newProtoSetterNULL(kctx, scr, stmt, ns, ty, fn);
 	}
 	SUGAR Stmt_p(kctx, stmt, NULL, ErrTag, "variable name is expected");
 	return NULL;
@@ -187,10 +186,9 @@ static kMethod* ExprTerm_getSetterNULL(KonohaContext *kctx, kStmt *stmt, kExpr *
 
 static kbool_t appendSetterStmt(KonohaContext *kctx, kExpr *expr, kStmt **lastStmtRef)
 {
-	USING_SUGAR;
 	kStmt *lastStmt = lastStmtRef[0];
 	kStmt *newstmt = new_(Stmt, lastStmt->uline);
-	SUGAR Block_insertAfter(kctx, lastStmt->parentBlockNULL, lastStmt, newstmt);
+	SUGAR kBlock_insertAfter(kctx, lastStmt->parentBlockNULL, lastStmt, newstmt);
 	kStmt_setsyn(newstmt, SYN_(kStmt_nameSpace(newstmt), KW_ExprPattern));
 	KLIB kObject_setObject(kctx, newstmt, KW_ExprPattern, TY_Expr, expr);
 	lastStmtRef[0] = newstmt;
@@ -199,17 +197,17 @@ static kbool_t appendSetterStmt(KonohaContext *kctx, kExpr *expr, kStmt **lastSt
 
 static kbool_t Expr_declType(KonohaContext *kctx, kStmt *stmt, kExpr *expr, kGamma *gma, ktype_t ty, kStmt **lastStmtRef)
 {
-	USING_SUGAR;
-	kObject *scr = gma->genv->ns->scriptObject;
-	if(O_cid(scr) == TY_System) {
+	kNameSpace *ns = kStmt_nameSpace(stmt);
+	kObject *scr = ns->scriptObject;
+	if(O_classId(scr) == TY_System) {
 		SUGAR Stmt_p(kctx, stmt, NULL, ErrTag, " global variables are not available");
 		return false;
 	}
 	if(Expr_isTerm(expr)) {
 		kMethod *mtd = ExprTerm_getSetterNULL(kctx, stmt, expr, scr, gma, ty);
 		if(mtd != NULL) {
-			kExpr *vexpr = new_Variable(NULL, ty, 0, gma);
-			expr = SUGAR new_TypedMethodCall(kctx, stmt, TY_void, mtd, gma, 2, new_ConstValue(O_cid(scr), scr), vexpr);
+			kExpr *vexpr = new_VariableExpr(kctx, gma, TEXPR_NULL, ty, 0);
+			expr = SUGAR new_TypedMethodCall(kctx, stmt, TY_void, mtd, gma, 2, new_ConstValueExpr(kctx, O_classId(scr), scr), vexpr);
 			PUSH_GCSTACK(expr);
 			return appendSetterStmt(kctx, expr, lastStmtRef);
 		}
@@ -223,7 +221,7 @@ static kbool_t Expr_declType(KonohaContext *kctx, kStmt *stmt, kExpr *expr, kGam
 		}
 		kMethod *mtd = ExprTerm_getSetterNULL(kctx, stmt, lexpr, scr, gma, ty);
 		if(mtd != NULL) {
-			expr = SUGAR new_TypedMethodCall(kctx, stmt, TY_void, mtd, gma, 2, new_ConstValue(O_cid(scr), scr), kExpr_at(expr, 2));
+			expr = SUGAR new_TypedMethodCall(kctx, stmt, TY_void, mtd, gma, 2, new_ConstValueExpr(kctx, O_classId(scr), scr), kExpr_at(expr, 2));
 			PUSH_GCSTACK(expr);
 			return appendSetterStmt(kctx, expr, lastStmtRef);
 		}
@@ -241,7 +239,6 @@ static kbool_t Expr_declType(KonohaContext *kctx, kStmt *stmt, kExpr *expr, kGam
 
 static KMETHOD StmtTyCheck_GlobalTypeDecl(KonohaContext *kctx, KonohaStack *sfp)
 {
-	USING_SUGAR;
 	VAR_StmtTyCheck(stmt, gma);
 	kToken *tk  = kStmt_token(stmt, KW_TypePattern, NULL);
 	kExpr  *expr = kStmt_expr(stmt, KW_ExprPattern, NULL);
@@ -260,22 +257,21 @@ struct _kScript {
 
 static kbool_t global_initNameSpace(KonohaContext *kctx,  kNameSpace *ns, kfileline_t pline)
 {
-	USING_SUGAR;
 	KDEFINE_SYNTAX SYNTAX[] = {
 		{ .keyword = SYM_("var"), TopStmtTyCheck_(var), .rule = "\"var\" var: $expr \"=\" $expr", },
 		{ .keyword = KW_END, },
 	};
 	SUGAR NameSpace_defineSyntax(kctx, ns, SYNTAX);
-	SUGAR SYN_setSugarFunc(kctx, ns, KW_StmtTypeDecl, SYNIDX_TopStmtTyCheck, new_SugarFunc(StmtTyCheck_GlobalTypeDecl));
-	if(O_cid(ns->scriptObject) == TY_System) {
-		KDEFINE_TY defScript = {
+	SUGAR kNameSpace_setSugarFunc(kctx, ns, KW_StmtTypeDecl, SYNIDX_TopStmtTyCheck, new_SugarFunc(StmtTyCheck_GlobalTypeDecl));
+	if(O_classId(ns->scriptObject) == TY_System) {
+		KDEFINE_CLASS defScript = {
 			.structname = "Script",
-			.cid = TY_newid,
+			.classId = TY_newid,
 			.cflag = kClass_Singleton|kClass_Final,
 			.cstruct_size = sizeof(kScript),
 		};
 		KonohaClass *cScript = KLIB Konoha_defineClass(kctx, ns->packageId, ns->packageDomain, NULL, &defScript, pline);
-		KSETv(((kNameSpaceVar*)ns)->scriptObject, knull(cScript));
+		KSETv(((kNameSpaceVar*)ns)->scriptObject, KLIB Knull(kctx, cScript));
 	}
 	return true;
 }

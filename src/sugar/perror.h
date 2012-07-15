@@ -114,9 +114,9 @@ static inline void kStmt_errline(kStmt *stmt, kfileline_t uline)
 
 static kfileline_t Expr_uline(KonohaContext *kctx, kExpr *expr, kfileline_t uline)
 {
-	kToken *tk = expr->tk;
+	kToken *tk = expr->termToken;
 	DBG_ASSERT(IS_Expr(expr));
-	if(IS_Token(tk) && tk->uline >= uline) {
+	if(IS_Token(tk) && tk != K_NULLTOKEN && tk->uline >= uline) {
 		return tk->uline;
 	}
 	kArray *a = expr->cons;
@@ -173,17 +173,17 @@ static const char *kToken_s_(KonohaContext *kctx, kToken *tk)
 	}
 }
 
-static void WarnTagIgnored(KonohaContext *kctx, kArray *tls, int s, int e)
+static void WarnTagIgnored(KonohaContext *kctx, kArray *tokenArray, int s, int e)
 {
 	if(s < e) {
 		int i = s;
 		KUtilsWriteBuffer wb;
 		KLIB Kwb_init(&(kctx->stack->cwb), &wb);
-		KLIB Kwb_printf(kctx, &wb, "%s", kToken_s(tls->tokenItems[i])); i++;
+		KLIB Kwb_printf(kctx, &wb, "%s", kToken_s(tokenArray->tokenItems[i])); i++;
 		while(i < e) {
-			KLIB Kwb_printf(kctx, &wb, " %s", kToken_s(tls->tokenItems[i])); i++;
+			KLIB Kwb_printf(kctx, &wb, " %s", kToken_s(tokenArray->tokenItems[i])); i++;
 		}
-		pWARN(tls->tokenItems[s]->uline, "ignored tokens: %s", KLIB Kwb_top(kctx, &wb, 1));
+		pWARN(tokenArray->tokenItems[s]->uline, "ignored tokens: %s", KLIB Kwb_top(kctx, &wb, 1));
 		KLIB Kwb_free(&wb);
 	}
 }

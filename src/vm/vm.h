@@ -41,7 +41,7 @@ typedef struct kByteCodeVar           kByteCodeVar;
 #define ctxcode          ((ctxcode_t*)kctx->modlocal[MOD_code])
 #define kmodcode         ((KModuleByteCode*)kctx->modshare[MOD_code])
 #define CT_BasicBlock    kmodcode->cBasicBlock
-#define TY_BasicBlock    kmodcode->cBasicBlock->cid
+#define TY_BasicBlock    kmodcode->cBasicBlock->classId
 #define CT_ByteCode      kmodcode->cByteCode
 
 #define IS_BasicBlock(O)  ((O)->h.ct == CT_BasicBlock)
@@ -175,13 +175,13 @@ struct kByteCodeVar {
 		goto L_RETURN;\
 	}\
 
-#define OPEXEC_NSET(A, N, CT) rbp[(A)].ndata = N
-#define OPEXEC_NMOV(A, B, CT) rbp[(A)].ndata = rbp[(B)].ndata
-#define OPEXEC_NMOVx(A, B, BX, CT) rbp[(A)].o = (rbp[(B)].toObjectVar)->fieldObjectItems[(BX)]
-#define OPEXEC_XNMOV(A, AX, B, CT) (rbp[(A)].toObjectVar)->fieldObjectItems[AX] = rbp[(B)].o
+#define OPEXEC_NSET(A, N, CT) rbp[(A)].unboxValue = N
+#define OPEXEC_NMOV(A, B, CT) rbp[(A)].unboxValue = rbp[(B)].unboxValue
+#define OPEXEC_NMOVx(A, B, BX, CT) rbp[(A)].o = (rbp[(B)].asObjectVar)->fieldObjectItems[(BX)]
+#define OPEXEC_XNMOV(A, AX, B, CT) (rbp[(A)].asObjectVar)->fieldObjectItems[AX] = rbp[(B)].o
 
 #define OPEXEC_NEW(A, P, CT)   KSETv(rbp[(A)].o, KLIB new_kObject(kctx, CT, P))
-#define OPEXEC_NULL(A, CT)     KSETv(rbp[(A)].o, knull(CT))
+#define OPEXEC_NULL(A, CT)     KSETv(rbp[(A)].o, KLIB Knull(kctx, CT))
 #define OPEXEC_BOX(A, B, CT)   KSETv(rbp[(A)].o, KLIB new_kObject(kctx, CT, rbp[(B)].ivalue))
 #define OPEXEC_UNBOX(A, B, CT) rbp[(A)].ivalue = N_toint(rbp[B].o)
 
@@ -294,7 +294,7 @@ struct kByteCodeVar {
 /* KCODE */
 
 #define R_NEXTIDX (K_NEXTIDX)
-#define Rn_(x)    (rshift(rbp,x)->ndata)
+#define Rn_(x)    (rshift(rbp,x)->unboxValue)
 #define Ri_(x)    (rshift(rbp,x)->ivalue)
 #define Rf_(x)    (rshift(rbp,x)->fvalue)
 #define Rb_(x)    (rshift(rbp,x)->bvalue)
@@ -558,7 +558,7 @@ struct kByteCodeVar {
 #define OPEXEC_TCAST(kctx, rtnidx, thisidx, rix, espidx, tmr)  { \
 		kTypeMap *tmr_ = tmr; \
 		KonohaStack *sfp_ = SFP(rshift(rbp,thisidx));\
-		KonohaClass scid = SP(tmr_)->scid, this_cid = O_cid(sfp_[0].o);\
+		KonohaClass scid = SP(tmr_)->scid, this_cid = O_classId(sfp_[0].o);\
 		if(this_cid != scid) {\
 			tmr_ = knh_findTypeMapNULL(kctx, scid, SP(tmr)->tcid);\
 			KSETv(((klr_TCAST_t*)op)->cast, tmr_);\
@@ -569,7 +569,7 @@ struct kByteCodeVar {
 
 #define OPEXEC_ACAST(rtnidx, thisidx, rix, espidx, tmr)  { \
 		kTypeMap *tmr_ = tmr; \
-		KonohaClass tcid = SP(tmr_)->tcid, this_cid = O_cid(Ro_(thisidx));\
+		KonohaClass tcid = SP(tmr_)->tcid, this_cid = O_classId(Ro_(thisidx));\
 		if(!class_isa(this_cid, tcid)) {\
 			KonohaClass scid = SP(tmr_)->scid;\
 			if(this_cid != scid) {\

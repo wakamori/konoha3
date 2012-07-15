@@ -59,12 +59,12 @@ static void HashMap_p(KonohaContext *kctx, KonohaStack *sfp, int pos, KUtilsWrit
 
 static KMETHOD HashMap_get(KonohaContext *kctx, KonohaStack *sfp)
 {
-	struct _kHashMap *m = (struct _kHashMap *)sfp[0].toObject;
+	struct _kHashMap *m = (struct _kHashMap *)sfp[0].asObject;
 	KUtilsHashMap *map = m->map;
-	kString *key = sfp[1].toString;
+	kString *key = sfp[1].asString;
 	KonohaClass *ct = m->h.ct;
 	kParam *cparam = CT_cparam(ct);
-	kparam_t p1 = cparam->p[0];
+	kparamtype_t p1 = cparam->paramtypeItems[0];
 	uintptr_t hcode = strhash(S_text(key), S_size(key));
 	KUtilsHashMapEntry *e = KLIB Kmap_get(kctx, map, hcode);
 
@@ -77,14 +77,14 @@ static KMETHOD HashMap_get(KonohaContext *kctx, KonohaStack *sfp)
 
 static KMETHOD HashMap_set(KonohaContext *kctx, KonohaStack *sfp)
 {
-	struct _kHashMap *m = (struct _kHashMap *)sfp[0].toObject;
+	struct _kHashMap *m = (struct _kHashMap *)sfp[0].asObject;
 	KUtilsHashMap *map = m->map;
-	kString *key = sfp[1].toString;
+	kString *key = sfp[1].asString;
 
 	// want to know p1
 	KonohaClass *ct = m->h.ct;
 	kParam *cparam = CT_cparam(ct);
-	kparam_t p1 = cparam->p[0];
+	kparamtype_t p1 = cparam->paramtypeItems[0];
 	uintptr_t hcode = strhash(S_text(key), S_size(key));
 	KUtilsHashMapEntry *e = KLIB Kmap_newentry(kctx, map, hcode);
 	if (p1.ty == TY_Int || p1.ty == TY_Boolean || p1.ty == TY_Float) {  // FIXME
@@ -109,10 +109,10 @@ static KMETHOD HashMap_new(KonohaContext *kctx, KonohaStack *sfp)
 #define _F(F)   (intptr_t)(F)
 
 #define CT_HashMap cHashMap
-#define TY_HashMap cHashMap->cid
+#define TY_HashMap cHashMap->classId
 static	kbool_t hashmap_initPackage(KonohaContext *kctx, kNameSpace *ns, int argc, const char**args, kfileline_t pline)
 {
-	KDEFINE_TY defHashMap = {
+	KDEFINE_CLASS defHashMap = {
 		STRUCTNAME(HashMap),
 		.cflag = kClass_Final,
 		.init = HashMap_init,
@@ -142,7 +142,6 @@ static kbool_t hashmap_setupPackage(KonohaContext *kctx, kNameSpace *ns, kfileli
 static kbool_t hashmap_initNameSpace(KonohaContext *kctx,  kNameSpace *ns, kfileline_t pline)
 {
 	// TODO: map literal
-	USING_SUGAR;
 	KDEFINE_SYNTAX SYNTAX[] = {
 
 			{ .keyword = KW_END, },

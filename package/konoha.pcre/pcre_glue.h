@@ -211,7 +211,7 @@ typedef struct {
 /* ------------------------------------------------------------------------ */
 #define kregexshare      ((kregexshare_t*)kctx->modshare[MOD_REGEX])
 #define CT_Regex         kregexshare->cRegex
-#define TY_Regex         kregexshare->cRegex->cid
+#define TY_Regex         kregexshare->cRegex->classId
 
 #define IS_Regex(O)      ((O)->h.ct == CT_Regex)
 
@@ -469,8 +469,8 @@ static void Regex_set(KonohaContext *kctx, kRegex *re, kString *ptns, kString *o
 
 static KMETHOD Regex_new(KonohaContext *kctx, KonohaStack *sfp)
 {
-	Regex_set(kctx, sfp[0].re, sfp[1].toString, sfp[2].s);
-	RETURN_(sfp[0].toObject);
+	Regex_set(kctx, sfp[0].re, sfp[1].asString, sfp[2].s);
+	RETURN_(sfp[0].asObject);
 }
 
 /* ------------------------------------------------------------------------ */
@@ -516,7 +516,7 @@ static KMETHOD String_match(KonohaContext *kctx, KonohaStack *sfp)
 		int i, isGlobalOption = Regex_isGlobalOption(re);
 		a = new_(Array, nmatch);/*TODO new_Array(TY_String)*/
 		BEGIN_LOCAL(lsfp, 1);
-		KSETv(lsfp[0].toArray, a);
+		KSETv(lsfp[0].asArray, a);
 		do {
 			int res = pcre_regexec(kctx, re->reg, str, nmatch, pmatch, re->eflags);
 			if(res != 0) {
@@ -604,7 +604,7 @@ static KMETHOD String_split(KonohaContext *kctx, KonohaStack *sfp)
 		if (str < eos) {
 			a = new_(Array, 0); // TODO new_Array(kctx, TY_String, 0);
 			BEGIN_LOCAL(lsfp, 1);
-			KSETv(lsfp[0].toArray, a);
+			KSETv(lsfp[0].asArray, a);
 			while (str <= eos) {
 				int res = pcre_regexec(kctx, re->reg, str, KREGEX_MATCHSIZE, pmatch, re->eflags);
 				if (res == 0) {
@@ -649,7 +649,7 @@ static kbool_t pcre_initPackage(KonohaContext *kctx, kNameSpace *ns, int argc, c
 	base->h.free     = kregexshare_free;
 	KLIB Konoha_setModule(kctx, MOD_REGEX, &base->h, pline);
 
-	KDEFINE_TY RegexDef = {
+	KDEFINE_CLASS RegexDef = {
 		STRUCTNAME(Regex),
 		.cflag = 0,
 		.init = Regex_init,
@@ -658,9 +658,9 @@ static kbool_t pcre_initPackage(KonohaContext *kctx, kNameSpace *ns, int argc, c
 	};
 	base->cRegex = KLIB Konoha_defineClass(kctx, ns->packageId, PN_konoha, NULL, &RegexDef, pline);
 
-	kparam_t p = { .ty = TY_String,  };
+	kparamtype_t p = { .ty = TY_String,  };
 	KonohaClass *cStrArray = KLIB KonohaClass_Generics(kctx, CT_(TY_Array), TY_void, 1, &p);
-#define TY_StrArray (cStrArray->cid)
+#define TY_StrArray (cStrArray->classId)
 	int FN_x = FN_("x");
 	int FN_y = FN_("y");
 	KDEFINE_METHOD MethodData[] = {
@@ -688,9 +688,9 @@ static int parseREGEX(KonohaContext *kctx, kTokenVar *tk, TokenizerEnv *tenv, in
 	if(tenv->source[pos] == '*' || tenv->source[pos] == '/') {
 		return parseSLASH(kctx, tk, tenv, tok_start);
 	}
-	int tlsize = kArray_size(tenv->tokenList);
-	if(tlsize > 0) {
-		kToken *tkPrev = tenv->tokenList->tokenItems[tlsize - 1];
+	int tokenArrayize = kArray_size(tenv->tokenList);
+	if(tokenArrayize > 0) {
+		kToken *tkPrev = tenv->tokenList->tokenItems[tokenArrayize - 1];
 		if(tkPrev->keyword == TK_INT ||
 			(kToken_topch(tkPrev) != '(' && tkPrev->keyword == TK_SYMBOL)) {
 			return parseSLASH(kctx, tk, tenv, tok_start);
@@ -722,19 +722,17 @@ static int parseREGEX(KonohaContext *kctx, kTokenVar *tk, TokenizerEnv *tenv, in
 
 static KMETHOD ExprTyCheck_Regex(KonohaContext *kctx, KonohaStack *sfp)
 {
-	USING_SUGAR;
 	VAR_ExprTyCheck(stmt, expr, gma, reqty);
-	kToken *tk = expr->tk;
+	kToken *tk = expr->termToken;
 	kRegex *r = new_(Regex, NULL);
 	DBG_ASSERT(kArray_size(tk->sub) == 2);
 	Regex_set(kctx, r, tk->sub->stringItems[0], tk->sub->stringItems[1]);
-	RETURN_(kExpr_setConstValue(expr, TY_Regex, r));
+	RETURN_(SUGAR kExpr_setConstValue(kctx, expr, TY_Regex, UPCAST(r)));
 }
 
 #define _SLASH     30//FIXME (from src/sugar/token.h)
 static kbool_t pcre_initNameSpace(KonohaContext *kctx, kNameSpace *ns, kfileline_t pline)
 {
-	USING_SUGAR;
 	SUGAR NameSpace_setTokenizeFunc(kctx, ns, '/', parseREGEX, NULL, 0);
 	KDEFINE_SYNTAX SYNTAX[] = {
 		{ .keyword = SYM_("$regex"), _TERM, ExprTyCheck_(Regex), },

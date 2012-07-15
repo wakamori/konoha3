@@ -63,7 +63,7 @@ static kbool_t int_initPackage(KonohaContext *kctx, kNameSpace *ns, int argc, co
 		_Public|_Const|_Im, _F(Int_opLSHIFT), TY_Int, TY_Int, MN_("opLSHIFT"), 1, TY_Int, FN_x,
 		_Public|_Const|_Im, _F(Int_opRSHIFT), TY_Int, TY_Int, MN_("opRSHIFT"), 1, TY_Int, FN_x,
 //		_Public|_Const|_Im, _F(Int_opINC), TY_Int, TY_Int, MN_("opINC"), 0,
-//		_Public|_Const|_Im, _F(Int_opDEC), TY_Int, TY_Int, MN_‘("opDEC"), 0,
+//		_Public|_Const|_Im, _F(Int_opDEC), TY_Int, TY_Int, MN_("opDEC"), 0,
 		DEND,
 	};
 	KLIB kNameSpace_loadMethodData(kctx, ns, MethodData);
@@ -83,7 +83,6 @@ static kbool_t int_setupPackage(KonohaContext *kctx, kNameSpace *ns, kfileline_t
 
 static kbool_t int_initNameSpace(KonohaContext *kctx,  kNameSpace *ns, kfileline_t pline)
 {
-	USING_SUGAR;
 	KDEFINE_SYNTAX SYNTAX[] = {
 			{ .keyword = SYM_("<<"), _OP, .op2 = "opLSHIFT", .priority_op2 = 128,},
 			{ .keyword = SYM_(">>"), _OP, .op2 = "opRSHIFT", .priority_op2 = 128,},

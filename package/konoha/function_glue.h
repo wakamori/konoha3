@@ -57,8 +57,8 @@ static void Func_reftrace(KonohaContext *kctx, kObject *o)
 static KMETHOD Func_new(KonohaContext *kctx, KonohaStack *sfp)
 {
 	kFunc *fo = sfp[0].fo;
-	KSETv(fo->self, sfp[1].toObject);
-	KSETv(fo->mtd, sfp[2].toMethod);
+	KSETv(fo->self, sfp[1].asObject);
+	KSETv(fo->mtd, sfp[2].asMethod);
 	RETURN_(fo);
 }
 
@@ -68,7 +68,7 @@ static KMETHOD Func_new(KonohaContext *kctx, KonohaStack *sfp)
 static KMETHOD Func_invoke(KonohaContext *kctx, KonohaStack *sfp)
 {
 	kFunc* fo = sfp[0].fo;
-	KSETv(sfp[0].toObject, fo->self);
+	KSETv(sfp[0].asObject, fo->self);
 	klr_setmtdNC(kctx, sfp[K_MTDIDX], fo->mtd);
 	KCALL(kctx, sfp, fo->mtd, (-(K_CALLDELTA)));
 }
@@ -88,7 +88,7 @@ static	kbool_t function_initPackage(KonohaContext *kctx, kNameSpace *ns, int arg
 	base->h.free     = kmodfunction_free;
 	Konoha_setModule(MOD_function, &base->h, pline);
 
-	KDEFINE_TY defFloat = {
+	KDEFINE_CLASS defFloat = {
 		STRUCTNAME(Float),
 		.cflag = CFLAG_Int,
 		.init = Float_init,
@@ -135,7 +135,7 @@ static KMETHOD ExprTyCheck_Float(KonohaContext *kctx, KonohaStack *sfp)
 	VAR_ExprTyCheck(stmt, expr, gma, reqty);
 	kToken *tk = expr->tk;
 	sfp[4].fvalue = strtod(S_text(tk->text), NULL);
-	RETURN_(kExpr_setNConstValue(expr, TY_Float, sfp[4].ndata));
+	RETURN_(SUGAR kExpr_setUnboxConstValue(kctx, expr, TY_Float, sfp[4].unboxValue));
 }
 
 static kbool_t function_initNameSpace(KonohaContext *kctx,  kNameSpace *ns, kfileline_t pline)

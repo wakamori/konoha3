@@ -30,7 +30,7 @@
 //## @Immutable method T0 Array.get(Int n);
 static KMETHOD Array_get(KonohaContext *kctx, KonohaStack *sfp)
 {
-	kArray *a = sfp[0].toArray;
+	kArray *a = sfp[0].asArray;
 	size_t n = check_index(kctx, sfp[1].ivalue, kArray_size(a), sfp[K_RTNIDX].uline);
 	if(kArray_isUnboxData(a)) {
 		RETURNd_(a->unboxItems[n]);
@@ -43,10 +43,10 @@ static KMETHOD Array_get(KonohaContext *kctx, KonohaStack *sfp)
 //## method void Array.set(Int n, T0 v);
 static KMETHOD Array_set(KonohaContext *kctx, KonohaStack *sfp)
 {
-	kArray *a = sfp[0].toArray;
+	kArray *a = sfp[0].asArray;
 	size_t n = check_index(kctx, sfp[1].ivalue, kArray_size(a), sfp[K_RTNIDX].uline);
 	if(kArray_isUnboxData(a)) {
-		a->unboxItems[n] = sfp[2].ndata;
+		a->unboxItems[n] = sfp[2].unboxValue;
 	}
 	else {
 		KSETv(a->objectItems[n], sfp[2].o);
@@ -56,21 +56,21 @@ static KMETHOD Array_set(KonohaContext *kctx, KonohaStack *sfp)
 //## method int Array.getSize();
 static KMETHOD Array_getSize(KonohaContext *kctx, KonohaStack *sfp)
 {
-	kArray *a = sfp[0].toArray;
+	kArray *a = sfp[0].asArray;
 	RETURNi_(kArray_size(a));
 }
 
 
 static KMETHOD Array_newArray(KonohaContext *kctx, KonohaStack *sfp)
 {
-	kArrayVar *a = (kArrayVar *)sfp[0].toObject;
+	kArrayVar *a = (kArrayVar *)sfp[0].asObject;
 	size_t asize = (size_t)sfp[1].ivalue;
 	a->bytemax = asize * sizeof(void*);
 	kArray_setsize((kArray*)a, asize);
 	a->objectItems = (kObject**)KCALLOC(a->bytemax, 1);
 	if(!kArray_isUnboxData(a)) {
 		size_t i;
-		kObject *null = knull(CT_(O_p0(a)));
+		kObject *null = KLIB Knull(kctx, CT_(O_p0(a)));
 		for(i = 0; i < asize; i++) {
 			KSETv(a->objectItems[i], null);
 		}
@@ -106,11 +106,11 @@ static void NArray_add(KonohaContext *kctx, kArray *o, uintptr_t value)
 
 static KMETHOD Array_add1(KonohaContext *kctx, KonohaStack *sfp)
 {
-	kArray *a = (kArray *)sfp[0].toObject;
+	kArray *a = (kArray *)sfp[0].asObject;
 	if (kArray_isUnboxData(a)) {
-		NArray_add(kctx, a, sfp[1].ndata);
+		NArray_add(kctx, a, sfp[1].unboxValue);
 	} else {
-		KLIB kArray_add(kctx, a, sfp[1].toObject);
+		KLIB kArray_add(kctx, a, sfp[1].asObject);
 	}
 }
 
@@ -143,16 +143,15 @@ static kbool_t array_setupPackage(KonohaContext *kctx, kNameSpace *ns, kfileline
 
 static KMETHOD ParseExpr_BRACKET(KonohaContext *kctx, KonohaStack *sfp)
 {
-	USING_SUGAR;
-	VAR_ParseExpr(stmt, tls, s, c, e);
+	VAR_ParseExpr(stmt, tokenArray, s, c, e);
 	DBG_P("parse bracket!!");
-	kToken *tk = tls->tokenItems[c];
+	kToken *tk = tokenArray->tokenItems[c];
 	if(s == c) { // TODO
-		kExpr *expr = SUGAR Stmt_newExpr2(kctx, stmt, tk->sub, 0, kArray_size(tk->sub));
-		RETURN_(SUGAR Expr_rightJoin(kctx, expr, stmt, tls, s+1, c+1, e));
+		kExpr *expr = SUGAR kStmt_parseExpr(kctx, stmt, tk->sub, 0, kArray_size(tk->sub));
+		RETURN_(SUGAR kStmt_rightJoinExpr(kctx, stmt, expr, tokenArray, c+1, e));
 	}
 	else {
-		kExpr *lexpr = SUGAR Stmt_newExpr2(kctx, stmt, tls, s, c);
+		kExpr *lexpr = SUGAR kStmt_parseExpr(kctx, stmt, tokenArray, s, c);
 		if(lexpr == K_NULLEXPR) {
 			RETURN_(lexpr);
 		}
@@ -161,20 +160,19 @@ static KMETHOD ParseExpr_BRACKET(KonohaContext *kctx, KonohaStack *sfp)
 			lexpr = SUGAR Stmt_addExprParams(kctx, stmt, lexpr, tk->sub, 0, kArray_size(tk->sub), 0/*allowEmpty*/);
 		}
 		else {   // X[1] => get X 1
-			kTokenVar *tkN = new_Var(Token, 0);
+			kTokenVar *tkN = GCSAFE_new(TokenVar, 0);
 			tkN->keyword = MN_toGETTER(0);
 			tkN->uline = tk->uline;
 			SugarSyntax *syn = SYN_(kStmt_nameSpace(stmt), KW_ExprMethodCall);
 			lexpr  = SUGAR new_ConsExpr(kctx, syn, 2, tkN, lexpr);
 			lexpr = SUGAR Stmt_addExprParams(kctx, stmt, lexpr, tk->sub, 0, kArray_size(tk->sub), 1/*allowEmpty*/);
 		}
-		RETURN_(SUGAR Expr_rightJoin(kctx, lexpr, stmt, tls, s+1, c+1, e));
+		RETURN_(SUGAR kStmt_rightJoinExpr(kctx, stmt, lexpr, tokenArray, c+1, e));
 	}
 }
 
-static kbool_t array_initNameSpace(KonohaContext *kctx,  kNameSpace *ns, kfileline_t pline)
+static kbool_t array_initNameSpace(KonohaContext *kctx, kNameSpace *ns, kfileline_t pline)
 {
-	USING_SUGAR;
 	KDEFINE_SYNTAX SYNTAX[] = {
 		{ .keyword = SYM_("[]"), .flag = SYNFLAG_ExprPostfixOp2, ParseExpr_(BRACKET), .priority_op2 = 16, },  //AST_BRACKET
 		{ .keyword = KW_END, },

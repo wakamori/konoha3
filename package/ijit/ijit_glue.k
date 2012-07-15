@@ -58,7 +58,7 @@ Array Expr.getCons() {
 	int ptr = System.getPointer(x, 48, 64);
 	return System.convertToArray(ptr);
 }
-Method Object.toMethod() {
+Method Object.asMethod() {
 	int ptr = this.getAddr();
 	return System.convertToMethod(ptr);
 }
@@ -387,12 +387,12 @@ Value expr_asm(int a, Expr expr, int espidx) {
 			return asm_nset(0, (expr.getType()), a);
 		}
 		else {
-			return asm_oset(System.knull(expr.getType()), expr.getType(), a);
+			return asm_oset(System.KLIB Knull(kctx, expr.getType()), expr.getType(), a);
 		}
 	}
 	else if(expr.getBuild() == TEXPR_NCONST) {
 		return asm_nset(expr.getNdata(), expr.getType(), a);
-		//ASM(NSET, nc(a), expr.ndata, CT_(expr.getType()));
+		//ASM(NSET, nc(a), expr.unboxValue, CT_(expr.getType()));
 	}
 	else if(expr.getBuild() == TEXPR_LOCAL) {
 		//System.p("type="+expr.getType()+",index="+expr.getIndex());
@@ -490,8 +490,8 @@ void prepare_call_stack(int thisidx, Value vsfp, Object def, Method mtd, int uli
 	if ((def).getCid() != K.getCid("void", -1)) {
 		Value vsfp0 = loadsfp(builder, vsfp, (def).getCid(), rtnidx);
 		if (ty_isUnbox(def.getCid())) {
-			int ndata = def.unbox();
-			Value vdef  = createConstValue(cid2ctype(def.getCid()), null, ndata, 0);
+			int unboxValue = def.unbox();
+			Value vdef  = createConstValue(cid2ctype(def.getCid()), null, unboxValue, 0);
 			builder.createStore(vdef, vsfp0, false);
 		} else {
 			Value vdef  = createConstValue(/*TY_OBJECT*/12, (def), 0, 0);
@@ -657,7 +657,7 @@ void asm_scall(int uline, int sfpidx, int espidx, Method mtd, Object defval) {
 
 Value call_asm(int a, Expr expr, int espidx) {
 	Array cons = expr.getCons();
-	Method mtd = cons.get(0).toMethod();
+	Method mtd = cons.get(0).asMethod();
 	int s = tri(mtd.isStatic(), 2, 1);
 	int thisidx = espidx + /*K_CALLDELTA*/4;
 	int argc = (cons).getSize() - 2;
@@ -665,7 +665,7 @@ Value call_asm(int a, Expr expr, int espidx) {
 		System.p("TODO");
 		assert(false);
 		//ASM(NSET, nc(thisidx-1), (intptr_t)mtd, CT_Method);
-		//ASM(CALL, kmodjit.uline, sfp(thisidx), esp(espidx, argc), System.knull(expr.getType()));
+		//ASM(CALL, kmodjit.uline, sfp(thisidx), esp(espidx, argc), System.KLIB Knull(kctx, expr.getType()));
 	}
 	else {
 		if (mtd.getCid() == K.getCid("Int", -1)) {
@@ -686,7 +686,7 @@ Value call_asm(int a, Expr expr, int espidx) {
 		if(f.isNull()) {
 			//System.p(method2string(mtd));
 			emit_param(mtd, expr, thisidx, s);
-			asm_scall(System.getUline(), sfp(thisidx), esp(espidx, argc), mtd, System.knull(expr.getType()));
+			asm_scall(System.getUline(), sfp(thisidx), esp(espidx, argc), mtd, System.KLIB Knull(kctx, expr.getType()));
 		}
 		else {
 			Value v = asm_function_call(System.getUline(), expr, thisidx, s, f);
@@ -1134,7 +1134,7 @@ void jit_init() {
 	/*------- KonohaStack ------*/
 	Array KonohaStackTy = Array.newN(2);
 	KonohaStackTy.set(0, PointerType.get(kObject) /* o */ /*union*/);
-	KonohaStackTy.set(1, getLongTy() /* ndata */ /*union*/);
+	KonohaStackTy.set(1, getLongTy() /* unboxValue */ /*union*/);
 	Type KonohaStack = StructType.create(KonohaStackTy, "KonohaStack", false)
 	System.setTyStack(PointerType.get(KonohaStack));
 
@@ -1158,7 +1158,7 @@ void jit_init() {
 	Array kArrayTy = Array.newN(4);
 	kArrayTy.set(0, KonohaObjectHeader /* h */ );
 	kArrayTy.set(1, getLongTy() /* bytesize */ );
-	kArrayTy.set(2, PointerType.get(getLongTy()) /* ndata */ /*union*/);
+	kArrayTy.set(2, PointerType.get(getLongTy()) /* unboxValue */ /*union*/);
 	kArrayTy.set(3, getLongTy() /* bytemax */ );
 	Type kArray = StructType.create(kArrayTy, "kArray", false)
 
@@ -1213,7 +1213,7 @@ void System.genCode(Method mtd, Block bk) {
 		if (rtype == K.getCid("void", -1)) {
 			builder.createRetVoid();
 		} else {
-			Value v = createConstValue(cid2ctype(rtype), System.knull(rtype), 0, 0.0);
+			Value v = createConstValue(cid2ctype(rtype), System.KLIB Knull(kctx, rtype), 0, 0.0);
 			builder.createRet(v);
 		}
 	}

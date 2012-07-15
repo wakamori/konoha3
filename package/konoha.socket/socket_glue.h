@@ -406,9 +406,9 @@ static KMETHOD System_recv(KonohaContext *kctx, KonohaStack* sfp)
 //## int System.select(int[] readsock, int[] writesock, int[] exceptsock, long timeoutSec, long timeoutUSec);
 static KMETHOD System_select(KonohaContext *kctx, KonohaStack* sfp)
 {
-	kArray *a1 = sfp[1].toArray;
-	kArray *a2 = sfp[2].toArray;
-	kArray *a3 = sfp[3].toArray;
+	kArray *a1 = sfp[1].asArray;
+	kArray *a2 = sfp[2].asArray;
+	kArray *a3 = sfp[3].asArray;
 	int nfd = getNfd(a1, a2, a3 );
 
 	fd_set rfds, wfds, efds;
@@ -572,7 +572,7 @@ KMETHOD System_socket(KonohaContext *kctx, KonohaStack* sfp)
 static KMETHOD System_socketpair(KonohaContext *kctx, KonohaStack* sfp)
 {
 	int ret = -2;
-	kArray *a = sfp[4].toArray;
+	kArray *a = sfp[4].asArray;
 	if(kArray_size(a)) {
 		int pairFd[2];
 		if((ret = socketpair(WORD2INT(sfp[1].ivalue),
@@ -610,21 +610,21 @@ static KMETHOD SockAddr_new (KonohaContext *kctx, KonohaStack *sfp)
 #define _F(F)   (intptr_t)(F)
 
 #define CT_SockAddr         cSockAddr
-#define TY_SockAddr         cSockAddr->cid
+#define TY_SockAddr         cSockAddr->classId
 #define IS_SockAddr(O)      ((O)->h.ct == CT_SockAddr)
 
 static	kbool_t socket_initPackage(KonohaContext *kctx, kNameSpace *ns, int argc, const char**args, kfileline_t pline)
 {
-	KDEFINE_TY defSockAddr = {
+	KDEFINE_CLASS defSockAddr = {
 		STRUCTNAME(SockAddr),
 		.cflag = kClass_Final,
 		.init = SockAddr_init,
 		.free = SockAddr_free,
 	};
 	KonohaClass *cSockAddr = KLIB Konoha_defineClass(kctx, ns->packageId, ns->packageDomain, NULL, &defSockAddr, pline);
-	kparam_t pi = {TY_Int, FN_("ivalue")};
+	kparamtype_t pi = {TY_Int, FN_("ivalue")};
 	KonohaClass *CT_IntArray = KLIB KonohaClass_Generics(kctx, CT_Array, TY_Int, 1, &pi);
-	ktype_t TY_IntArray = CT_IntArray->cid;
+	ktype_t TY_IntArray = CT_IntArray->classId;
 
 	KDEFINE_METHOD MethodData[] = {
 		_Public|_Const|_Im, _F(System_accept), TY_Int, TY_System, MN_("accept"), 2, TY_Int, FN_("fd"), TY_SockAddr, FN_("sockaddr"),
