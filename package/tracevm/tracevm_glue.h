@@ -38,7 +38,7 @@ typedef struct {
 	kMethod *genCode;
 	kArray *constPool;
 	FgenCode defaultCodeGen;
-}kmodtrace_t;
+} kmodtrace_t;
 
 typedef struct {
 	KonohaContextModule h;
@@ -62,9 +62,8 @@ static void kmodtrace_reftrace(KonohaContext *kctx, struct KonohaModule*baseh)
 
 static void kmodtrace_free(KonohaContext *kctx, struct KonohaModule *baseh)
 {
-	kmodtrace_t *modshare = (kmodtrace_t *)baseh;
+	//kmodtrace_t *modshare = (kmodtrace_t *)baseh;
 	KFREE(baseh, sizeof(kmodtrace_t));
-
 }
 /* ------------------------------------------------------------------------ */
 
@@ -76,15 +75,15 @@ static void kmodtrace_free(KonohaContext *kctx, struct KonohaModule *baseh)
 #define _F(F)   (intptr_t)(F)
 
 /****************************************************************/
-static void kGenTraceCode(KonohaContext *kctx, kMethod *mtd, kBlock *bk)
-{
-	DBG_P("start trace code generation");
-	BEGIN_LOCAL(lsfp, 8);
-	KSETv(lsfp[K_CALLDELTA+1].asMethod, mtd);
-	KSETv(lsfp[K_CALLDELTA+2].asObject, (kObject*)bk);
-	KCALL(lsfp, 0, GenCodeMtd, 2, K_NULL);
-	END_LOCAL();
-}
+//static void kGenTraceCode(KonohaContext *kctx, kMethod *mtd, kBlock *bk)
+//{
+//	DBG_P("start trace code generation");
+//	BEGIN_LOCAL(lsfp, 8);
+//	KSETv(lsfp[K_CALLDELTA+1].asMethod, mtd);
+//	KSETv(lsfp[K_CALLDELTA+2].asObject, (kObject*)bk);
+//	KCALL(lsfp, 0, GenCodeMtd, 2, K_NULL);
+//	END_LOCAL();
+//}
 
 static kbool_t tracevm_initPackage(KonohaContext *kctx, kNameSpace *ns, int argc, const char **args, kfileline_t pline)
 {
@@ -101,10 +100,10 @@ static kbool_t tracevm_initPackage(KonohaContext *kctx, kNameSpace *ns, int argc
 
 static kbool_t tracevm_setupPackage(KonohaContext *kctx, kNameSpace *ns, kfileline_t pline)
 {
-	kMethod *mtd = KLIB kNameSpace_getMethodNULL(kctx, ns, TY_System, MN_("genCode"));
+	//kMethod *mtd = KLIB kNameSpace_getMethodNULL(kctx, ns, TY_System, MN_("genCode"), 0, MPOL_FIRST);
 	KonohaLibVar *l = (KonohaLibVar*)kctx->klib;
 	l->kMethod_genCode = GenCodeDefault;
-	KLIB kNameSpace_syncMethods(kctx);
+	KLIB kNameSpace_compileAllDefinedMethods(kctx);
 	return true;
 }
 
