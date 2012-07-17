@@ -139,7 +139,7 @@ static KMETHOD Json_getArray(KonohaContext *kctx, KonohaStack *sfp)
 		RETURN_(K_NULL);
 	}
 	kArrayVar* a = (kArrayVar*)KLIB new_kObject(kctx, CT_Array, 0);
-	a->objectItems= (kObject**)ja;
+	a->objectItems = (kObject**)ja;
 	RETURN_(a);
 }
 
@@ -362,7 +362,7 @@ static KMETHOD JsonArray_newArray(KonohaContext *kctx, KonohaStack *sfp)
 	size_t asize = (size_t)sfp[1].intValue;
 	a->bytemax = asize * sizeof(void*);
 	kArray_setsize((kArray*)a, asize);
-	//a->list = (kObject**)KCALLOC(a->bytemax, 1);
+	//a->objectItems = (kObject**)KCALLOC(a->bytemax, 1);
 	a->objectItems = (kObject**)json_array();
 	RETURN_(a);
 }
