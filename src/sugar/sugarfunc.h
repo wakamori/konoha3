@@ -29,11 +29,49 @@ extern "C" {
 /* ------------------------------------------------------------------------ */
 /* Expression TyCheck */
 
+static kString *resolveEscapeSequence(KonohaContext *kctx, kString *s, size_t start)
+{
+	const char *text = S_text(s) + start;
+	size_t i;
+	int ch, next;
+	KUtilsWriteBuffer wb;
+	KLIB Kwb_init(&(kctx->stack->cwb), &wb);
+	KLIB Kwb_write(kctx, &wb, S_text(s), start);
+	for (i = start; next != '\0'; i++) {
+		ch = text[0];
+		next = text[1];
+		if(ch == '\\' && next != '\0') {
+			switch (next) {
+			case 'n':  ch = '\n'; text++; break;
+			case 't':  ch = '\t'; text++; break;
+			case 'r':  ch = '\r'; text++; break;
+			case '\\': ch = '\\'; text++; break;
+			case '"':  ch = '\"'; text++; break;
+			}
+		}
+		KLIB Kwb_putc(kctx, &wb, ch);
+		text++;
+	}
+	s = KLIB new_kString(kctx, KLIB Kwb_top(kctx, &wb, 1), Kwb_bytesize(&wb), 0);
+	KLIB Kwb_free(&wb);
+	return s;
+}
+
+
 static KMETHOD ExprTyCheck_Text(KonohaContext *kctx, KonohaStack *sfp)
 {
 	VAR_ExprTyCheck(stmt, expr, gma, reqty);
 	kToken *tk = expr->termToken;
-	RETURN_(SUGAR kExpr_setConstValue(kctx, expr, TY_String, UPCAST(tk->text)));
+	kString *text = tk->text;
+	size_t i, size = S_size(text);
+	for(i = 0; i < size; i++) {
+		int ch = text->buf[i];
+		if(ch == '\\') {
+			text = resolveEscapeSequence(kctx, text, i);
+			break;
+		}
+	}
+	RETURN_(SUGAR kExpr_setConstValue(kctx, expr, TY_String, UPCAST(text)));
 }
 
 static KMETHOD ExprTyCheck_Type(KonohaContext *kctx, KonohaStack *sfp)
@@ -121,7 +159,8 @@ static KMETHOD ExprTyCheck_Block(KonohaContext *kctx, KonohaStack *sfp)
 	}
 	if(lastExpr != NULL) {
 		int lvarsize = gma->genv->localScope.varsize;
-		//size_t i, atop = kArray_size(gma->genv->lvarlst);
+		int popBlockScopeShiftSize = gma->genv->blockScopeShiftSize;
+		gma->genv->blockScopeShiftSize = lvarsize;
 		if(!kBlock_tyCheckAll(kctx, bk, gma)) {
 			RETURN_(texpr);
 		}
@@ -134,6 +173,7 @@ static KMETHOD ExprTyCheck_Block(KonohaContext *kctx, KonohaStack *sfp)
 			KLIB kObject_setObject(kctx, lastExpr, KW_ExprPattern, TY_Expr, letexpr);
 			texpr = SUGAR kExpr_setVariable(kctx, expr, gma, TEXPR_BLOCK, ty, lvarsize);
 		}
+
 		//         FIXME:
 		//             for(i = atop; i < kArray_size(gma->genv->lvarlst); i++) {
 			//                     kExprVar *v = gma->genv->lvarlst->exprVarItems[i];
@@ -142,6 +182,7 @@ static KMETHOD ExprTyCheck_Block(KonohaContext *kctx, KonohaStack *sfp)
 		//                             //DBG_P("v->index=%d", v->index);
 		//                     }
 		//             }
+		gma->genv->blockScopeShiftSize = popBlockScopeShiftSize;
 		if(lvarsize < gma->genv->localScope.varsize) {
 			gma->genv->localScope.varsize = lvarsize;
 		}
@@ -231,7 +272,7 @@ static kExpr* Expr_tyCheckVariable2(KonohaContext *kctx, kStmt *stmt, kExpr *exp
 		}
 	}
 	kObject *v = NameSpace_getSymbolValueNULL(kctx, ns, S_text(tk->text), S_size(tk->text));
-	kExpr *texpr = (v == NULL) ? kToken_p(stmt, tk, ErrTag, "undefined name: %s", kToken_s(tk)) : SUGAR kExpr_setConstValue(kctx, expr, O_classId(v), v);
+	kExpr *texpr = (v == NULL) ? kToken_p(stmt, tk, ErrTag, "undefined name: %s", Token_text(tk)) : SUGAR kExpr_setConstValue(kctx, expr, O_classId(v), v);
 	return texpr;
 }
 
@@ -260,7 +301,7 @@ static KMETHOD ExprTyCheck_Usymbol(KonohaContext *kctx, KonohaStack *sfp)
 		}
 	}
 	kObject *v = NameSpace_getSymbolValueNULL(kctx, ns, S_text(tk->text), S_size(tk->text));
-	kExpr *texpr = (v == NULL) ? kToken_p(stmt, tk, ErrTag, "undefined name: %s", kToken_s(tk)) : SUGAR kExpr_setConstValue(kctx, expr, O_classId(v), v);
+	kExpr *texpr = (v == NULL) ? kToken_p(stmt, tk, ErrTag, "undefined name: %s", Token_text(tk)) : SUGAR kExpr_setConstValue(kctx, expr, O_classId(v), v);
 	RETURN_(texpr);
 }
 
@@ -273,7 +314,7 @@ static KMETHOD StmtTyCheck_ConstDecl(KonohaContext *kctx, KonohaStack *sfp)
 	ksymbol_t ukey = ksymbolA(S_text(tk->text), S_size(tk->text), SYM_NEWID);
 	KUtilsKeyValue *kv = kNameSpace_getConstNULL(kctx, ns, ukey);
 	if(kv != NULL) {
-		kStmt_p(stmt, ErrTag, "already defined name: %s", kToken_s(tk));
+		kStmt_p(stmt, ErrTag, "already defined name: %s", Token_text(tk));
 	}
 	else {
 		r = kStmt_tyCheckByName(kctx, stmt, KW_ExprPattern, gma, TY_var, TPOL_CONST);
@@ -549,7 +590,7 @@ static KMETHOD ExprTyCheck_FuncStyleCall(KonohaContext *kctx, KonohaStack *sfp)
 		if(!TY_isFunc(kExpr_at(expr, 0)->ty)) {
 			kToken *tk = kExpr_at(expr, 0)->termToken;
 			DBG_ASSERT(IS_Token(tk));  // TODO: make error message in case of not Token
-			RETURN_(kToken_p(stmt, tk, ErrTag, "undefined function: %s", kToken_s(tk)));
+			RETURN_(kToken_p(stmt, tk, ErrTag, "undefined function: %s", Token_text(tk)));
 		}
 	}
 	else {

@@ -39,7 +39,7 @@ static int parseINDENT(KonohaContext *kctx, kTokenVar *tk, TokenizerEnv *tenv, i
 		break;
 	}
 	if(IS_NOTNULL(tk)) {
-		kToken_setUnresolved(tk, true);  // to avoid indent within tree tokens
+		Token_textetUnresolved(tk, true);  // to avoid indent within tree tokens
 		tk->keyword = TK_INDENT;
 		tk->indent = 0; /* indent FIXME: Debug/Parser/LineNumber.k (Failed) */
 	}
@@ -106,7 +106,7 @@ static void Token_setSymbolText(KonohaContext *kctx, kTokenVar *tk, const char *
 {
 	if(IS_NOTNULL(tk)) {
 		ksymbol_t kw = ksymbolA(t, len, SYM_NONAME);
-		kToken_setUnresolved(tk, true);
+		Token_textetUnresolved(tk, true);
 		if(kw == SYM_UNMASK(kw)) {
 			KSETv(tk->text, SYM_s(kw));
 		}
@@ -218,15 +218,6 @@ static int parseDoubleQuotedText(KonohaContext *kctx, kTokenVar *tk, TokenizerEn
 			KLIB Kwb_free(&wb);
 			return pos;
 		}
-		if(ch == '\\' && (next = tenv->source[pos]) != 0) {
-			switch (next) {
-			case 'n':  ch = '\n'; pos++; break;
-			case 't':  ch = '\t'; pos++; break;
-			case 'r':  ch = '\r'; pos++; break;
-			case '\\': ch = '\\'; pos++; break;
-			case '"':  ch = '\"'; pos++; break;
-			}
-		}
 		prev = ch;
 		kwb_putc(&wb, ch);
 	}
@@ -313,7 +304,7 @@ static const TokenizeFunc MiniKonohaTokenMatrix[] = {
 #define _MINUS     28
 	parseOP,
 #define _DOT       29
-	parseOP,
+	parseOP1,
 #define _SLASH     30
 	parseSLASH,
 #define _COLON     31
@@ -626,7 +617,7 @@ static kbool_t makeSyntaxRule(KonohaContext *kctx, kArray *tokenArray, int s, in
 			i++;
 			continue;
 		}
-		Token_pERR(kctx, tk, "illegal syntax rule: %s", kToken_s(tk));
+		Token_pERR(kctx, tk, "illegal syntax rule: %s", Token_text(tk));
 		return false;
 	}
 	return true;
