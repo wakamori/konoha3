@@ -22,8 +22,8 @@
  * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  ***************************************************************************/
 
-#include <konoha2/konoha2.h>
-#include <konoha2/sugar.h>
+#include <minikonoha/minikonoha.h>
+#include <minikonoha/sugar.h>
 
 #include "clearsilver_glue.h"
 
@@ -34,7 +34,7 @@ extern "C" {
 KDEFINE_PACKAGE* clearsilver_init(void)
 {
 	static KDEFINE_PACKAGE d = {
-		KPACKNAME("clearsilver", "0.1"),
+		KPACKNAME("webfw.clearsilver", "0.1"),
 		.initPackage    = clearsilver_initPackage,
 		.setupPackage   = clearsilver_setupPackage,
 		.initNameSpace  = clearsilver_initNameSpace,

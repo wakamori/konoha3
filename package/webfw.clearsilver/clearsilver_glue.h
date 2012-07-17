@@ -50,7 +50,7 @@ typedef struct hdf_conf_t {
 } hdf_conf_t;
 
 typedef struct kHdf {
-	kObjectHeader h;
+	KonohaObjectHeader h;
 	HDF *hdf;
 	hdf_t *root_hdf_obj;
 } kHdf;
@@ -95,21 +95,21 @@ static void attach_root_hdf_t(hdf_t *org, hdf_t **dest)
 	*dest = org;
 }
 
-#define new_kHdf(C, H, P)    Knew_Hdf(_ctx, C, H, P)
-static kHdf* Knew_Hdf(CTX, kclass_t *ct, HDF *hdf, kHdf *parent)
+#define new_kHdf(C, H, P)    Knew_Hdf(kctx, C, H, P)
+static kHdf* Knew_Hdf(KonohaContext *kctx, KonohaClass *ct, HDF *hdf, kHdf *parent)
 {
 	if (hdf != NULL && parent != NULL) {
 		hdf_conf_t conf = {
 			.hdf = hdf,
 			.root_hdf_obj = parent->root_hdf_obj
 		};
-		return (kHdf*)new_kObject(ct, &conf);
+		return (kHdf*)KLIB new_kObject(kctx, ct, (intptr_t)&conf);
 	} else {
-		return (kHdf*)new_kObject(ct, NULL);
+		return (kHdf*)KLIB Knull(kctx, ct);
 	}
 }
 
-static void kHdf_init(CTX, kObject *o, void *conf)
+static void kHdf_init(KonohaContext *kctx, kObject *o, void *conf)
 {
 	kHdf *h = (kHdf *)o;
 	// printf("kHdf_init: %p\n", o);
@@ -124,7 +124,7 @@ static void kHdf_init(CTX, kObject *o, void *conf)
 	}
 }
 
-static void kHdf_free(CTX, kObject *o)
+static void kHdf_free(KonohaContext *kctx, kObject *o)
 {
 	kHdf *self = (kHdf *)o;
 	// printf("kHdf_free: %p\n", self);
@@ -142,12 +142,12 @@ static void kHdf_free(CTX, kObject *o)
 #define S_CSPARSE(a)          (((kCs *)a.o)->cs)
 
 typedef struct kCs {
-	kObjectHeader h;
+	KonohaObjectHeader h;
 	CSPARSE *cs;
 	hdf_t *root_hdf_obj;
 } kCs;
 
-static void kCs_init(CTX, kObject *o, void *conf) 
+static void kCs_init(KonohaContext *kctx, kObject *o, void *conf)
 {
 	kCs *c = (kCs *)o;
 	kHdf *h = (kHdf *)conf;
@@ -158,7 +158,7 @@ static void kCs_init(CTX, kObject *o, void *conf)
 	}
 }
 
-static void kCs_free(CTX, kObject *o) 
+static void kCs_free(KonohaContext *kctx, kObject *o)
 {
 	kCs *c = (kCs *)o;
 	if (c->root_hdf_obj != NULL) {
@@ -172,22 +172,22 @@ static void kCs_free(CTX, kObject *o)
 }
 
 typedef struct kCgi {
-	kObjectHeader h;
+	KonohaObjectHeader h;
 } kCgi;
 
 /* ======================================================================== */
 /* [API bindings] */
 
 //## Hdf Hdf.new();
-static KMETHOD Hdf_new(CTX, ksfp_t *sfp _RIX)
+static KMETHOD Hdf_new(KonohaContext *kctx, KonohaStack *sfp)
 {
 	// printf("hogehoge");
 	// printf("Hdf_new: %p\n", sfp[0].o);
-	RETURN_(new_kObject(O_ct(sfp[K_RTNIDX].o), 0));
+	RETURN_(KLIB new_kObject(kctx, O_ct(sfp[K_RTNIDX].o), 0));
 }
 
 //## void Hdf.setValue(String name, String value);
-static KMETHOD Hdf_setValue(CTX, ksfp_t *sfp _RIX)
+static KMETHOD Hdf_setValue(KonohaContext *kctx, KonohaStack *sfp)
 {
 	HDF *hdf = S_HDF(sfp[0]);
 	const char *name = S_text(sfp[1].s);
@@ -202,7 +202,7 @@ static KMETHOD Hdf_setValue(CTX, ksfp_t *sfp _RIX)
 }
 
 //## void Hdf.setIntValue(String name, Int value);
-static KMETHOD Hdf_setIntValue(CTX, ksfp_t *sfp _RIX)
+static KMETHOD Hdf_setIntValue(KonohaContext *kctx, KonohaStack *sfp)
 {
 	HDF *hdf = S_HDF(sfp[0]);
 	const char *name = S_text(sfp[1].s);
@@ -219,19 +219,19 @@ static KMETHOD Hdf_setIntValue(CTX, ksfp_t *sfp _RIX)
 
 //## String Hdf.getValue(String name, String defaultValue)
 // This method retrieves a string value from the HDF dataset. The hdfpath is a dotted path of the form "A.B.C".
-static KMETHOD Hdf_getValue(CTX, ksfp_t *sfp _RIX)
+static KMETHOD Hdf_getValue(KonohaContext *kctx, KonohaStack *sfp)
 {
 	HDF *hdf = S_HDF(sfp[0]);
 	const char *name = S_text(sfp[1].s);
 	const char *defaultValue = S_text(sfp[2].s);
 	const char *value = hdf_get_value(hdf, name, defaultValue);
-	RETURN_(new_kString(value, strlen(value), 0));
+	RETURN_(KLIB new_kString(kctx, value, strlen(value), 0));
 }
 
 
 //## String Hdf.writeString()
 // serializes HDF contents to a string
-static KMETHOD Hdf_writeString(CTX, ksfp_t *sfp _RIX)
+static KMETHOD Hdf_writeString(KonohaContext *kctx, KonohaStack *sfp)
 {
 	HDF *hdf = S_HDF(sfp[0]);
 	char *ret = NULL;
@@ -239,7 +239,7 @@ static KMETHOD Hdf_writeString(CTX, ksfp_t *sfp _RIX)
 	if (err != STATUS_OK) {
 		TRACE_NEOERR(_SystemFault, "hdf_write_string");
 	}
-	kString *string = new_kString(ret, strlen(ret), 0);
+	kString *string = KLIB new_kString(kctx, ret, strlen(ret), 0);
 	free(ret);
 	RETURN_(string);
 }
@@ -247,7 +247,7 @@ static KMETHOD Hdf_writeString(CTX, ksfp_t *sfp _RIX)
 //## String Hdf.dump()
 // Serializes the HDF tree to a String in a slightly different format than writeString().
 // NOTE: this method dump text into stdouts directly
-static KMETHOD Hdf_dump(CTX, ksfp_t *sfp _RIX)
+static KMETHOD Hdf_dump(KonohaContext *kctx, KonohaStack *sfp)
 {
 	HDF *hdf = S_HDF(sfp[0]);
 	const char *prefix = S_text(sfp[1].s);
@@ -260,7 +260,7 @@ static KMETHOD Hdf_dump(CTX, ksfp_t *sfp _RIX)
 
 //## HDF Hdf.getObj(String name)
 // This method allows you to retrieve the HDF object which represents the HDF subtree ad the named hdfpath.
-static KMETHOD Hdf_getObj(CTX, ksfp_t *sfp _RIX)
+static KMETHOD Hdf_getObj(KonohaContext *kctx, KonohaStack *sfp)
 {
 	kHdf *self = (kHdf *)sfp[0].o;
 	HDF *hdf = S_HDF(sfp[0]);
@@ -278,18 +278,18 @@ static KMETHOD Hdf_getObj(CTX, ksfp_t *sfp _RIX)
 // 
 //   // this will print "1"
 //   System.p(hdf_subnode.objValue());
-static KMETHOD Hdf_objValue(CTX, ksfp_t *sfp _RIX)
+static KMETHOD Hdf_objValue(KonohaContext *kctx, KonohaStack *sfp)
 {
 	HDF *hdf = S_HDF(sfp[0]);
 	char *value = hdf_obj_value(hdf);
 
 	if (value == NULL) RETURN_(K_NULL);
-	RETURN_(new_kString(value, strlen(value), 0));
+	RETURN_(KLIB new_kString(kctx, value, strlen(value), 0));
 }
 
 //## int getIntValue(String hdfpath, int defaultValue)
 // This method retrieves an integer value from the HDF dataset. The hdfpath is a dotted path of the form "A.B.C".
-static KMETHOD Hdf_getIntValue(CTX, ksfp_t *sfp _RIX)
+static KMETHOD Hdf_getIntValue(KonohaContext *kctx, KonohaStack *sfp)
 {
 	HDF *hdf = S_HDF(sfp[0]);
 	const char *name = S_text(sfp[1].s);
@@ -300,7 +300,7 @@ static KMETHOD Hdf_getIntValue(CTX, ksfp_t *sfp _RIX)
 
 //## void Hdf.copy(String name, HDF src)
 // Copy the HDF tree src to the destination path hdfpath in this HDF tree. src may be in this path or not. Result is undefined for overlapping source and destination.
-static KMETHOD Hdf_copy(CTX, ksfp_t *sfp _RIX)
+static KMETHOD Hdf_copy(KonohaContext *kctx, KonohaStack *sfp)
 {
 	HDF *hdf = S_HDF(sfp[0]);
 	const char *name = S_text(sfp[1].s);
@@ -316,7 +316,7 @@ static KMETHOD Hdf_copy(CTX, ksfp_t *sfp _RIX)
 //## Hdf Hdf.getNode(String name)
 // Retrieves the HDF object that is the root of the subtree at hdfpath, create the subtree if it doesn't exist
 // NOTE: this method is named getOrCreateObj in Java version
-static KMETHOD Hdf_getNode(CTX, ksfp_t *sfp _RIX)
+static KMETHOD Hdf_getNode(KonohaContext *kctx, KonohaStack *sfp)
 {
 	HDF *hdf = S_HDF(sfp[0]);
 	const char *name = S_text(sfp[1].s);
@@ -331,7 +331,7 @@ static KMETHOD Hdf_getNode(CTX, ksfp_t *sfp _RIX)
 
 //## void readString(String data)
 // parses/loads the contents of the given string as HDF into the current HDF object
-static KMETHOD Hdf_readString(CTX, ksfp_t *sfp _RIX)
+static KMETHOD Hdf_readString(KonohaContext *kctx, KonohaStack *sfp)
 {
 	HDF *hdf = S_HDF(sfp[0]);
 	const char *data = S_text(sfp[1].s);
@@ -345,7 +345,7 @@ static KMETHOD Hdf_readString(CTX, ksfp_t *sfp _RIX)
 
 //## Hdf Hdf.objChild()
 // This method is used to walk the HDF tree. Keep in mind that every node in the tree can have a value, a child, and a next peer.
-static KMETHOD Hdf_objChild(CTX, ksfp_t *sfp _RIX)
+static KMETHOD Hdf_objChild(KonohaContext *kctx, KonohaStack *sfp)
 {
 	HDF *hdf = S_HDF(sfp[0]);
 	HDF *retHdf = hdf_obj_child(hdf);
@@ -354,7 +354,7 @@ static KMETHOD Hdf_objChild(CTX, ksfp_t *sfp _RIX)
 
 //## Hdf Hdf.getChild(String name)
 // Retrieves the HDF for the first child of the root of the subtree at hdfpath, or null if no child exists of that path or if the path doesn't exist.
-static KMETHOD Hdf_getChild(CTX, ksfp_t *sfp _RIX)
+static KMETHOD Hdf_getChild(KonohaContext *kctx, KonohaStack *sfp)
 {
 	HDF *hdf = S_HDF(sfp[0]);
 	const char *name = S_text(sfp[1].s);
@@ -365,7 +365,7 @@ static KMETHOD Hdf_getChild(CTX, ksfp_t *sfp _RIX)
 //## Hdf Hdf.objTop()
 // Return the root of the tree that this node is in.
 // NOTE: this method is named getRootObj in Java version
-static KMETHOD Hdf_objTop(CTX, ksfp_t *sfp _RIX)
+static KMETHOD Hdf_objTop(KonohaContext *kctx, KonohaStack *sfp)
 {
 	HDF *hdf = S_HDF(sfp[0]);
 	HDF *retHdf = hdf_obj_top(hdf);
@@ -374,7 +374,7 @@ static KMETHOD Hdf_objTop(CTX, ksfp_t *sfp _RIX)
 
 //## Hdf Hdf.objNext()
 // This method is used to walk the HDF tree to the next peer.
-static KMETHOD Hdf_objNext(CTX, ksfp_t *sfp _RIX)
+static KMETHOD Hdf_objNext(KonohaContext *kctx, KonohaStack *sfp)
 {
 	HDF *hdf = S_HDF(sfp[0]);
 	HDF *retHdf = hdf_obj_next(hdf);
@@ -389,17 +389,17 @@ static KMETHOD Hdf_objNext(CTX, ksfp_t *sfp _RIX)
 // 
 //   // this will print "C"
 //   System.out.println(hdf_subnode.objName());
-static KMETHOD Hdf_objName(CTX, ksfp_t *sfp _RIX)
+static KMETHOD Hdf_objName(KonohaContext *kctx, KonohaStack *sfp)
 {
 	HDF *hdf = S_HDF(sfp[0]);
 	char *name = hdf_obj_name(hdf);
 
 	if (name == NULL) RETURN_(K_NULL);
-	RETURN_(new_kString(name, strlen(name), 0));
+	RETURN_(KLIB new_kString(kctx, name, strlen(name), 0));
 }
 
 //## void Hdf.setCopy(String name, String srcName)
-static KMETHOD Hdf_setCopy(CTX, ksfp_t *sfp _RIX)
+static KMETHOD Hdf_setCopy(KonohaContext *kctx, KonohaStack *sfp)
 {
 	HDF *hdf = S_HDF(sfp[0]);
 	const char *name = S_text(sfp[1].s);
@@ -413,7 +413,7 @@ static KMETHOD Hdf_setCopy(CTX, ksfp_t *sfp _RIX)
 
 //## void removeTree(String name)
 // Remove all nodes of the HDF subtree at name
-static KMETHOD Hdf_removeTree(CTX, ksfp_t *sfp _RIX)
+static KMETHOD Hdf_removeTree(KonohaContext *kctx, KonohaStack *sfp)
 {
 	HDF *hdf = S_HDF(sfp[0]);
 	const char *name = S_text(sfp[1].s);
@@ -426,7 +426,7 @@ static KMETHOD Hdf_removeTree(CTX, ksfp_t *sfp _RIX)
 
 //## void writeFileAtomic(String path
 // like writeFile, but first writes to a temp file then uses rename(2) to ensure updates are Atomic
-static KMETHOD Hdf_writeFileAtomic(CTX, ksfp_t *sfp _RIX)
+static KMETHOD Hdf_writeFileAtomic(KonohaContext *kctx, KonohaStack *sfp)
 {
 	HDF *hdf = S_HDF(sfp[0]);
 	const char *path = S_text(sfp[1].s);
@@ -439,7 +439,7 @@ static KMETHOD Hdf_writeFileAtomic(CTX, ksfp_t *sfp _RIX)
 
 //## void Hdf.writeFile(String path)
 // writes/serializes HDF dataset to file
-static KMETHOD Hdf_writeFile(CTX, ksfp_t *sfp _RIX)
+static KMETHOD Hdf_writeFile(KonohaContext *kctx, KonohaStack *sfp)
 {
 	HDF *hdf = S_HDF(sfp[0]);
 	const char *path = S_text(sfp[1].s);
@@ -452,7 +452,7 @@ static KMETHOD Hdf_writeFile(CTX, ksfp_t *sfp _RIX)
 
 //## void Hdf.readFile(String path)
 // This method reads the contends of an on-disk HDF dataset into the current HDF object.
-static KMETHOD Hdf_readFile(CTX, ksfp_t *sfp _RIX)
+static KMETHOD Hdf_readFile(KonohaContext *kctx, KonohaStack *sfp)
 {
 	HDF *hdf = S_HDF(sfp[0]);
 	const char *path = S_text(sfp[1].s);
@@ -465,7 +465,7 @@ static KMETHOD Hdf_readFile(CTX, ksfp_t *sfp _RIX)
 
 //## void Hdf.setSymLink(String name, destName)
 // Links the src hdfpath to the dest
-static KMETHOD Hdf_setSymLink(CTX, ksfp_t *sfp _RIX)
+static KMETHOD Hdf_setSymLink(KonohaContext *kctx, KonohaStack *sfp)
 {
 	HDF *hdf = S_HDF(sfp[0]);
 	const char *name = S_text(sfp[1].s);
@@ -480,15 +480,15 @@ static KMETHOD Hdf_setSymLink(CTX, ksfp_t *sfp _RIX)
 /* ======================================================================== */
 
 //## Cs Cs.new();
-static KMETHOD Cs_new(CTX, ksfp_t *sfp _RIX)
+static KMETHOD Cs_new(KonohaContext *kctx, KonohaStack *sfp)
 {
 	// kCs *cs = S_kCs(sfp[0]);
 	kHdf *hdf = S_kHdf(sfp[1]);
-	RETURN_(new_kObject(O_ct(sfp[K_RTNIDX].o), hdf));
+	RETURN_(KLIB new_kObject(kctx, O_ct(sfp[K_RTNIDX].o), (uintptr_t)hdf));
 }
 
 //## void Cs.parseString(String template)
-static KMETHOD Cs_parseString(CTX, ksfp_t *sfp _RIX)
+static KMETHOD Cs_parseString(KonohaContext *kctx, KonohaStack *sfp)
 {
 	CSPARSE *cs = S_CSPARSE(sfp[0]);
 	char *t = strdup(S_text(sfp[1].s));
@@ -501,7 +501,7 @@ static KMETHOD Cs_parseString(CTX, ksfp_t *sfp _RIX)
 }
 
 //## void Cs.parseFile(String path)
-static KMETHOD Cs_parseFile(CTX, ksfp_t *sfp _RIX)
+static KMETHOD Cs_parseFile(KonohaContext *kctx, KonohaStack *sfp)
 {
 	CSPARSE *cs = S_CSPARSE(sfp[0]);
 	const char *path = S_text(sfp[1].s);
@@ -513,18 +513,18 @@ static KMETHOD Cs_parseFile(CTX, ksfp_t *sfp _RIX)
 }
 
 typedef struct render_arg {
-	CTX_t ctx;
+	KonohaContext *kctx;
 	kFunc *fo;
 } render_arg_t;
 
 static NEOERR *render_cb(void *v, char *s)
 {
 	render_arg_t *arg = (render_arg_t *)v;
-	CTX = arg->ctx;
+	KonohaContext *kctx = arg->kctx;
 	kFunc *fo = arg->fo;
 	BEGIN_LOCAL(lsfp, K_CALLDELTA + 2);
-	KSETv(lsfp[K_CALLDELTA+1].s, new_kString(s, strlen(s), 0));
-	KCALL(lsfp, 0, fo->mtd, 1, knull(CT_Int));
+	KSETv(lsfp[K_CALLDELTA+1].s, KLIB new_kString(kctx, s, strlen(s), 0));
+	KCALL(lsfp, 0, fo->mtd, 1, KNULL(Int));
 	END_LOCAL();
 
 	switch (lsfp[0].ivalue) {
@@ -539,12 +539,12 @@ static NEOERR *render_cb(void *v, char *s)
 }
 
 //## void Cs.render(Func<String=>int> cb);
-static KMETHOD Cs_render(CTX, ksfp_t *sfp _RIX)
+static KMETHOD Cs_render(KonohaContext *kctx, KonohaStack *sfp)
 {
 	CSPARSE *cs = S_CSPARSE(sfp[0]);
-	kFunc *fo = sfp[1].fo;
+	kFunc *fo = sfp[1].asFunc;
 	render_arg_t arg = {
-		.ctx = _ctx,
+		.kctx = kctx,
 		.fo = fo
 	};
 	NEOERR *err = cs_render(cs, &arg, render_cb);
@@ -555,12 +555,12 @@ static KMETHOD Cs_render(CTX, ksfp_t *sfp _RIX)
 }
 
 //## void Cs.dump(Func<String=>int> cb);
-static KMETHOD Cs_dump(CTX, ksfp_t *sfp _RIX)
+static KMETHOD Cs_dump(KonohaContext *kctx, KonohaStack *sfp)
 {
 	CSPARSE *cs = S_CSPARSE(sfp[0]);
-	kFunc *fo = sfp[1].fo;
+	kFunc *fo = sfp[1].asFunc;
 	render_arg_t arg = {
-		.ctx = _ctx,
+		.kctx = kctx,
 		.fo = fo
 	};
 	NEOERR *err = cs_dump(cs, &arg, render_cb);
@@ -572,21 +572,21 @@ static KMETHOD Cs_dump(CTX, ksfp_t *sfp _RIX)
 
 /* ======================================================================== */
 //## @Static String Cgi.urlEscape(String url);
-static KMETHOD Cgi_urlEscape(CTX, ksfp_t *sfp _RIX)
+static KMETHOD Cgi_urlEscape(KonohaContext *kctx, KonohaStack *sfp)
 {
 	char *buf = NULL;
 	cgi_url_escape(S_text(sfp[1].s), &buf);
-	kString *string = new_kString(buf, strlen(buf), 0);
+	kString *string = KLIB new_kString(kctx, buf, strlen(buf), 0);
 	free(buf);
 	RETURN_(string);
 }
 
 //## @Static String Cgi.htmlEscape(String html);
-static KMETHOD Cgi_htmlEscape(CTX, ksfp_t *sfp _RIX)
+static KMETHOD Cgi_htmlEscape(KonohaContext *kctx, KonohaStack *sfp)
 {
 	char *buf = NULL;
 	cgi_html_escape_strfunc(S_text(sfp[1].s), &buf);
-	kString *string = new_kString(buf, strlen(buf), 0);
+	kString *string = KLIB new_kString(kctx, buf, strlen(buf), 0);
 	free(buf);
 	RETURN_(string);
 }
@@ -594,13 +594,13 @@ static KMETHOD Cgi_htmlEscape(CTX, ksfp_t *sfp _RIX)
 /* ======================================================================== */
 
 #define CT_Hdf cHdf
-#define TY_Hdf cHdf->cid
+#define TY_Hdf cHdf->classId
 #define CT_Cs  cCs
-#define TY_Cs  cCs->cid
+#define TY_Cs  cCs->classId
 #define CT_Cgi cCgi
-#define TY_Cgi cCgi->cid
+#define TY_Cgi cCgi->classId
 
-static kbool_t clearsilver_initPackage(CTX, kNameSpace *ks, int argc, const char **args, kline_t pline)
+static kbool_t clearsilver_initPackage(KonohaContext *kctx, kNameSpace *ns, int argc, const char **args, kfileline_t pline)
 {
 	KDEFINE_CLASS defHdf = {
 		STRUCTNAME(Hdf),
@@ -608,7 +608,7 @@ static kbool_t clearsilver_initPackage(CTX, kNameSpace *ks, int argc, const char
 		.init = kHdf_init,
 		.free = kHdf_free,
 	};
-	kclass_t *cHdf = Konoha_addClassDef(ks->packid, ks->packdom, NULL, &defHdf, pline);
+	KonohaClass *cHdf = KLIB Konoha_defineClass(kctx, ns->packageId, ns->packageDomain, NULL, &defHdf, pline);
 
 	KDEFINE_CLASS defCs = {
 		STRUCTNAME(Cs),
@@ -616,24 +616,22 @@ static kbool_t clearsilver_initPackage(CTX, kNameSpace *ks, int argc, const char
 		.init = kCs_init,
 		.free = kCs_free,
 	};
-	kclass_t *cCs = Konoha_addClassDef(ks->packid, ks->packdom, NULL, &defCs, pline);
+	KonohaClass *cCs = KLIB Konoha_defineClass(kctx, ns->packageId, ns->packageDomain, NULL, &defCs, pline);
 
 	KDEFINE_CLASS defCgi = {
 		STRUCTNAME(Cgi),
 		.cflag = kClass_Final,
-		.init = kCgi_init,
-		.free = kCgi_free,
 	};
-	kclass_t *cCgi = Konoha_addClassDef(ks->packid, ks->packdom, NULL, &defCgi, pline);
+	KonohaClass *cCgi = KLIB Konoha_defineClass(kctx, ns->packageId, ns->packageDomain, NULL, &defCgi, pline);
 
 #define _Public   kMethod_Public
 #define _Static   kMethod_Static
 #define _F(F)   (intptr_t)(F)
 
-	kparam_t ps = {TY_String, FN_("str")};
-	kclass_t *CT_Func_IntString = kClassTable_Generics(CT_Func, TY_Int, 1, &ps);
-	kcid_t TY_Func_IntString = CT_Func_IntString->cid;
-	intptr_t MethodData[] = {
+	kparamtype_t ps = {TY_String, FN_("str")};
+	KonohaClass *CT_Func_IntString = KLIB KonohaClass_Generics(kctx, CT_Func, TY_Int, 1, &ps);
+	ktype_t TY_Func_IntString = CT_Func_IntString->classId;
+	KDEFINE_METHOD MethodData[] = {
 		_Public, _F(Hdf_new)     	, TY_Hdf 	, TY_Hdf, MN_("new")		, 0,
 		_Public, _F(Hdf_setValue)	, TY_void	, TY_Hdf, MN_("setValue")	, 2, TY_String, FN_("name"), TY_String, FN_("value"),
 		_Public, _F(Hdf_setIntValue), TY_void	, TY_Hdf, MN_("setIntValue"), 2, TY_String, FN_("name"), TY_Int, FN_("value"),
@@ -666,29 +664,29 @@ static kbool_t clearsilver_initPackage(CTX, kNameSpace *ks, int argc, const char
 		_Public|_Static, _F(Cgi_htmlEscape), TY_String, TY_Cgi, MN_("htmlEscape")		, 1, TY_String, FN_("html"),
 		DEND,
 	};
-	kNameSpace_loadMethodData(ks, MethodData);
+	KLIB kNameSpace_loadMethodData(kctx, ns, MethodData);
 
 	KDEFINE_INT_CONST IntData[] = {
 		{"STATUS_OK", TY_Int, STATUS_OK_INT},
 		{"INTERNAL_ERR", TY_Int, INTERNAL_ERR_INT},
 		{}
 	};
-	kNameSpace_loadConstData(ks, IntData, pline);
+	KLIB kNameSpace_loadConstData(kctx, ns, KonohaConst_(IntData), pline);
 
 	return true;
 }
 
-static kbool_t clearsilver_setupPackage(CTX, kNameSpace *ks, kline_t pline)
+static kbool_t clearsilver_setupPackage(KonohaContext *kctx, kNameSpace *ns, kfileline_t pline)
 {
 	return true;
 }
 
-static kbool_t clearsilver_initNameSpace(CTX,  kNameSpace *ks, kline_t pline)
+static kbool_t clearsilver_initNameSpace(KonohaContext *kctx,  kNameSpace *ns, kfileline_t pline)
 {
 	return true;
 }
 
-static kbool_t clearsilver_setupNameSpace(CTX, kNameSpace *ks, kline_t pline)
+static kbool_t clearsilver_setupNameSpace(KonohaContext *kctx, kNameSpace *ns, kfileline_t pline)
 {
 	return true;
 }
