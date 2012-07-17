@@ -118,10 +118,9 @@ set(PACKAGES
 	konoha.class
 	konoha.global
 	llvm
-	konoha.pcre
+##	konoha.pcre
 ##	konoha.io
 	konoha.i
-##	konoha.assert
 	posix.process
 	posix.file
 	posix.fd
