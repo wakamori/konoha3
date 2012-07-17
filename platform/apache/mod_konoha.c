@@ -143,7 +143,7 @@ static const PlatformApi apache_platform = {
 // ## void Request.puts(String s)
 static KMETHOD Request_puts(KonohaContext *kctx, KonohaStack *sfp)
 {
-	kRequest *self = (kRequest *) sfp[0].asObject;
+	kRequest *self = (kRequest *)sfp[0].asObject;
 	kString *data = sfp[1].asString;
 	ap_rputs(S_text(data), self->r);
 	RETURNvoid_();
@@ -152,17 +152,25 @@ static KMETHOD Request_puts(KonohaContext *kctx, KonohaStack *sfp)
 // ## String Request.getMethod()
 static KMETHOD Request_getMethod(KonohaContext *kctx, KonohaStack *sfp)
 {
-	kRequest *self = (kRequest *) sfp[0].asObject;
+	kRequest *self = (kRequest *)sfp[0].asObject;
 	const char *method = self->r->method;
 	if(method == NULL) {
 		RETURN_(KNULL(String));
 	}
 	RETURN_(KLIB new_kString(kctx, method, strlen(method), 0));
 }
+
+//## int Request.getMethodNumber()
+static KMETHOD Request_getMethodNumber(KonohaContext *kctx, KonohaStack *sfp)
+{
+	kRequest *self = (kRequest *)sfp[0].asObject;
+	RETURNi_(self->r->method_number);
+}
+
 // ## String Request.getArgs();
 static KMETHOD Request_getArgs(KonohaContext *kctx, KonohaStack *sfp)
 {
-	kRequest *self = (kRequest *) sfp[0].asObject;
+	kRequest *self = (kRequest *)sfp[0].asObject;
 	const char *args = self->r->args;
 	if(args == NULL) {
 		RETURN_(KNULL(String));
@@ -172,7 +180,7 @@ static KMETHOD Request_getArgs(KonohaContext *kctx, KonohaStack *sfp)
 // ## String Request.getUri();
 static KMETHOD Request_getUri(KonohaContext *kctx, KonohaStack *sfp)
 {
-	kRequest *self = (kRequest *) sfp[0].asObject;
+	kRequest *self = (kRequest *)sfp[0].asObject;
 	const char *uri = self->r->uri;
 	if(uri == NULL) {
 		RETURN_(KNULL(String));
@@ -182,7 +190,7 @@ static KMETHOD Request_getUri(KonohaContext *kctx, KonohaStack *sfp)
 // ## String Request.getPathInfo();
 static KMETHOD Request_getPathInfo(KonohaContext *kctx, KonohaStack *sfp)
 {
-	kRequest *self = (kRequest *) sfp[0].asObject;
+	kRequest *self = (kRequest *)sfp[0].asObject;
 	const char *path_info = self->r->path_info;
 	if(path_info == NULL) {
 		RETURN_(KNULL(String));
@@ -192,7 +200,7 @@ static KMETHOD Request_getPathInfo(KonohaContext *kctx, KonohaStack *sfp)
 // ## String Request.getHandler();
 static KMETHOD Request_getHandler(KonohaContext *kctx, KonohaStack *sfp)
 {
-	kRequest *self = (kRequest *) sfp[0].asObject;
+	kRequest *self = (kRequest *)sfp[0].asObject;
 	const char *handler = self->r->handler;
 	if(handler == NULL) {
 		RETURN_(KNULL(String));
@@ -202,7 +210,7 @@ static KMETHOD Request_getHandler(KonohaContext *kctx, KonohaStack *sfp)
 // ## void Request.setContentType(String type);
 static KMETHOD Request_setContentType(KonohaContext *kctx, KonohaStack *sfp)
 {
-	kRequest *self = (kRequest *) sfp[0].asObject;
+	kRequest *self = (kRequest *)sfp[0].asObject;
 	kString *type = sfp[1].asString;
 	self->r->content_type = apr_pstrdup(self->r->pool, S_text(type));
 	RETURNvoid_();
@@ -210,7 +218,7 @@ static KMETHOD Request_setContentType(KonohaContext *kctx, KonohaStack *sfp)
 // ##void Request.setContentEncoding(String enc);
 static KMETHOD Request_setContentEncoding(KonohaContext *kctx, KonohaStack *sfp)
 {
-	kRequest *self = (kRequest *) sfp[0].asObject;
+	kRequest *self = (kRequest *)sfp[0].asObject;
 	kString *enc = sfp[1].asString;
 	self->r->content_encoding = apr_pstrdup(self->r->pool, S_text(enc));
 	RETURNvoid_();
@@ -228,20 +236,20 @@ static KMETHOD Request_logError(KonohaContext *kctx, KonohaStack *sfp)
 // ## AprTable Request.getHeadersIn();
 static KMETHOD Request_getHeadersIn(KonohaContext *kctx, KonohaStack *sfp)
 {
-	kRequest *self = (kRequest *) sfp[0].asObject;
+	kRequest *self = (kRequest *)sfp[0].asObject;
 	RETURN_(new_(AprTable, self->r->headers_in));
 }
 // ## AprTable Request.getHeadersOut();
 static KMETHOD Request_getHeadersOut(KonohaContext *kctx, KonohaStack *sfp)
 {
-	kRequest *self = (kRequest *) sfp[0].asObject;
+	kRequest *self = (kRequest *)sfp[0].asObject;
 	RETURN_(new_(AprTable, self->r->headers_out));
 }
 
 // ## void AprTable.add(String key, String val)
 static KMETHOD AprTable_add(KonohaContext *kctx, KonohaStack *sfp)
 {
-	kAprTable *self = (kAprTable *) sfp[0].asObject;
+	kAprTable *self = (kAprTable *)sfp[0].asObject;
 	const char *key = S_text(sfp[1].asString);
 	const char *val = S_text(sfp[2].s);
 	apr_table_add(self->tbl, key, val);
@@ -250,7 +258,7 @@ static KMETHOD AprTable_add(KonohaContext *kctx, KonohaStack *sfp)
 // ## void AprTable.set(String key, String val)
 static KMETHOD AprTable_set(KonohaContext *kctx, KonohaStack *sfp)
 {
-	kAprTable *self = (kAprTable *) sfp[0].asObject;
+	kAprTable *self = (kAprTable *)sfp[0].asObject;
 	const char *key = S_text(sfp[1].asString);
 	const char *val = S_text(sfp[2].s);
 	apr_table_set(self->tbl, key, val);
@@ -259,7 +267,7 @@ static KMETHOD AprTable_set(KonohaContext *kctx, KonohaStack *sfp)
 // ## Array[AprTableEntry] AprTable.getElts()
 static KMETHOD AprTable_getElts(KonohaContext *kctx, KonohaStack *sfp)
 {
-	kAprTable *self = (kAprTable *) sfp[0].asObject;
+	kAprTable *self = (kAprTable *)sfp[0].asObject;
 	kArray *arr = new_(Array, 0);
 	const apr_array_header_t *apr_arr = apr_table_elts(self->tbl);
 	const apr_table_entry_t *entries = (apr_table_entry_t *)apr_arr->elts;
@@ -273,13 +281,13 @@ static KMETHOD AprTable_getElts(KonohaContext *kctx, KonohaStack *sfp)
 // ## void AprTableEntry.getKey()
 static KMETHOD AprTableEntry_getKey(KonohaContext *kctx, KonohaStack *sfp)
 {
-	kAprTableEntry *self = (kAprTableEntry *) sfp[0].asObject;
+	kAprTableEntry *self = (kAprTableEntry *)sfp[0].asObject;
 	RETURN_(KLIB new_kString(kctx, self->entry->key, strlen(self->entry->key), 0));
 }
 // ## void AprTableEntry.getVal()
 static KMETHOD AprTableEntry_getVal(KonohaContext *kctx, KonohaStack *sfp)
 {
-	kAprTableEntry *self = (kAprTableEntry *) sfp[0].asObject;
+	kAprTableEntry *self = (kAprTableEntry *)sfp[0].asObject;
 	RETURN_(KLIB new_kString(kctx, self->entry->val, strlen(self->entry->val), 0));
 }
 // class methodList end ==============================================================================================
@@ -305,6 +313,7 @@ KonohaContext* konoha_create(KonohaClass **cRequest)
 	KDEFINE_METHOD MethodData[] = {
 		_P, _F(Request_puts), TY_void, TY_Req, MN_("puts"), 1, TY_String, FN_x,
 		_P, _F(Request_getMethod), TY_String, TY_Req, MN_("getMethod"), 0,
+		_P, _F(Request_getMethodNumber), TY_Int, TY_Req, MN_("getMethodNumber"), 0,
 		_P, _F(Request_getArgs), TY_String, TY_Req, MN_("getArgs"), 0,
 		_P, _F(Request_getUri), TY_String, TY_Req, MN_("getUri"), 0,
 		_P, _F(Request_getPathInfo), TY_String, TY_Req, MN_("getPathInfo"), 0,
@@ -374,7 +383,7 @@ static void mod_konoha_child_init(apr_pool_t *pool, server_rec *server)
 {
 	/* TODO: Create VM Instance per child process */
 	(void)pool;(void)server;
-	//konoha_config_t *conf = (konoha_config_t *) ap_get_module_config(
+	//konoha_config_t *conf = (konoha_config_t *)ap_get_module_config(
 	//		server->module_config, &konoha_module);
 	//KonohaContext* konoha = konoha_open(&apache_platform);
 }
