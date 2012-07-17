@@ -97,6 +97,10 @@ static kbool_t apache_initPackage(KonohaContext *kctx, kNameSpace *ns, int argc,
 		.free = AprTableEntry_free,
 	};
 
+	static KDEFINE_CLASS apacheDef = {
+		STRUCTNAME(Apache)
+	};
+
 	kapacheshare_t *base = (kapacheshare_t*)KCALLOC(sizeof(kapacheshare_t), 1);
 	base->h.name     = "apache";
 	base->h.setup    = kapacheshare_setup;
@@ -106,6 +110,11 @@ static kbool_t apache_initPackage(KonohaContext *kctx, kNameSpace *ns, int argc,
 	base->cRequest = KLIB kNameSpace_defineClass(kctx, ns, NULL, &Def, 0);
 	base->cAprTable = KLIB kNameSpace_defineClass(kctx, ns, NULL, &aprTableDef, 0);
 	base->cAprTableEntry = KLIB kNameSpace_defineClass(kctx, ns, NULL, &aprTableEntryDef, 0);
+	KLIB Konoha_setModule(kctx, MOD_APACHE, &base->h, pline);
+	base->cRequest = KLIB Konoha_defineClass(kctx, ns->packageId, ns->packageDomain, NULL, &Def, 0);
+	base->cAprTable = KLIB Konoha_defineClass(kctx, ns->packageId, ns->packageDomain, NULL, &aprTableDef, 0);
+	base->cAprTableEntry = KLIB Konoha_defineClass(kctx, ns->packageId, ns->packageDomain, NULL, &aprTableEntryDef, 0);
+	base->cApache = KLIB Konoha_defineClass(kctx, ns->packageId, ns->packageDomain, NULL, &apacheDef, 0);
 
 	KDEFINE_INT_CONST IntData[] = {
 #define DEFINE_KEYWORD(KW) {#KW, TY_int, KW}

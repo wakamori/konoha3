@@ -209,13 +209,13 @@ static KMETHOD Request_logError(KonohaContext *kctx, KonohaStack *sfp)
 static KMETHOD Request_getHeadersIn(KonohaContext *kctx, KonohaStack *sfp)
 {
 	kRequest *self = (kRequest *) sfp[0].asObject;
-	RETURN_(KLIB new_kObject(kctx, CT_AprTable, (void*)self->r->headers_in));
+	RETURN_(new_(AprTable, self->r->headers_in));
 }
 // ## AprTable Request.getHeadersOut();
 static KMETHOD Request_getHeadersOut(KonohaContext *kctx, KonohaStack *sfp)
 {
 	kRequest *self = (kRequest *) sfp[0].asObject;
-	RETURN_(KLIB new_kObject(kctx, CT_AprTable, (void*)self->r->headers_out));
+	RETURN_(new_(AprTable, self->r->headers_out));
 }
 
 // ## void AprTable.add(String key, String val)
@@ -240,12 +240,12 @@ static KMETHOD AprTable_set(KonohaContext *kctx, KonohaStack *sfp)
 static KMETHOD AprTable_getElts(KonohaContext *kctx, KonohaStack *sfp)
 {
 	kAprTable *self = (kAprTable *) sfp[0].asObject;
-	kArray *arr = (kArray*)KLIB new_kObject(kctx, CT_Array, NULL);
+	kArray *arr = new_(Array, 0);
 	const apr_array_header_t *apr_arr = apr_table_elts(self->tbl);
 	const apr_table_entry_t *entries = (apr_table_entry_t *)apr_arr->elts;
 	int i=0;
 	for (i=0; i<apr_arr->nelts; i++) {
-		KLIB kArray_add(kctx, arr, (kAprTableEntry *)KLIB new_kObject(kctx, CT_AprTableEntry, entries));
+		KLIB kArray_add(kctx, arr, new_(AprTableEntry, entries));
 		entries++;
 	}
 	RETURN_(arr);
@@ -267,7 +267,7 @@ static KMETHOD AprTableEntry_getVal(KonohaContext *kctx, KonohaStack *sfp)
 KonohaContext* konoha_create(KonohaClass **cRequest)
 {
 	KonohaContext* konoha = konoha_open(&apache_platform);
-	KonohaContext_t kctx = konoha;
+	KonohaContext* kctx = konoha;
 	kNameSpace *ns = KNULL(NameSpace);
 	KRequirePackage("apache", 0);
 	*cRequest = CT_Request;
@@ -307,6 +307,7 @@ KonohaContext* konoha_create(KonohaClass **cRequest)
 
 static int konoha_handler(request_rec *r)
 {
+#define TY_Apache  (CT_AprTableEntry->classId)
 	//konoha_config_t *conf = ap_get_module_config(
 	//		r->server->module_config, &konoha_module);
 	if (strcmp(r->handler, "konoha-script")) {
@@ -324,16 +325,17 @@ static int konoha_handler(request_rec *r)
 		return DECLINED;
 	}
 
-	KonohaContext_t kctx = (KonohaContext_t) konoha;
+	KonohaContext *kctx = konoha;
+	KLIB kNameSpace_compileAllDefinedMethods(kctx);
 	kNameSpace *ns = KNULL(NameSpace);
-	kMethod *mtd = KLIB kNameSpace_getMethodNULL(kctx, ns, TY_System, MN_("handler"));
+	kMethod *mtd = KLIB kNameSpace_getMethodNULL(kctx, ns, TY_Apache, MN_("handler"), 0, MPOL_LATEST);
 	if (mtd == NULL) {
 		ap_log_rerror(APLOG_MARK, APLOG_CRIT, 0, r, "System.handler() not found");
 		return -1;
 	}
 
 	/* XXX: We assume Request Object may not be freed by GC */
-	kObject *req_obj = KLIB new_kObject(kctx, cRequest, (void*)r);
+	kObject *req_obj = KLIB new_kObject(kctx, cRequest, (uintptr_t)r);
 	BEGIN_LOCAL(lsfp, K_CALLDELTA + 1);
 	KSETv_AND_WRITE_BARRIER(NULL, lsfp[K_CALLDELTA+0].o, K_NULL, GC_NO_WRITE_BARRIER);
 	KSETv_AND_WRITE_BARRIER(NULL, lsfp[K_CALLDELTA+1].o, req_obj, GC_NO_WRITE_BARRIER);
