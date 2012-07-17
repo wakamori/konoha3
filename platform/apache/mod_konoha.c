@@ -153,31 +153,51 @@ static KMETHOD Request_puts(KonohaContext *kctx, KonohaStack *sfp)
 static KMETHOD Request_getMethod(KonohaContext *kctx, KonohaStack *sfp)
 {
 	kRequest *self = (kRequest *) sfp[0].asObject;
-	RETURN_(KLIB new_kString(kctx, self->r->method, strlen(self->r->method), 0));
+	const char *method = self->r->method;
+	if(method == NULL) {
+		RETURN_(KNULL(String));
+	}
+	RETURN_(KLIB new_kString(kctx, method, strlen(method), 0));
 }
 // ## String Request.getArgs();
 static KMETHOD Request_getArgs(KonohaContext *kctx, KonohaStack *sfp)
 {
 	kRequest *self = (kRequest *) sfp[0].asObject;
-	RETURN_(KLIB new_kString(kctx, self->r->args, strlen(self->r->args), 0));
+	const char *args = self->r->args;
+	if(args == NULL) {
+		RETURN_(KNULL(String));
+	}
+	RETURN_(KLIB new_kString(kctx, args, strlen(args), 0));
 }
 // ## String Request.getUri();
 static KMETHOD Request_getUri(KonohaContext *kctx, KonohaStack *sfp)
 {
 	kRequest *self = (kRequest *) sfp[0].asObject;
-	RETURN_(KLIB new_kString(kctx, self->r->uri, strlen(self->r->uri), 0));
+	const char *uri = self->r->uri;
+	if(uri == NULL) {
+		RETURN_(KNULL(String));
+	}
+	RETURN_(KLIB new_kString(kctx, uri, strlen(uri), 0));
 }
 // ## String Request.getPathInfo();
 static KMETHOD Request_getPathInfo(KonohaContext *kctx, KonohaStack *sfp)
 {
 	kRequest *self = (kRequest *) sfp[0].asObject;
-	RETURN_(KLIB new_kString(kctx, self->r->path_info, strlen(self->r->path_info), 0));
+	const char *path_info = self->r->path_info;
+	if(path_info == NULL) {
+		RETURN_(KNULL(String));
+	}
+	RETURN_(KLIB new_kString(kctx, path_info, strlen(path_info), 0));
 }
 // ## String Request.getHandler();
 static KMETHOD Request_getHandler(KonohaContext *kctx, KonohaStack *sfp)
 {
 	kRequest *self = (kRequest *) sfp[0].asObject;
-	RETURN_(KLIB new_kString(kctx, self->r->handler, strlen(self->r->handler), 0));
+	const char *handler = self->r->handler;
+	if(handler == NULL) {
+		RETURN_(KNULL(String));
+	}
+	RETURN_(KLIB new_kString(kctx, handler, strlen(handler), 0));
 }
 // ## void Request.setContentType(String type);
 static KMETHOD Request_setContentType(KonohaContext *kctx, KonohaStack *sfp)
