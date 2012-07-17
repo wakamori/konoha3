@@ -3,7 +3,7 @@ K.import("konoha.while");
 K.import("konoha.array");
 K.import("konoha.assignment");
 
-int handler(Request req) {
+@Static int Apache.handler(Request req) {
 	req.setContentType("text/html");
 	req.setContentEncoding("utf-8");
 	req.logError(APLOG_WARNING, 0, "log error's test");

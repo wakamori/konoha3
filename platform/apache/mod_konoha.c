@@ -327,7 +327,7 @@ KonohaContext* konoha_create(KonohaClass **cRequest)
 
 static int konoha_handler(request_rec *r)
 {
-#define TY_Apache  (CT_AprTableEntry->classId)
+#define TY_Apache  (CT_Apache->classId)
 	//konoha_config_t *conf = ap_get_module_config(
 	//		r->server->module_config, &konoha_module);
 	if (strcmp(r->handler, "konoha-script")) {
@@ -347,9 +347,9 @@ static int konoha_handler(request_rec *r)
 
 	KonohaContext *kctx = konoha;
 	kNameSpace *ns = KNULL(NameSpace);
-	kMethod *mtd = KLIB kNameSpace_getMethodNULL(kctx, ns, TY_System/*TODO*/, MN_("handler"), 0, MPOL_LATEST);
+	kMethod *mtd = KLIB kNameSpace_getMethodNULL(kctx, ns, TY_Apache, MN_("handler"), 0, MPOL_LATEST);
 	if (mtd == NULL) {
-		ap_log_rerror(APLOG_MARK, APLOG_CRIT, 0, r, "System.handler() not found");
+		ap_log_rerror(APLOG_MARK, APLOG_CRIT, 0, r, "Apache.handler() not found");
 		return -1;
 	}
 
