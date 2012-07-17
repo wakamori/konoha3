@@ -118,7 +118,7 @@ set(PACKAGES
 	konoha.class
 	konoha.global
 	llvm
-##	konoha.pcre
+	konoha.pcre
 ##	konoha.io
 	konoha.i
 	posix.process
@@ -128,7 +128,7 @@ set(PACKAGES
 	konoha.rope
 ##	konoha.subproc
 ##	konoha.mpi
-##	konoha.curl
+##	curl
 	ijit
 ##	jansson
 	python

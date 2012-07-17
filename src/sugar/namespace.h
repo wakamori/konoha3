@@ -312,7 +312,6 @@ static KonohaClass *kNameSpace_getClass(KonohaContext *kctx, kNameSpace *ns, Kon
 		ct = (KonohaClass*)map_getu(kctx, kctx->share->longClassNameMapNN, hcode, 0);
 		if(ct == NULL) {
 			KUtilsKeyValue *kvs = kNameSpace_getConstNULL(kctx, ns, un);
-			DBG_P("kvs=%s, %p", name, kvs);
 			if(kvs != NULL && kvs->ty == TY_TYPE) {
 				return (KonohaClass*)kvs->uval;
 			}
@@ -417,6 +416,18 @@ static kMethod* kNameSpace_getMethodNULL(KonohaContext *kctx, kNameSpace *ns, kt
 	}
 }
 
+static kMethod* kMethod_replaceWith(KonohaContext *kctx, kMethodVar *oldMethod, kMethodVar *newMethod)
+{
+	if(Method_isOverride(newMethod)) {
+		kMethodVar tempMethod;
+		tempMethod = *oldMethod;
+		*oldMethod = *newMethod;
+		*newMethod = tempMethod;
+		return NULL;  // when it succeed
+	}
+	return oldMethod;
+}
+
 static kMethod* kNameSpace_addMethod(KonohaContext *kctx, kNameSpace *ns, kMethod *mtd)
 {
 	KonohaClass *ct = CT_(mtd->classId);
@@ -430,11 +441,21 @@ static kMethod* kNameSpace_addMethod(KonohaContext *kctx, kNameSpace *ns, kMetho
 			if(foundMethod->classId == mtd->classId) {
 				DBG_P("duplicated method %s.%s%s", Method_t(foundMethod));
 				PUSH_GCSTACK(mtd);  // avoid memory leaking
-				return foundMethod;
+				return kMethod_replaceWith(kctx, (kMethodVar*)foundMethod, (kMethodVar*)mtd);
+			}
+			else {
+				if(!Method_isFinal(foundMethod)) {
+					DBG_P("Changing Virtual method %s.%s%s by %s.%s%s....", Method_t(foundMethod), Method_t(mtd));
+					Method_setVirtual(foundMethod, true);  // FIXME
+				}
+				if(!Method_isVirtual(foundMethod) || Method_isFinal(foundMethod)) {
+					DBG_P("Can't override method %s.%s%s <: %s.%s%s ....", Method_t(mtd), Method_t(foundMethod));
+					return NULL;
+				}
 			}
 		}
 		else {
-			foundMethod = KonohaClass_getMethodNULL(kctx, ct, mtd->mn, mtd->paramdom, MPOL_FIRST);
+			foundMethod = KonohaClass_getMethodNULL(kctx, ct, mtd->mn, 0, MPOL_FIRST);
 			if(foundMethod != NULL && Method_paramsize(mtd) == Method_paramsize(foundMethod)) {
 				DBG_P("set overloading method %s.%s%s", Method_t(foundMethod));
 				Method_setOverloaded(foundMethod, true);
@@ -447,6 +468,33 @@ static kMethod* kNameSpace_addMethod(KonohaContext *kctx, kNameSpace *ns, kMetho
 		KLIB kArray_add(kctx, ct->methodList, mtd);
 	}
 	else {
+		size_t i;
+		for(i = 0; i < kArray_size(ns->methodList); i++) {
+			kMethod *foundMethod = ns->methodList->methodItems[i];
+			if(foundMethod->classId == mtd->classId && foundMethod->mn == mtd->mn && foundMethod->paramdom == mtd->paramdom) {
+				DBG_P("duplicated method %s.%s%s", Method_t(foundMethod));
+				PUSH_GCSTACK(mtd);  // avoid memory leaking
+				return kMethod_replaceWith(kctx, (kMethodVar*)foundMethod, (kMethodVar*)mtd);
+			}
+		}
+		kArray *matchedMethodList = kctx->stack->gcstack;
+		size_t popMatchedMethodListSize = kArray_size(matchedMethodList);
+		kNameSpace_findMethodList(kctx, ns, mtd->classId, mtd->mn, matchedMethodList, popMatchedMethodListSize);
+		if(popMatchedMethodListSize < kArray_size(matchedMethodList)) {
+			int count = 0;
+			for(i = popMatchedMethodListSize; i < kArray_size(matchedMethodList); i++) {
+				kMethod *foundMethod = matchedMethodList->methodItems[i];
+				if(Method_paramsize(foundMethod) == Method_paramsize(mtd)) {
+					Method_setOverloaded(foundMethod, true);
+					count++;
+				}
+			}
+			if(count > 0) {
+				DBG_P("set overloading method %s.%s%s", Method_t(mtd));
+				Method_setOverloaded(mtd, true);
+			}
+			KLIB kArray_clear(kctx, matchedMethodList, popMatchedMethodListSize);
+		}
 		if(ns->methodList == K_EMPTYARRAY) {
 			KINITv(((kNameSpaceVar*)ns)->methodList, new_(MethodArray, 8));
 		}
