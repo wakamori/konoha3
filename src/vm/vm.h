@@ -81,14 +81,13 @@ typedef struct ksfx_t {
 	ksfpidx_t n;
 } ksfx_t;
 
-struct klr_LDMTD_t;
-typedef void (*klr_Fth)(KonohaContext *kctx, struct VirtualMachineInstruction *, void**);
-typedef void (*klr_Floadmtd)(KonohaContext *kctx, KonohaStack *, struct klr_LDMTD_t *);
-typedef kbool_t (*Fcallcc)(KonohaContext *kctx, KonohaStack *, int, int, void *);
+typedef void (*ThreadCodeFunc)(KonohaContext *kctx, struct VirtualMachineInstruction *, void**);
+typedef void (*TraceFunc)(KonohaContext *kctx, KonohaStack *sfp, kfileline_t pline);
 
 typedef struct {
-	ktype_t cid; kmethodn_t mn;
-} kcachedata_t;
+	kMethod *mtd;
+	ktype_t classId; kparamid_t signature;
+} kMethodInlineCache;
 
 #if defined(K_USING_THCODE_)
 #define KCODE_HEAD \
@@ -141,6 +140,49 @@ struct kByteCodeVar {
 
 //-------------------------------------------------------------------------
 
+static void kNameSpace_lookupMethodWithInlineCache(KonohaContext *kctx, KonohaStack *sfp, kNameSpace *ns, kMethod **cache)
+{
+	ktype_t classId = O_classId(sfp[0].asObject);
+	kMethod *mtd = cache[0];
+	if(mtd->classId != classId) {
+		mtd = KLIB kNameSpace_getMethodNULL(kctx, ns, classId, mtd->mn, mtd->paramdom, MPOL_LATEST|MPOL_SIGNATURE);
+		cache[0] = mtd;
+	}
+	sfp[K_MTDIDX].mtdNC = mtd;
+}
+
+static VirtualMachineInstruction* KonohaVirtualMachine_run(KonohaContext *, KonohaStack *, VirtualMachineInstruction *);
+
+static VirtualMachineInstruction *KonohaVirtualMachine_tryJump(KonohaContext *kctx, KonohaStack *sfp, VirtualMachineInstruction *pc)
+{
+	int jmpresult;
+	INIT_GCSTACK();
+	KonohaContextRuntimeVar *base = kctx->stack;
+	jmpbuf_i lbuf = {};
+	if(base->evaljmpbuf == NULL) {
+		base->evaljmpbuf = (jmpbuf_i*)KCALLOC(sizeof(jmpbuf_i), 1);
+	}
+	memcpy(&lbuf, base->evaljmpbuf, sizeof(jmpbuf_i));
+	if((jmpresult = PLATAPI setjmp_i(*base->evaljmpbuf)) == 0) {
+		pc = KonohaVirtualMachine_run(kctx, sfp, pc);
+	}
+	else {
+		DBG_P("Catch eval exception jmpresult=%d", jmpresult);
+		//KSETv(sfp[exceptionIdx].e, ..);
+		pc = NULL;
+	}
+	memcpy(base->evaljmpbuf, &lbuf, sizeof(jmpbuf_i));
+	RESET_GCSTACK();
+	return pc;
+}
+
+static void KonohaVirtualMachine_onSafePoint(KonohaContext *kctx, KonohaStack *sfp, kfileline_t pline)
+{
+
+}
+
+//-------------------------------------------------------------------------
+
 #define rshift(rbp, x_) (rbp+(x_))
 #define SFP(rbp)  ((KonohaStack*)(rbp))
 #define SFPIDX(n) ((n)/2)
@@ -169,6 +211,11 @@ struct kByteCodeVar {
 		OPEXEC_RET();\
 	} \
 
+#define OPEXEC_YIELD() {\
+		(void)op;\
+		return pc;\
+	}\
+
 #define OPEXEC_EXIT() {\
 		(void)op;\
 		pc = NULL; \
@@ -183,27 +230,25 @@ struct kByteCodeVar {
 #define OPEXEC_NEW(A, P, CT)   KSETv(rbp[(A)].o, KLIB new_kObject(kctx, CT, P))
 #define OPEXEC_NULL(A, CT)     KSETv(rbp[(A)].o, KLIB Knull(kctx, CT))
 #define OPEXEC_BOX(A, B, CT)   KSETv(rbp[(A)].o, KLIB new_kObject(kctx, CT, rbp[(B)].ivalue))
-#define OPEXEC_UNBOX(A, B, CT) rbp[(A)].ivalue = N_toint(rbp[B].o)
+#define OPEXEC_UNBOX(A, B, CT) rbp[(A)].unboxValue = N_toint(rbp[B].o)
 
 #define PC_NEXT(pc)   pc+1
 
-#define OPEXEC_CHKSTACK(UL) \
-	if(unlikely(kctx->esp > kctx->stack->stack_uplimit)) {\
-		kreportf(CritTag, UL, "stack overflow");\
-	}\
-
+#define OPEXEC_LOOKUP(THIS, NS, MTD) { \
+		kNameSpace_lookupMethodWithInlineCache(kctx, SFP(rshift(rbp, THIS)), NS, (kMethod**)&MTD);\
+	} \
 
 #define OPEXEC_CALL(UL, THIS, espshift, CTO) { \
 		kMethod *mtd_ = rbp[THIS+K_MTDIDX2].mtdNC;\
+		KonohaStack *sfp_ = SFP(rshift(rbp, THIS)); \
+		sfp_[K_RTNIDX].o = CTO;\
+		sfp_[K_RTNIDX].uline = UL;\
+		sfp_[K_SHIFTIDX].shift = THIS; \
+		sfp_[K_PCIDX].pc = PC_NEXT(pc);\
+		sfp_[K_MTDIDX].mtdNC = mtd_;\
 		klr_setesp(kctx, SFP(rshift(rbp, espshift)));\
-		OPEXEC_CHKSTACK(UL);\
-		rbp = rshift(rbp, THIS);\
-		rbp[K_ULINEIDX2-1].o = CTO;\
-		rbp[K_ULINEIDX2].uline = UL;\
-		rbp[K_SHIFTIDX2].shift = THIS;\
-		rbp[K_PCIDX2].pc = PC_NEXT(pc);\
-		pc = (mtd_)->pc_start;\
-		GOTO_PC(pc); \
+		(mtd_)->invokeMethodFunc(kctx, sfp_); \
+		sfp_[K_MTDIDX].mtdNC = NULL;\
 	} \
 
 #define OPEXEC_VCALL(UL, THIS, espshift, mtdO, CTO) { \
@@ -219,13 +264,13 @@ struct kByteCodeVar {
 		GOTO_PC(pc); \
 	} \
 
-#define OPEXEC_SCALL(UL, thisidx, espshift, mtdO, CTO) { \
+#define OPEXEC_SCALL(UL, THIS, espshift, mtdO, CTO) { \
 		kMethod *mtd_ = mtdO;\
 		/*prefetch((mtd_)->invokeMethodFunc);*/\
-		KonohaStack *sfp_ = SFP(rshift(rbp, thisidx)); \
+		KonohaStack *sfp_ = SFP(rshift(rbp, THIS)); \
 		sfp_[K_RTNIDX].o = CTO;\
 		sfp_[K_RTNIDX].uline = UL;\
-		sfp_[K_SHIFTIDX].shift = thisidx; \
+		sfp_[K_SHIFTIDX].shift = THIS; \
 		sfp_[K_PCIDX].pc = PC_NEXT(pc);\
 		sfp_[K_MTDIDX].mtdNC = mtd_;\
 		klr_setesp(kctx, SFP(rshift(rbp, espshift)));\
@@ -259,20 +304,36 @@ struct kByteCodeVar {
 		OPEXEC_JMP(PC, JUMP); \
 	} \
 
-#define OPEXEC_BNOT(c, a)     rbp[c].bvalue = !(rbp[a].bvalue)
-
-#ifdef K_USING_SAFEPOINT
-#define KLR_SAFEPOINT(espidx) \
-	if(kctx->safepoint != 0) { \
-		klr_setesp(kctx, SFP(rshift(rbp, espidx)));\
-		knh_checkSafePoint(kctx, (KonohaStack*)rbp, __FILE__, __LINE__); \
+#define OPEXEC_TRYJMP(PC, JUMP) \
+	pc = KonohaVirtualMachine_tryJump(kctx, (KonohaStack*)rbp, PC+1);\
+	if(pc == NULL) {\
+		OPEXEC_JMP(PC, JUMP); \
 	} \
 
-#else
-#define OPEXEC_SAFEPOINT(RS)   klr_setesp(kctx, SFP(rshift(rbp, RS)));
-#endif
+#define OPEXEC_BNOT(c, a)     rbp[c].bvalue = !(rbp[a].bvalue)
 
-#define OPEXEC_ERROR(start, msg) {\
+#define OPEXEC_TRACE(UL, THIS, F) { \
+		F(kctx, SFP(rshift(rbp, THIS)), UL);\
+	} \
+
+#define OPEXEC_CHKSTACK(UL) \
+	if(unlikely(kctx->esp > kctx->stack->stack_uplimit)) {\
+		kfileline_t uline = (UL == 0) ? rbp[K_ULINEIDX2].uline : UL;\
+		kreportf(CritTag, UL, "stack overflow");\
+	}\
+	if(kctx->safepoint != 0) { \
+		kfileline_t uline = (UL == 0) ? rbp[K_ULINEIDX2].uline : UL;\
+		KonohaVirtualMachine_onSafePoint(kctx, (KonohaStack*)rbp, UL); \
+	} \
+
+
+#define OPEXEC_SAFEPOINT(UL, espidx) \
+	if(kctx->safepoint != 0) { \
+		klr_setesp(kctx, SFP(rshift(rbp, espidx)));\
+		KonohaVirtualMachine_onSafePoint(kctx, (KonohaStack*)rbp, UL); \
+	} \
+
+#define OPEXEC_ERROR(UL, msg, ESP) {\
 		kreportf(NoneTag, 0, "RuntimeScriptException: %s", S_text(msg));\
 		kraise(0);\
 	}\
