@@ -118,6 +118,8 @@ static kbool_t apache_initPackage(KonohaContext *kctx, kNameSpace *ns, int argc,
 
 	KDEFINE_INT_CONST IntData[] = {
 #define DEFINE_KEYWORD(KW) {#KW, TY_Int, KW}
+		{"APACHE_DECLINED", TY_Int, DECLINED},
+		{"APACHE_DONE", TY_Int, DONE},
 		{"APACHE_OK", TY_Int, OK},
 		DEFINE_KEYWORD(APLOG_EMERG),
 		DEFINE_KEYWORD(APLOG_ALERT),
