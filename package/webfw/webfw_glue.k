@@ -25,11 +25,11 @@ class HttpRequest {
 		this.path = path;
 		this.method = method;
 		HashMap[String] m = new HashMap[String]();
-		String[] params = query.split(/&/);
-		int size = params.getSize();
+		String[] ps = query.split(/&/);
+		int size = ps.getSize();
 		int i = 0;
 		while (i < size) {
-			String param = params[i];
+			String param = ps[i];
 			String[] k_v = param.split(/=/);
 			if (k_v.getSize() == 2) {
 				m.set(k_v[0], k_v[1]);
@@ -39,6 +39,7 @@ class HttpRequest {
 			}
 			i = i + 1;
 		}
+		this.params = m;
 	}
 }
 
@@ -103,7 +104,7 @@ class HttpResponse {
 	Func[HttpResponse,HttpRequest][] handlers;
 
 	void addPattern(String pattern, Func[HttpResponse,HttpRequest] handler) {
-		if (this.patterns.getSize() == 0) {
+		if (this.patterns.isNull()) {
 			this.patterns = new Regex[0];
 			this.handlers = new Func[HttpResponse,HttpRequest][0];
 		}
@@ -170,22 +171,20 @@ int handler(Request req) {
 		}
 		i = i + 1;
 	}
-	if (g_res != null) {
+	if (g_res.isNotNull()) {
 		Tuple[] headers = g_res.h;
 		AprTable resHeaderTable = req.getHeadersOut();
 		i = 0;
 		boolean existsContentType = false;
 		while (i < headers.getSize()) {
-			if (headers[0] == "Content-Type") {
+			if (headers[i][0] == "Content-Type") {
 				existsContentType = true;
-				req.setContentType(headers[1]);
 			}
-			resHeaderTable.add(headers[0], headers[1]);
+			resHeaderTable.add(headers[i][0], headers[i][1]);
 			i = i + 1;
 		}
 		if (!existsContentType) {
-			req.setContentType("text/html");
-			req.setContentEncoding("utf-8");
+			resHeaderTable.add("Content-Type", "text/html; charset=utf-8");
 		}
 		req.puts(g_res.content);
 		return g_res.status;
