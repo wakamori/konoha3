@@ -2144,7 +2144,7 @@ static KMETHOD Module_createExecutionEngine(KonohaContext *kctx, KonohaStack *sf
 	RETURN_(p);
 }
 
-static int BasicBlock_compareTo(kObject *p1, kObject *p2)
+static int BasicBlock_compareTo(KonohaContext *kctx, kObject *p1, kObject *p2)
 {
 	BasicBlock *bb1 = konoha::object_cast<BasicBlock*>(p1);
 	BasicBlock *bb2 = konoha::object_cast<BasicBlock*>(p2);

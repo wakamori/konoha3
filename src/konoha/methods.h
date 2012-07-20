@@ -37,6 +37,22 @@ static KMETHOD Object_toString(KonohaContext *kctx, KonohaStack *sfp)
 	RETURN_(s);
 }
 
+//## @Const method Boolean Object.opNEQ(Object x);
+static KMETHOD Object_opNEQ(KonohaContext *kctx, KonohaStack *sfp)
+{
+	kObject *o1 = sfp[0].asObject;
+	kObject *o2 = sfp[1].asObject;
+	RETURNb_(O_ct(o1)->compareTo(kctx, o1, o2) != 0);
+}
+
+//## @Const method Boolean Object.opEQ(Object x);
+static KMETHOD Object_opEQ(KonohaContext *kctx, KonohaStack *sfp)
+{
+	kObject *o1 = sfp[0].asObject;
+	kObject *o2 = sfp[1].asObject;
+	RETURNb_(O_ct(o1)->compareTo(kctx, o1, o2) == 0);
+}
+
 //## @Const method Boolean Boolean.opNOT();
 static KMETHOD Boolean_opNOT(KonohaContext *kctx, KonohaStack *sfp)
 {

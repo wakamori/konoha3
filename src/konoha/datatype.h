@@ -534,6 +534,13 @@ static uintptr_t DEFAULT_unbox(KonohaContext *kctx, kObject *o)
 	return 0;
 }
 
+static int DEFAULT_compareTo(KonohaContext *kctx, kObject *o1, kObject *o2)
+{
+	int res = (int)(o1 - o2);
+	DBG_P("compared %s %s res=%d", CT_s(O_ct(o1)), CT_s(O_ct(o2)), res);
+	return res;
+}
+
 static kbool_t DEFAULT_isSubType(KonohaContext *kctx, KonohaClass* ct, KonohaClass *t)
 {
 	if(t->typeId == TY_Object) return true;
@@ -616,6 +623,7 @@ static KonohaClassVar* new_KonohaClass(KonohaContext *kctx, KonohaClass *bct, KD
 		ct->fnull = (s->fnull != NULL) ? s->fnull : DEFAULT_fnullinit;
 		ct->realtype = (s->realtype != NULL) ? s->realtype : DEFAULT_realtype;
 		ct->isSubType = (s->isSubType != NULL) ? s->isSubType : DEFAULT_isSubType;
+		ct->compareTo = (s->compareTo != NULL) ? s->compareTo : DEFAULT_compareTo;
 		ct->initdef = s->initdef;
 	}
 	if(ct->initdef != NULL) {
