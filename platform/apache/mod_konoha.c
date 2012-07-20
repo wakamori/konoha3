@@ -163,6 +163,7 @@ static KMETHOD Request_getMethod(KonohaContext *kctx, KonohaStack *sfp)
 //## int Request.getMethodNumber()
 static KMETHOD Request_getMethodNumber(KonohaContext *kctx, KonohaStack *sfp)
 {
+	(void)kctx;
 	kRequest *self = (kRequest *)sfp[0].asObject;
 	RETURNi_(self->r->method_number);
 }
@@ -356,9 +357,12 @@ static int konoha_handler(request_rec *r)
 
 	KonohaContext *kctx = konoha;
 	kNameSpace *ns = KNULL(NameSpace);
-	kMethod *mtd = KLIB kNameSpace_getMethodNULL(kctx, ns, TY_System/*TODO*/, MN_("handler"), 0, MPOL_LATEST);
+	KLIB kNameSpace_compileAllDefinedMethods(kctx);
+	KonohaClass *CT_Script = KLIB kNameSpace_getClass(kctx, ns, NULL/*fixme*/, "Script", 6, 0);
+	ktype_t TY_Script = CT_Script->classId;
+	kMethod *mtd = KLIB kNameSpace_getMethodNULL(kctx, ns, TY_Script/*TODO*/, MN_("handler"), 0, MPOL_LATEST);
 	if (mtd == NULL) {
-		ap_log_rerror(APLOG_MARK, APLOG_CRIT, 0, r, "Apache.handler() not found");
+		ap_log_rerror(APLOG_MARK, APLOG_CRIT, 0, r, "Script.handler() not found");
 		return -1;
 	}
 

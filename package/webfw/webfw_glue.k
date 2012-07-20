@@ -25,12 +25,12 @@ class HttpRequest {
 		this.path = path;
 		this.method = method;
 		HashMap[String] m = new HashMap[String]();
-		String[] params = query.split("&");
+		String[] params = query.split(/&/);
 		int size = params.getSize();
 		int i = 0;
 		while (i < size) {
 			String param = params[i];
-			String[] k_v = param.split("=");
+			String[] k_v = param.split(/=/);
 			if (k_v.getSize() == 2) {
 				m.set(k_v[0], k_v[1]);
 			}
@@ -77,12 +77,7 @@ class HttpResponse {
 
 	HttpResponse(String content, Tuple[] headers) {
 		this.content = content;
-		if (headers == null) {
-			this.h = new Tuple[0];
-		}
-		else {
-			this.h = headers;
-		}
+		this.h = headers;
 	}
 
 	void set(String header, String value) {
@@ -106,7 +101,7 @@ class HttpResponse {
 @Singleton class Url {
 	Regex[] patterns;
 	Func[HttpResponse,HttpRequest][] handlers;
-	
+
 	void addPattern(String pattern, Func[HttpResponse,HttpRequest] handler) {
 		if (this.patterns.getSize() == 0) {
 			this.patterns = new Regex[0];
@@ -114,6 +109,14 @@ class HttpResponse {
 		}
 		this.patterns.add(new Regex(pattern, ""));
 		this.handlers.add(handler);
+	}
+
+	Regex[] getPatterns() {
+		return patterns;
+	}
+
+	Func[HttpResponse,HttpRequest][] getHandlers() {
+		return handlers;
 	}
 }
 
