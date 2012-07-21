@@ -206,7 +206,7 @@ static KMETHOD Hdf_setIntValue(KonohaContext *kctx, KonohaStack *sfp)
 {
 	HDF *hdf = S_HDF(sfp[0]);
 	const char *name = S_text(sfp[1].s);
-	int value = sfp[2].ivalue;
+	int value = sfp[2].intValue;
 
 	NEOERR *err = hdf_set_int_value(hdf, name, value);
 
@@ -293,7 +293,7 @@ static KMETHOD Hdf_getIntValue(KonohaContext *kctx, KonohaStack *sfp)
 {
 	HDF *hdf = S_HDF(sfp[0]);
 	const char *name = S_text(sfp[1].s);
-	int defaultValue = sfp[2].ivalue;
+	int defaultValue = sfp[2].intValue;
 
 	RETURNi_(hdf_get_int_value(hdf, name, defaultValue));
 }
@@ -527,7 +527,7 @@ static NEOERR *render_cb(void *v, char *s)
 	KCALL(lsfp, 0, fo->mtd, 1, KNULL(Int));
 	END_LOCAL();
 
-	switch (lsfp[0].ivalue) {
+	switch (lsfp[0].intValue) {
 	case STATUS_OK_INT:
 		return STATUS_OK;
 	case INTERNAL_ERR_INT:
@@ -676,7 +676,7 @@ static kbool_t clearsilver_initPackage(KonohaContext *kctx, kNameSpace *ns, int 
 	return true;
 }
 
-static kbool_t clearsilver_setupPackage(KonohaContext *kctx, kNameSpace *ns, kfileline_t pline)
+static kbool_t clearsilver_setupPackage(KonohaContext *kctx, kNameSpace *ns, isFirstTime_t isFirstTime, kfileline_t pline)
 {
 	return true;
 }
