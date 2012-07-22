@@ -109,7 +109,7 @@ static	kbool_t function_initPackage(KonohaContext *kctx, kNameSpace *ns, int arg
 	return true;
 }
 
-static kbool_t function_setupPackage(KonohaContext *kctx, kNameSpace *ns, kfileline_t pline)
+static kbool_t function_setupPackage(KonohaContext *kctx, kNameSpace *ns, isFirstTime_t isFirstTime, kfileline_t pline)
 {
 	return true;
 }
@@ -121,7 +121,7 @@ static KMETHOD ExprTyCheck_Float(KonohaContext *kctx, KonohaStack *sfp)
 	USING_SUGAR;
 	VAR_ExprTyCheck(stmt, expr, gma, reqty);
 	kToken *tk = expr->tk;
-	sfp[4].fvalue = strtod(S_text(tk->text), NULL);
+	sfp[4].floatValue = strtod(S_text(tk->text), NULL);
 	RETURN_(SUGAR kExpr_setUnboxConstValue(kctx, expr, TY_Float, sfp[4].unboxValue));
 }
 

@@ -79,12 +79,6 @@ kstatus_t MODSUGAR_loadScript(KonohaContext *kctx, const char *path, size_t len,
 // ---------------------------------------------------------------------------
 // package
 
-//static const char* packname(const char *packageName)
-//{
-//	char *p = strrchr(packageName, '.');
-//	return (p == NULL) ? packageName : (const char*)p+1;
-//}
-
 static kNameSpace* new_NameSpace(KonohaContext *kctx, kpackage_t packageDomain, kpackage_t packageId)
 {
 	kNameSpaceVar *ns = GCSAFE_new(NameSpaceVar, KNULL(NameSpace));
@@ -116,7 +110,7 @@ static KonohaPackage *loadPackageNULL(KonohaContext *kctx, kpackage_t packageId,
 	pack->packageId = packageId;
 	KINITv(pack->packageNameSpace, ns);
 	pack->packageHandler = packageHandler;
-	path = PLATAPI formatPackagePath(pathbuf, sizeof(pathbuf), packageName, "_export.k");
+	path = PLATAPI formatPackagePath(pathbuf, sizeof(pathbuf), packageName, "_exports.k");
 	if(path != NULL) {
 		pack->exportScriptUri = KLIB KfileId(kctx, pathbuf, strlen(pathbuf), 0, _NEWID) | 1;
 	}
@@ -126,54 +120,71 @@ static KonohaPackage *loadPackageNULL(KonohaContext *kctx, kpackage_t packageId,
 static KonohaPackage *getPackageNULL(KonohaContext *kctx, kpackage_t packageId, kfileline_t pline)
 {
 	KonohaPackage *pack = (KonohaPackage*)map_getu(kctx, kmodsugar->packageMapNO, packageId, uNULL);
+	isFirstTime_t flag = isFirstTime;
 	if(pack == NULL) {
 		pack = loadPackageNULL(kctx, packageId, pline);
 		if(pack == NULL) return NULL;
 		map_addu(kctx, kmodsugar->packageMapNO, packageId, (uintptr_t)pack);
+		flag = Nope;
 	}
 	if(pack->packageHandler != NULL && pack->packageHandler->setupPackage != NULL) {
-		pack->packageHandler->setupPackage(kctx, pack->packageNameSpace, pline);
+		pack->packageHandler->setupPackage(kctx, pack->packageNameSpace, flag, pline);
 	}
 	return pack;
 }
 
+static kbool_t kNameSpace_isImported(KonohaContext *kctx, kNameSpace *ns, kNameSpace *target, kfileline_t pline)
+{
+	KUtilsKeyValue* value = kNameSpace_getConstNULL(kctx, ns, target->packageId | KW_PATTERN);
+	if(value != NULL) {
+		kreportf(DebugTag, pline, "package %s has already imported in %s", PackageId_t(ns->packageId), PackageId_t(target->packageId));
+		return true;
+	}
+	return false;
+}
+
 static void kNameSpace_merge(KonohaContext *kctx, kNameSpace *ns, kNameSpace *target, kfileline_t pline)
 {
-	if(target->packageId != PN_konoha) {
-		kNameSpace_importClassName(kctx, ns, target->packageId, pline);
-	}
-	if(target->constTable.bytesize > 0) {
-		kNameSpace_mergeConstData(kctx, (kNameSpaceVar*)ns, target->constTable.keyvalueItems, target->constTable.bytesize/sizeof(KUtilsKeyValue), pline);
-	}
-	size_t i;
-	for(i = 0; i < kArray_size(target->methodList); i++) {
-		kMethod *mtd = target->methodList->methodItems[i];
-		if(Method_isPublic(mtd) && mtd->packageId == target->packageId) {
-			KLIB kArray_add(kctx, ns->methodList, mtd);
+	if(!kNameSpace_isImported(kctx, ns, target, pline)) {
+		if(target->packageId != PN_konoha) {
+			kNameSpace_importClassName(kctx, ns, target->packageId, pline);
 		}
+		if(target->constTable.bytesize > 0) {
+			kNameSpace_mergeConstData(kctx, (kNameSpaceVar*)ns, target->constTable.keyvalueItems, target->constTable.bytesize/sizeof(KUtilsKeyValue), pline);
+		}
+		size_t i;
+		for(i = 0; i < kArray_size(target->methodList); i++) {
+			kMethod *mtd = target->methodList->methodItems[i];
+			if(Method_isPublic(mtd) && mtd->packageId == target->packageId) {
+				KLIB kArray_add(kctx, ns->methodList, mtd);
+			}
+		}
+		// record imported
+		kNameSpace_setConstData(kctx, ns, target->packageId | KW_PATTERN, TY_Int, target->packageId);
 	}
 }
 
 static kbool_t kNameSpace_importPackage(KonohaContext *kctx, kNameSpace *ns, const char *name, kfileline_t pline)
 {
-	kbool_t isLoadingOkay = false;
 	kpackage_t packageId = KLIB KpackageId(kctx, name, strlen(name), 0, _NEWID);
 	KonohaPackage *pack = getPackageNULL(kctx, packageId, pline);
 	if(pack != NULL) {
+		kbool_t isLoadingContinue = false;
 		if(ns == NULL) ns = pack->packageNameSpace;
 		kNameSpace_merge(kctx, ns, pack->packageNameSpace, pline);
 		if(pack->packageHandler != NULL && pack->packageHandler->initNameSpace != NULL) {
-			isLoadingOkay = pack->packageHandler->initNameSpace(kctx, ns, pline);
+			isLoadingContinue = pack->packageHandler->initNameSpace(kctx, ns, pline);
 		}
-		if(isLoadingOkay && pack->exportScriptUri != 0) {
+		if(isLoadingContinue && pack->exportScriptUri != 0) {
 			const char *scriptPath = FileId_t(pack->exportScriptUri);
 			kfileline_t uline = pack->exportScriptUri | (kfileline_t)1;
 			SugarThunk thunk = {kctx, ns};
-			isLoadingOkay = PLATAPI loadScript(scriptPath, uline, (void*)&thunk, evalHookFunc);
+			isLoadingContinue = PLATAPI loadScript(scriptPath, uline, (void*)&thunk, evalHookFunc);
 		}
-		if(isLoadingOkay && pack->packageHandler != NULL && pack->packageHandler->setupNameSpace != NULL) {
-			isLoadingOkay = pack->packageHandler->setupNameSpace(kctx, ns, pline);
+		if(isLoadingContinue && pack->packageHandler != NULL && pack->packageHandler->setupNameSpace != NULL) {
+			isLoadingContinue = pack->packageHandler->setupNameSpace(kctx, ns, pline);
 		}
+		return true;
 	}
-	return isLoadingOkay;
+	return false;
 }

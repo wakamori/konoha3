@@ -107,7 +107,7 @@ static void Number_init(KonohaContext *kctx, kObject *o, void *conf)
 
 static void Boolean_p(KonohaContext *kctx, KonohaStack *sfp, int pos, KUtilsWriteBuffer *wb, int level)
 {
-	KLIB Kwb_printf(kctx, wb, sfp[pos].bvalue ? "true" : "false");
+	KLIB Kwb_printf(kctx, wb, sfp[pos].boolValue ? "true" : "false");
 }
 
 static kObject* Boolean_fnull(KonohaContext *kctx, KonohaClass *ct)
@@ -117,7 +117,7 @@ static kObject* Boolean_fnull(KonohaContext *kctx, KonohaClass *ct)
 
 static void Int_p(KonohaContext *kctx, KonohaStack *sfp, int pos, KUtilsWriteBuffer *wb, int level)
 {
-	KLIB Kwb_printf(kctx, wb, KINT_FMT, sfp[pos].ivalue);
+	KLIB Kwb_printf(kctx, wb, KINT_FMT, sfp[pos].intValue);
 }
 
 // String
@@ -405,8 +405,8 @@ static kparamid_t Kmap_getparamid(KonohaContext *kctx, KUtilsHashMap *kmp, kArra
 {
 	KUtilsHashMapEntry *e = KLIB Kmap_get(kctx, kmp, hcode);
 	while(e != NULL) {
-		if(e->hcode == hcode && f(rtype, psize, p, e->paramkey)) {
-			return (kparamid_t)e->uvalue;
+		if(e->hcode == hcode && f(rtype, psize, p, e->paramKey)) {
+			return (kparamid_t)e->unboxValue;
 		}
 		e = e->next;
 	}
@@ -414,8 +414,8 @@ static kparamid_t Kmap_getparamid(KonohaContext *kctx, KUtilsHashMap *kmp, kArra
 	uintptr_t paramid = kArray_size(list);
 	KLIB kArray_add(kctx, list, pa);
 	e = KLIB Kmap_newEntry(kctx, kmp, hcode);
-	KINITv(e->paramkey, pa);
-	e->uvalue = paramid;
+	KINITv(e->paramKey, pa);
+	e->unboxValue = paramid;
 	return (kparamid_t)paramid;
 }
 
@@ -914,6 +914,7 @@ static void KTYTABLE_initkklib(KonohaLibVar *l)
 	l->Kclass                  = Kclass;
 	l->new_kObject             = new_kObject;
 	l->new_kObjectOnGCSTACK    = new_kObjectOnGCSTACK;
+	l->kObject_isManaged       = MODGC_kObject_isManaged;
 	l->new_kString             = new_kString;
 	l->new_kStringf            = new_kStringf;
 	//l->Kconv  = conv;
@@ -972,7 +973,7 @@ static void KTYTABLE_init(KonohaContext *kctx, KonohaContextVar *ctx)
 static void val_reftrace(KonohaContext *kctx, KUtilsHashMapEntry *p)
 {
 	BEGIN_REFTRACE(1);
-	KREFTRACEv(p->ovalue);
+	KREFTRACEv(p->objectValue);
 	END_REFTRACE();
 }
 

@@ -48,7 +48,7 @@ static kExpr *ExprTyCheckFunc(KonohaContext *kctx, kFunc *fo, kStmt *stmt, kExpr
 	KSETv(lsfp[K_CALLDELTA+1].o, (kObject*)stmt);
 	KSETv(lsfp[K_CALLDELTA+2].o, (kObject*)expr);
 	KSETv(lsfp[K_CALLDELTA+3].o, (kObject*)gma);
-	lsfp[K_CALLDELTA+4].ivalue = reqty;
+	lsfp[K_CALLDELTA+4].intValue = reqty;
 	KCALL(lsfp, 0, fo->mtd, 5, K_NULLEXPR);
 	END_LOCAL();
 	RESET_GCSTACK();
@@ -221,7 +221,7 @@ static kbool_t Stmt_TyCheckFunc(KonohaContext *kctx, kFunc *fo, kStmt *stmt, kGa
 	KSETv(lsfp[K_CALLDELTA+2].o, (kObject*)gma);
 	KCALL(lsfp, 0, fo->mtd, 3, K_FALSE);
 	END_LOCAL();
-	return lsfp[0].bvalue;
+	return lsfp[0].boolValue;
 }
 
 static kbool_t Stmt_TyCheck(KonohaContext *kctx, SugarSyntax *syn, kStmt *stmt, kGamma *gma)
@@ -368,7 +368,7 @@ static kstatus_t Method_runEval(KonohaContext *kctx, kMethod *mtd, ktype_t rtype
 	//DBG_P("TY=%s, running EVAL..", TY_t(rtype));
 	if(base->evalty != TY_void) {
 		KSETv(lsfp[K_CALLDELTA+1].o, base->stack[base->evalidx].o);
-		lsfp[K_CALLDELTA+1].ivalue = base->stack[base->evalidx].ivalue;
+		lsfp[K_CALLDELTA+1].intValue = base->stack[base->evalidx].intValue;
 	}
 	KCALL(lsfp, 0, mtd, 0, KLIB Knull(kctx, CT_(rtype)));
 	base->evalty = rtype;
@@ -437,7 +437,7 @@ static kstatus_t Block_eval(KonohaContext *kctx, kBlock *bk)
 	kMethod *mtd = KLIB new_kMethod(kctx, kMethod_Static, 0, 0, NULL);
 	PUSH_GCSTACK(mtd);
 	KLIB Method_setParam(kctx, mtd, TY_Object, 0, NULL);
-	int i, jmpresult;
+	int i, jumpResult;
 	kstatus_t result = K_CONTINUE;
 	KonohaContextRuntimeVar *base = kctx->stack;
 	jmpbuf_i lbuf = {};
@@ -445,7 +445,7 @@ static kstatus_t Block_eval(KonohaContext *kctx, kBlock *bk)
 		base->evaljmpbuf = (jmpbuf_i*)KCALLOC(sizeof(jmpbuf_i), 1);
 	}
 	memcpy(&lbuf, base->evaljmpbuf, sizeof(jmpbuf_i));
-	if((jmpresult = PLATAPI setjmp_i(*base->evaljmpbuf)) == 0) {
+	if((jumpResult = PLATAPI setjmp_i(*base->evaljmpbuf)) == 0) {
 		for(i = 0; i < kArray_size(bk->stmtList); i++) {
 			KSETv(bk1->stmtList->objectItems[0], bk->stmtList->objectItems[i]);
 			KSETv(((kBlockVar*)bk1)->blockNameSpace, bk->blockNameSpace);
@@ -455,9 +455,10 @@ static kstatus_t Block_eval(KonohaContext *kctx, kBlock *bk)
 		}
 	}
 	else {
-		DBG_P("Catch eval exception jmpresult=%d", jmpresult);
-		base->evalty = TY_void;
-		result = K_FAILED;
+		//KLIB reportException(kctx);
+		DBG_P("Catch eval exception jumpResult=%d", jumpResult);
+		base->evalty = TY_void;  // no value
+		result = K_BREAK;        // message must be dumped;
 	}
 	memcpy(base->evaljmpbuf, &lbuf, sizeof(jmpbuf_i));
 	END_LOCAL();

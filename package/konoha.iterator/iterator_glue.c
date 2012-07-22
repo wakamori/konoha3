@@ -63,7 +63,7 @@ static void Iterator_init(KonohaContext *kctx, kObject *o, void *conf)
 
 static void Iterator_p(KonohaContext *kctx, KonohaStack *sfp, int pos, KUtilsWriteBuffer *wb, int level)
 {
-//	KLIB Kwb_printf(kctx, wb, KFLOAT_FMT, sfp[pos].fvalue);
+//	KLIB Kwb_printf(kctx, wb, KFLOAT_FMT, sfp[pos].floatValue);
 }
 
 /* ------------------------------------------------------------------------ */
@@ -230,7 +230,7 @@ static kbool_t iterator_initPackage(KonohaContext *kctx, kNameSpace *ns, int arg
 	return true;
 }
 
-static kbool_t iterator_setupPackage(KonohaContext *kctx, kNameSpace *ns, kfileline_t pline)
+static kbool_t iterator_setupPackage(KonohaContext *kctx, kNameSpace *ns, isFirstTime_t isFirstTime, kfileline_t pline)
 {
 	return true;
 }

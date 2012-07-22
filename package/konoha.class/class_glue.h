@@ -111,8 +111,8 @@ static void KLIB2_setGetterSetter(KonohaContext *kctx, KonohaClass *ct)
 // int NameSpace.getCid(String name, int defval)
 static KMETHOD NameSpace_getCid(KonohaContext *kctx, KonohaStack *sfp)
 {
-	KonohaClass *ct = KLIB kNameSpace_getClass(kctx, sfp[0].asNameSpace, NULL/*fixme*/, S_text(sfp[1].asString), S_size(sfp[1].asString), (ktype_t)sfp[2].ivalue);
-	kint_t cid = ct != NULL ? ct->classId : sfp[2].ivalue;
+	KonohaClass *ct = KLIB kNameSpace_getClass(kctx, sfp[0].asNameSpace, NULL/*fixme*/, S_text(sfp[1].asString), S_size(sfp[1].asString), (ktype_t)sfp[2].intValue);
+	kint_t cid = ct != NULL ? ct->classId : sfp[2].intValue;
 	RETURNi_(cid);
 }
 
@@ -148,7 +148,7 @@ static KonohaClass* defineClass(KonohaContext *kctx, kNameSpace *ns, kshortflag_
 // int NameSpace.defineClass(int flag, String name, int superclassId, int fieldsize);
 static KMETHOD NameSpace_defineClass(KonohaContext *kctx, KonohaStack *sfp)
 {
-	ktype_t superclassId = sfp[3].ivalue == 0 ? TY_Object :(ktype_t)sfp[3].ivalue;
+	ktype_t superclassId = sfp[3].intValue == 0 ? TY_Object :(ktype_t)sfp[3].intValue;
 	KonohaClass *supct = kclass(superclassId, sfp[K_RTNIDX].uline);
 	if(CT_isFinal(supct)) {
 		kreportf(CritTag, sfp[K_RTNIDX].uline, "%s is final", TY_t(superclassId));
@@ -156,11 +156,11 @@ static KMETHOD NameSpace_defineClass(KonohaContext *kctx, KonohaStack *sfp)
 	if(!CT_isDefined(supct)) {
 		kreportf(CritTag, sfp[K_RTNIDX].uline, "%s has undefined field(s)", TY_t(superclassId));
 	}
-	KonohaClass *ct = defineClass(kctx, sfp[0].asNameSpace, sfp[1].ivalue, sfp[2].s, supct, sfp[4].ivalue, sfp[K_RTNIDX].uline);
+	KonohaClass *ct = defineClass(kctx, sfp[0].asNameSpace, sfp[1].intValue, sfp[2].s, supct, sfp[4].intValue, sfp[K_RTNIDX].uline);
 	RETURNi_(ct->classId);
 }
 
-static void defineField(KonohaContext *kctx, KonohaClassVar *ct, int flag, ktype_t ty, kString *name, kObject *value, uintptr_t uvalue)
+static void defineField(KonohaContext *kctx, KonohaClassVar *ct, int flag, ktype_t ty, kString *name, kObject *value, uintptr_t unboxValue)
 {
 	int pos = ct->fieldsize;
 	ct->fieldsize += 1;
@@ -172,7 +172,7 @@ static void defineField(KonohaContext *kctx, KonohaClassVar *ct, int flag, ktype
 			ct->defaultValueAsNull_->fieldUnboxItems[pos] = O_unbox(value);
 		}
 		else {
-			ct->defaultValueAsNull_->fieldUnboxItems[pos] = uvalue;
+			ct->defaultValueAsNull_->fieldUnboxItems[pos] = unboxValue;
 		}
 	}
 	else {
@@ -185,9 +185,9 @@ static void defineField(KonohaContext *kctx, KonohaClassVar *ct, int flag, ktype
 // int NameSpace.defineClassField(int cid, int flag, int ty, String name, Object *value);
 static KMETHOD NameSpace_defineClassField(KonohaContext *kctx, KonohaStack *sfp)
 {
-	ktype_t cid = (ktype_t)sfp[1].ivalue;
-	kshortflag_t flag = (kshortflag_t)sfp[2].ivalue;
-	ktype_t ty = (ktype_t)sfp[3].ivalue;
+	ktype_t cid = (ktype_t)sfp[1].intValue;
+	kshortflag_t flag = (kshortflag_t)sfp[2].intValue;
+	ktype_t ty = (ktype_t)sfp[3].intValue;
 	kString *name = sfp[4].s;
 	kObject *value = sfp[5].o;
 	KonohaClassVar *ct = (KonohaClassVar*)kclass(cid, sfp[K_RTNIDX].uline);
@@ -222,7 +222,7 @@ static	kbool_t class_initPackage(KonohaContext *kctx, kNameSpace *ns, int argc, 
 	return true;
 }
 
-static kbool_t class_setupPackage(KonohaContext *kctx, kNameSpace *ns, kfileline_t pline)
+static kbool_t class_setupPackage(KonohaContext *kctx, kNameSpace *ns, isFirstTime_t isFirstTime, kfileline_t pline)
 {
 	return true;
 }

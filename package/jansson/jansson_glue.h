@@ -258,7 +258,7 @@ static KMETHOD Json_setBool(KonohaContext *kctx, KonohaStack *sfp)
 		RETURNvoid_();
 	}
 	const char *key = S_text(sfp[1].asString);
-	kbool_t bval = sfp[2].bvalue;
+	kbool_t bval = sfp[2].boolValue;
 	json_t* val;
 	if (bval) {
 		val = json_true();
@@ -282,7 +282,7 @@ static KMETHOD Json_setFloat(KonohaContext *kctx, KonohaStack *sfp)
 		RETURNvoid_();
 	}
 	const char *key = S_text(sfp[1].asString);
-	float fval = sfp[2].fvalue;
+	float fval = sfp[2].floatValue;
 	json_t* val = json_real(fval);
 	if (!json_is_real(val)) {
 		DBG_P("ERROR: Value is not Json object.");
@@ -304,7 +304,7 @@ static KMETHOD Json_setInt(KonohaContext *kctx, KonohaStack *sfp)
 		RETURNvoid_();
 	}
 	const char *key = S_text(sfp[1].asString);
-	kint_t ival = sfp[2].ivalue;
+	kint_t ival = sfp[2].intValue;
 	json_t* val = json_integer((json_int_t)ival);
 	if (!json_is_integer(val)) {
 		DBG_P("ERROR: Value is not Json object.");
@@ -326,10 +326,10 @@ static KMETHOD Json_setString(KonohaContext *kctx, KonohaStack *sfp)
 		RETURNvoid_();
 	}
 	const char *key = S_text(sfp[1].asString);
-	const char *sval = S_text(sfp[2].s);
+	const char *stringValue = S_text(sfp[2].s);
 	//fprintf(stderr, "key='%s'\n", key);
-	//fprintf(stderr, "val='%s'\n", sval);
-	json_t* val = json_string(sval);
+	//fprintf(stderr, "val='%s'\n", stringValue);
+	json_t* val = json_string(stringValue);
 	if (!json_is_string(val)) {
 		DBG_P("ERROR: Value is not Json object.");
 		RETURNvoid_();
@@ -359,7 +359,7 @@ static KMETHOD Json_dump(KonohaContext *kctx, KonohaStack *sfp)
 static KMETHOD JsonArray_newArray(KonohaContext *kctx, KonohaStack *sfp)
 {
 	kArrayVar *a = (kArrayVar *)sfp[0].asObject;
-	size_t asize = (size_t)sfp[1].ivalue;
+	size_t asize = (size_t)sfp[1].intValue;
 	a->bytemax = asize * sizeof(void*);
 	kArray_setsize((kArray*)a, asize);
 	//a->list = (kObject**)KCALLOC(a->bytemax, 1);
@@ -396,7 +396,7 @@ static KMETHOD JsonArray_get(KonohaContext *kctx, KonohaStack *sfp)
 	kArray *a = sfp[0].asArray;
 	json_t *ja = (json_t*)a->list;
 	struct _kJson *json = (struct _kJson*)KLIB new_kObject(kctx, O_ct(sfp[K_RTNIDX].o), NULL);
-	json->obj = json_array_get(ja, sfp[1].ivalue);
+	json->obj = json_array_get(ja, sfp[1].intValue);
 	RETURN_(json);
 }
 
@@ -473,7 +473,7 @@ static	kbool_t jansson_initPackage(KonohaContext *kctx, kNameSpace *ns, int argc
 	return true;
 }
 
-static kbool_t jansson_setupPackage(KonohaContext *kctx, kNameSpace *ns, kfileline_t pline)
+static kbool_t jansson_setupPackage(KonohaContext *kctx, kNameSpace *ns, isFirstTime_t isFirstTime, kfileline_t pline)
 {
 	return true;
 }

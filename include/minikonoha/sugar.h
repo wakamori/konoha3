@@ -49,6 +49,8 @@ extern "C" {
 #define KPACKLIB(N, V) \
 	.libname = N, .libversion = V
 
+typedef enum {  Nope, isFirstTime } isFirstTime_t;
+
 struct KonohaPackageHandlerVar {
 	int konoha_checksum;
 	const char *name;
@@ -56,9 +58,9 @@ struct KonohaPackageHandlerVar {
 	const char *libname;
 	const char *libversion;
 	const char *note;
-	kbool_t (*initPackage)(KonohaContext *kctx,    kNameSpace *, int, const char**, kfileline_t);
-	kbool_t (*setupPackage)(KonohaContext *kctx,   kNameSpace *, kfileline_t);
-	kbool_t (*initNameSpace)(KonohaContext *kctx,  kNameSpace *, kfileline_t);
+	kbool_t (*initPackage)   (KonohaContext *kctx, kNameSpace *, int, const char**, kfileline_t);
+	kbool_t (*setupPackage)  (KonohaContext *kctx, kNameSpace *, isFirstTime_t, kfileline_t);
+	kbool_t (*initNameSpace) (KonohaContext *kctx, kNameSpace *, kfileline_t);
 	kbool_t (*setupNameSpace)(KonohaContext *kctx, kNameSpace *, kfileline_t);
 	int konoha_revision;
 };
@@ -97,7 +99,7 @@ struct TokenizerEnv {
 #define VAR_ParseToken(TK, STR, UL) \
 		kTokenVar *TK = (kTokenVar*)sfp[0].asObject;\
 		kString *STR = sfp[1].asString;\
-		int UL = (int)sfp[2].ivalue;\
+		int UL = (int)sfp[2].intValue;\
 		(void)TK; (void)STR; (void)UL;\
 
 *****/
@@ -105,10 +107,10 @@ struct TokenizerEnv {
 // int PatternMatch(Stmt stmt, int nameid, Token[] toks, int s, int e)
 #define VAR_PatternMatch(STMT, NAME, TLS, S, E) \
 		kStmt *STMT = (kStmt*)sfp[1].asObject;\
-		ksymbol_t NAME = (ksymbol_t)sfp[2].ivalue;\
+		ksymbol_t NAME = (ksymbol_t)sfp[2].intValue;\
 		kArray *TLS = (kArray*)sfp[3].o;\
-		int S = (int)sfp[4].ivalue;\
-		int E = (int)sfp[5].ivalue;\
+		int S = (int)sfp[4].intValue;\
+		int E = (int)sfp[5].intValue;\
 		(void)STMT; (void)NAME; (void)TLS; (void)S; (void)E;\
 
 // Expr ParseExpr(Stmt stmt, Token[] tokenArray, int s, int c, int e)
@@ -116,9 +118,9 @@ struct TokenizerEnv {
 		SugarSyntax *syn = (SugarSyntax*)sfp[0].unboxValue;\
 		kStmt *STMT = (kStmt*)sfp[1].asObject;\
 		kArray *TLS = (kArray*)sfp[2].o;\
-		int S = (int)sfp[3].ivalue;\
-		int C = (int)sfp[4].ivalue;\
-		int E = (int)sfp[5].ivalue;\
+		int S = (int)sfp[3].intValue;\
+		int C = (int)sfp[4].intValue;\
+		int E = (int)sfp[5].intValue;\
 		(void)syn; (void)STMT; (void)TLS; (void)S; (void)C; (void)E;\
 
 // boolean StmtTyCheck(Stmt stmt, Gamma gma)
@@ -132,7 +134,7 @@ struct TokenizerEnv {
 		kStmt *STMT = (kStmt*)sfp[1].asObject;\
 		kExpr *EXPR = (kExpr*)sfp[2].o;\
 		kGamma *GMA = (kGamma*)sfp[3].o;\
-		ktype_t TY = (ktype_t)sfp[4].ivalue;\
+		ktype_t TY = (ktype_t)sfp[4].intValue;\
 		(void)STMT; (void)EXPR; (void)GMA; (void)TY;\
 
 typedef const struct SugarSyntaxVar   SugarSyntax;
