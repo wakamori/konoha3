@@ -22,9 +22,9 @@
  * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  ***************************************************************************/
 
-#include<minikonoha/minikonoha.h>
-#include<minikonoha/sugar.h>
-#include"webfw_glue.h"
+#include <minikonoha/minikonoha.h>
+#include <minikonoha/sugar.h>
+#include "webfw_glue.h"
 
 // --------------------------------------------------------------------------
 

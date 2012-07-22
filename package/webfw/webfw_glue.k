@@ -142,7 +142,8 @@ String getCookiefromHeader(Request req) {
 int handler(Request req) {
 	String path = req.getUri();
 	String method = req.getMethod();
-	String cookie = getCookiefromHeader(req);
+	//String cookie = getCookiefromHeader(req);
+	String cookie = "";
 	String query;
 	//if (method == "POST") {
 	//	query = util_read(req);
