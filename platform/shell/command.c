@@ -45,6 +45,7 @@ extern int verbose_debug;
 extern int verbose_code;
 extern int verbose_sugar;
 extern int verbose_gc;
+extern int enforce_security;
 
 #include <minikonoha/platform_posix.h>
 
@@ -475,10 +476,11 @@ static void konoha_commandline(KonohaContext *kctx, int argc, char** argv)
 
 static struct option long_options2[] = {
 	/* These options set a flag. */
-	{"verbose", no_argument,       &verbose_debug, 1},
-	{"verbose:gc",    no_argument, &verbose_gc, 1},
-	{"verbose:sugar", no_argument, &verbose_sugar, 1},
-	{"verbose:code",  no_argument, &verbose_code, 1},
+	{"verbose",          no_argument, &verbose_debug,    1},
+	{"verbose:gc",       no_argument, &verbose_gc,       1},
+	{"verbose:sugar",    no_argument, &verbose_sugar,    1},
+	{"verbose:code",     no_argument, &verbose_code,     1},
+	{"enforce-security", no_argument, &enforce_security, 1},
 	{"interactive", no_argument,   0, 'i'},
 	{"typecheck",   no_argument,   0, 'c'},
 	{"define",    required_argument, 0, 'D'},
