@@ -2,18 +2,18 @@ K.import("konoha");
 K.import("konoha.hashmap");
 K.import("konoha.pcre");
 K.import("apache");
+K.import("webfw.clearsilver");
 
 DEBUG = true;
 
-//String util_read(Request req)
-//{
-//	req.logError(APLOG_WARNING, 0, "TODO");
-//	assert(false);
-//	//if (req.getMethodNumber() != M_POST) {
-//	//	req.logError(APLOG_WARNING, 0, "DECLINED");
-//	//	return null;
-//	//}
-//}
+String util_read(Request req) {
+	req.logError(APLOG_WARNING, 0, "TODO");
+	assert(false);
+	//if (req.getMethodNumber() != M_POST) {
+	//	req.logError(APLOG_WARNING, 0, "DECLINED");
+	//	return null;
+	//}
+}
 
 class HttpRequest {
 	String path;

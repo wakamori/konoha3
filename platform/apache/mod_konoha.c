@@ -48,8 +48,9 @@ static const char* packname(const char *str)
 	return (p == NULL) ? str : (const char*)p+1;
 }
 
-static const char* shell_packagepath(char *buf, size_t bufsiz, const char *fname)
+static const char* shell_formatPackagePath(char *buf, size_t bufsiz, const char *packageName, const char *ext)
 {
+	FILE *fp = NULL;
 	char *path = PLATAPI getenv_i("KONOHA_PACKAGEPATH"), *local = "";
 	if(path == NULL) {
 		path = PLATAPI getenv_i("KONOHA_HOME");
@@ -59,37 +60,16 @@ static const char* shell_packagepath(char *buf, size_t bufsiz, const char *fname
 		path = PLATAPI getenv_i("HOME");
 		local = "/.minikonoha/package";
 	}
-	snprintf(buf, bufsiz, "%s%s/%s/%s_glue.k", path, local, fname, packname(fname));
+	snprintf(buf, bufsiz, "%s%s/%s/%s%s", path, local, packageName, packname(packageName), ext);
 #ifdef K_PREFIX
-	FILE *fp = fopen(buf, "r");
+	fp = fopen(buf, "r");
 	if(fp != NULL) {
 		fclose(fp);
+		return (const char*)buf;
 	}
-	else {
-		snprintf(buf, bufsiz, K_PREFIX "/minikonoha/package" "/%s/%s_glue.k", fname, packname(fname));
-	}
+	snprintf(buf, bufsiz, K_PREFIX "/minikonoha/package" "/%s/%s%s", packageName, packname(packageName), ext);
 #endif
-	return (const char*)buf;
-}
-
-static const char* apache_packagepath(char *buf, size_t bufsiz, const char *fname)
-{
-	if (apache_package_path) {
-		snprintf(buf, bufsiz, "%s/%s/%s_glue.k", apache_package_path, fname, packname(fname));
-		FILE *fp = fopen(buf, "r");
-		if(fp != NULL) {
-			fclose(fp);
-			return buf;
-		}
-	}
-	return shell_packagepath(buf, bufsiz, fname);
-}
-
-static const char* shell_exportpath(char *buf, size_t bufsiz, const char *pname)
-{
-	char *p = strrchr(buf, '/');
-	snprintf(p, bufsiz - (p  - buf), "/%s_exports.k", packname(pname));
-	FILE *fp = fopen(buf, "r");
+	fp = fopen(buf, "r");
 	if(fp != NULL) {
 		fclose(fp);
 		return (const char*)buf;
@@ -97,10 +77,166 @@ static const char* shell_exportpath(char *buf, size_t bufsiz, const char *pname)
 	return NULL;
 }
 
-static const char* begin(kinfotag_t t) { (void)t; return ""; }
-static const char* end(kinfotag_t t) { (void)t; return ""; }
+static const char* apache_formatPackagePath(char *buf, size_t bufsiz, const char *packageName, const char *ext)
+{
+	if (apache_package_path) {
+		snprintf(buf, bufsiz, "%s/%s/%s%s", apache_package_path, packageName, packname(packageName), ext);
+		FILE *fp = fopen(buf, "r");
+		if(fp != NULL) {
+			fclose(fp);
+			return buf;
+		}
+	}
+	return shell_formatPackagePath(buf, bufsiz, packageName, ext);
+}
 
-static void debugPrintf(const char *file, const char *func, int L, const char *fmt, ...)
+static KonohaPackageHandler *apache_loadPackageHandler(const char *packageName)
+{
+	char pathbuf[256];
+	apache_formatPackagePath(pathbuf, sizeof(pathbuf), packageName, "_glue" K_OSDLLEXT);
+	void *gluehdr = dlopen(pathbuf, RTLD_LAZY);
+	//fprintf(stderr, "pathbuf=%s, gluehdr=%p", pathbuf, gluehdr);
+	if(gluehdr != NULL) {
+		char funcbuf[80];
+		snprintf(funcbuf, sizeof(funcbuf), "%s_init", packname(packageName));
+		PackageLoadFunc f = (PackageLoadFunc)dlsym(gluehdr, funcbuf);
+		if(f != NULL) {
+			return f();
+		}
+	}
+	return NULL;
+}
+
+typedef struct {
+	char   *buffer;
+	size_t  size;
+	size_t  allocSize;
+} SimpleBuffer;
+
+static void SimpleBuffer_putc(SimpleBuffer *simpleBuffer, int ch)
+{
+	if(!(simpleBuffer->size < simpleBuffer->allocSize)) {
+		simpleBuffer->allocSize *= 2;
+		simpleBuffer->buffer = realloc(simpleBuffer->buffer, simpleBuffer->allocSize);
+	}
+	simpleBuffer->buffer[simpleBuffer->size] = ch;
+	simpleBuffer->size += 1;
+}
+
+static kfileline_t readQuote(FILE *fp, kfileline_t line, SimpleBuffer *simpleBuffer, int quote)
+{
+	int ch, prev = quote;
+	while((ch = fgetc(fp)) != EOF) {
+		if(ch == '\r') continue;
+		if(ch == '\n') line++;
+		SimpleBuffer_putc(simpleBuffer, ch);
+		if(ch == quote && prev != '\\') {
+			return line;
+		}
+		prev = ch;
+	}
+	return line;
+}
+
+static kfileline_t readComment(FILE *fp, kfileline_t line, SimpleBuffer *simpleBuffer)
+{
+	int ch, prev = 0, level = 1;
+	while((ch = fgetc(fp)) != EOF) {
+		if(ch == '\r') continue;
+		if(ch == '\n') line++;
+		SimpleBuffer_putc(simpleBuffer, ch);
+		if(prev == '*' && ch == '/') level--;
+		if(prev == '/' && ch == '*') level++;
+		if(level == 0) return line;
+		prev = ch;
+	}
+	return line;
+}
+
+static kfileline_t readChunk(FILE *fp, kfileline_t line, SimpleBuffer *simpleBuffer)
+{
+	int ch;
+	int prev = 0, isBLOCK = 0;
+	while((ch = fgetc(fp)) != EOF) {
+		if(ch == '\r') continue;
+		if(ch == '\n') line++;
+		SimpleBuffer_putc(simpleBuffer, ch);
+		if(prev == '/' && ch == '*') {
+			line = readComment(fp, line, simpleBuffer);
+			continue;
+		}
+		if(ch == '\'' || ch == '"' || ch == '`') {
+			line = readQuote(fp, line, simpleBuffer, ch);
+			continue;
+		}
+		if(isBLOCK != 1 && prev == '\n' && ch == '\n') {
+			break;
+		}
+		if(prev == '{') {
+			isBLOCK = 1;
+		}
+		if(prev == '\n' && ch == '}') {
+			isBLOCK = 0;
+		}
+		prev = ch;
+	}
+	return line;
+}
+
+static int isEmptyChunk(const char *t, size_t len)
+{
+	size_t i;
+	for(i = 0; i < len; i++) {
+		if(!isspace(t[i])) return true;
+	}
+	return false;
+}
+
+
+static int apache_loadScript(const char *filePath, long uline, void *thunk, int (*evalFunc)(const char*, long, int *, void *))
+{
+	int isSuccessfullyLoading = false;
+	FILE *fp = fopen(filePath, "r");
+	if(fp != NULL) {
+		SimpleBuffer simpleBuffer;
+		simpleBuffer.buffer = (char*)malloc(K_PAGESIZE);
+		simpleBuffer.allocSize = K_PAGESIZE;
+		isSuccessfullyLoading = true;
+		while(!feof(fp)) {
+			kfileline_t chunkheadline = uline;
+			bzero(simpleBuffer.buffer, simpleBuffer.allocSize);
+			simpleBuffer.size = 0;
+			uline = readChunk(fp, uline, &simpleBuffer);
+			const char *script = (const char*)simpleBuffer.buffer;
+//			char *p;
+//			if (len > 2 && script[0] == '#' && script[1] == '!') {
+//				if ((p = strstr(script, "konoha")) != 0) {
+//					p += 6;
+//					script = p;
+//				} else {
+//					//FIXME: its not konoha shell, need to exec??
+//					kreportf(ErrTag, pline, "it may not konoha script: %s", FileId_t(uline));
+//					status = K_FAILED;
+//					break;
+//				}
+//			}
+			if(isEmptyChunk(script, simpleBuffer.size)) {
+				int isBreak = false;
+				isSuccessfullyLoading = evalFunc(script, chunkheadline, &isBreak, thunk);
+				if(!isSuccessfullyLoading|| isBreak) {
+					break;
+				}
+			}
+		}
+	}
+	fprintf(stderr, "loadScript: %s fp=%p\n", filePath, fp);
+	return isSuccessfullyLoading;
+}
+
+static const char* apache_beginTag(kinfotag_t t) { (void)t; return ""; }
+static const char* apache_endTag(kinfotag_t t) { (void)t; return ""; }
+
+static void apache_debugPrintf(const char *file, const char *func, int L, const char *fmt, ...)
 {
 	va_list ap;
 	va_start(ap , fmt);
@@ -111,32 +247,32 @@ static void debugPrintf(const char *file, const char *func, int L, const char *f
 	va_end(ap);
 }
 
-
 static const PlatformApi apache_platform = {
-	.name        = "apache",
-	.stacksize   = K_PAGESIZE,
-	.malloc_i    = malloc,
-	.free_i      = free,
-	.setjmp_i    = ksetjmp,
-	.longjmp_i   = klongjmp,
-	.realpath_i  = realpath,
-	.fopen_i     = (FILE_i* (*)(const char*, const char*))fopen,
-	.fgetc_i     = (int     (*)(FILE_i *))fgetc,
-	.feof_i      = (int     (*)(FILE_i *))feof,
-	.fclose_i    = (int     (*)(FILE_i *))fclose,
-	.syslog_i    = syslog,
-	.vsyslog_i   = vsyslog,
-	.printf_i    = printf,
-	.vprintf_i   = vprintf,
-	.snprintf_i  = snprintf,
-	.vsnprintf_i = vsnprintf,
-	.qsort_i     = qsort,
-	.exit_i      = exit,
-	.packagepath = apache_packagepath,
-	.exportpath  = shell_exportpath,
-	.begin       = begin,
-	.end         = end,
-	.debugPrintf       = debugPrintf,
+	.name               = "apache",
+	.stacksize          = K_PAGESIZE,
+	.malloc_i           = malloc,
+	.free_i             = free,
+	.setjmp_i           = ksetjmp,
+	.longjmp_i          = klongjmp,
+	.realpath_i         = realpath,
+	.fopen_i            = (FILE_i* (*)(const char*, const char*))fopen,
+	.fgetc_i            = (int     (*)(FILE_i *))fgetc,
+	.feof_i             = (int     (*)(FILE_i *))feof,
+	.fclose_i           = (int     (*)(FILE_i *))fclose,
+	.syslog_i           = syslog,
+	.vsyslog_i          = vsyslog,
+	.printf_i           = printf,
+	.vprintf_i          = vprintf,
+	.snprintf_i         = snprintf,
+	.vsnprintf_i        = vsnprintf,
+	.qsort_i            = qsort,
+	.exit_i             = exit,
+	.formatPackagePath  = apache_formatPackagePath,
+	.loadPackageHandler = apache_loadPackageHandler,
+	.loadScript         = apache_loadScript,
+	.beginTag           = apache_beginTag,
+	.endTag             = apache_endTag,
+	.debugPrintf        = apache_debugPrintf,
 };
 
 // class methodList start ==============================================================================================
@@ -299,6 +435,7 @@ KonohaContext* konoha_create(KonohaClass **cRequest)
 	KonohaContext* kctx = konoha;
 	kNameSpace *ns = KNULL(NameSpace);
 	KRequirePackage("apache", 0);
+	KRequirePackage("konoha.global", 0);
 	*cRequest = CT_Request;
 #define _P    kMethod_Public
 #define _F(F) (intptr_t)(F)
