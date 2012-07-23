@@ -82,7 +82,7 @@ typedef struct ksfx_t {
 } ksfx_t;
 
 typedef void (*ThreadCodeFunc)(KonohaContext *kctx, struct VirtualMachineInstruction *, void**);
-typedef void (*TraceFunc)(KonohaContext *kctx, KonohaStack *sfp, kfileline_t pline);
+typedef int  (*TraceFunc)(KonohaContext *kctx, KonohaStack *sfp, kfileline_t pline);
 
 typedef struct {
 	kMethod *mtd;
@@ -312,8 +312,14 @@ static void KonohaVirtualMachine_onSafePoint(KonohaContext *kctx, KonohaStack *s
 
 #define OPEXEC_BNOT(c, a)     rbp[c].boolValue = !(rbp[a].boolValue)
 
-#define OPEXEC_TRACE(UL, THIS, F) { \
-		F(kctx, SFP(rshift(rbp, THIS)), UL);\
+#define OPEXEC_TRACE(UL, THIS, CTO, F) { \
+		if(unlikely(F(kctx, SFP(rshift(rbp, THIS)), UL) != 0)) {\
+			KonohaStack *sfp_ = SFP(rshift(rbp, THIS)); \
+			sfp_[K_RTNIDX].o = CTO;\
+			pc = PC_NEXT(pc);\
+			/*kfileline_t uline = (UL == 0) ? rbp[K_ULINEIDX2].uline : UL;*/\
+			/*kreportf(CritTag, uline, "permission denied");*/\
+		}\
 	} \
 
 #define OPEXEC_CHKSTACK(UL) \
