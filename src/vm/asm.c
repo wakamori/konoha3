@@ -630,8 +630,43 @@ static void EXPR_asm(KonohaContext *kctx, kStmt *stmt, int a, kExpr *expr, int s
 
 static KMETHOD MethodFunc_invokeAbstractMethod(KonohaContext *kctx, KonohaStack *sfp);
 
-void myTrace (KonohaContext *kctx, KonohaStack *sfp, kfileline_t pline) {
-	DBG_P("TRACE ME!");
+static int applySecurityPolicy(KonohaContext *kctx, KonohaStack *sfp, kfileline_t pline)
+{
+	static int i = 0;
+	if (i == 0) {
+		i = 1;
+		PLATAPI printf_i("permission denied\n");
+		return 1;
+	}
+	else {
+		i = 0;
+		return 0;
+	}
+}
+
+static int checkPermission(KonohaContext *kctx, KonohaStack *sfp, kfileline_t pline)
+{
+	INIT_GCSTACK();
+	const char *B = PLATAPI beginTag(InfoTag);
+	const char *E = PLATAPI endTag(InfoTag);
+	if(pline != 0) {
+		const char *file = FileId_t(pline);
+		PLATAPI printf_i("%s - (%s:%d) " , B, shortfilename(file), (kushort_t)pline);
+	}
+	else {
+		PLATAPI printf_i("%s - " , B);
+	}
+	krbp_t *rbp = (krbp_t*)sfp;
+	kMethod *mtd = rbp[K_MTDIDX2].mtdNC;
+	KUtilsWriteBuffer wb;
+	KLIB Kwb_init(&(kctx->stack->cwb), &wb);
+	KSETv(sfp[2].asMethod, mtd);
+	O_ct(mtd)->p(kctx, sfp, 2, &wb, 1);
+	PLATAPI printf_i("%s", KLIB Kwb_top(kctx, &wb, 1));
+	KLIB Kwb_free(&wb);
+	PLATAPI printf_i("%s\n", E);
+	RESET_GCSTACK();
+	return applySecurityPolicy(kctx, sfp, pline);
 }
 
 static void CALL_asm(KonohaContext *kctx, kStmt *stmt, int a, kExpr *expr, int shift, int espidx)
