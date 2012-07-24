@@ -633,16 +633,8 @@ static KMETHOD MethodFunc_invokeAbstractMethod(KonohaContext *kctx, KonohaStack 
 
 static int applySecurityPolicy(KonohaContext *kctx, KonohaStack *sfp, kfileline_t pline)
 {
-	static int i = 0;
-	if (i == 0) {
-		i = 1;
-		PLATAPI printf_i("permission denied\n");
-		return 1;
-	}
-	else {
-		i = 0;
-		return 0;
-	}
+	PLATAPI printf_i("permission denied\n");
+	return 1;
 }
 
 static int checkPermission(KonohaContext *kctx, KonohaStack *sfp, kfileline_t pline)
