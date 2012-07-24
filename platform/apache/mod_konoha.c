@@ -254,11 +254,6 @@ static const PlatformApi apache_platform = {
 	.free_i             = free,
 	.setjmp_i           = ksetjmp,
 	.longjmp_i          = klongjmp,
-	.realpath_i         = realpath,
-	.fopen_i            = (FILE_i* (*)(const char*, const char*))fopen,
-	.fgetc_i            = (int     (*)(FILE_i *))fgetc,
-	.feof_i             = (int     (*)(FILE_i *))feof,
-	.fclose_i           = (int     (*)(FILE_i *))fclose,
 	.syslog_i           = syslog,
 	.vsyslog_i          = vsyslog,
 	.printf_i           = printf,
@@ -495,7 +490,7 @@ static int konoha_handler(request_rec *r)
 	KonohaContext *kctx = konoha;
 	kNameSpace *ns = KNULL(NameSpace);
 	KLIB kNameSpace_compileAllDefinedMethods(kctx);
-	KonohaClass *CT_Script = KLIB kNameSpace_getClass(kctx, ns, NULL/*fixme*/, "Script", 6, 0);
+	KonohaClass *CT_Script = KLIB kNameSpace_getClass(kctx, ns, "Script", 6, 0);
 	ktype_t TY_Script = CT_Script->classId;
 	kMethod *mtd = KLIB kNameSpace_getMethodNULL(kctx, ns, TY_Script/*TODO*/, MN_("handler"), 0, MPOL_LATEST);
 	if (mtd == NULL) {
