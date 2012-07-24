@@ -196,6 +196,7 @@ typedef struct OPTRACE {
 	KCODE_HEAD;
 	uintptr_t uline;
 	kreg_t thisidx;
+	kreg_t espshift;
 	kObject* tyo;
 	TraceFunc trace;
 } OPTRACE;
@@ -262,7 +263,7 @@ static const kOPDATA_t OPDATA[] = {
 	{"ERROR", 0, 3, { VMT_U, VMT_STRING, VMT_RO, VMT_VOID}}, 
 	{"SAFEPOINT", 0, 2, { VMT_U, VMT_RO, VMT_VOID}}, 
 	{"CHKSTACK", 0, 1, { VMT_U, VMT_VOID}}, 
-	{"TRACE", 0, 4, { VMT_U, VMT_RO, VMT_CO, VMT_F, VMT_VOID}}, 
+	{"TRACE", 0, 5, { VMT_U, VMT_RO, VMT_RO, VMT_CO, VMT_F, VMT_VOID}}, 
 };
 
 static void opcode_check(void)
@@ -489,7 +490,7 @@ static VirtualMachineInstruction* KonohaVirtualMachine_run(KonohaContext *kctx, 
 	} 
 	CASE(TRACE) {
 		OPTRACE *op = (OPTRACE*)pc;
-		OPEXEC_TRACE(op->uline, op->thisidx, op->tyo, op->trace); pc++;
+		OPEXEC_TRACE(op->uline, op->thisidx, op->espshift, op->tyo, op->trace); pc++;
 		GOTO_NEXT();
 	} 
 	DISPATCH_END(pc);

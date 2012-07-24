@@ -631,13 +631,13 @@ static void EXPR_asm(KonohaContext *kctx, kStmt *stmt, int a, kExpr *expr, int s
 
 static KMETHOD MethodFunc_invokeAbstractMethod(KonohaContext *kctx, KonohaStack *sfp);
 
-static int applySecurityPolicy(KonohaContext *kctx, KonohaStack *sfp, kfileline_t pline)
+static int applySecurityPolicy(KonohaContext *kctx, KonohaStack *sfp, int argc, kfileline_t pline)
 {
 	PLATAPI printf_i("permission denied\n");
 	return 1;
 }
 
-static int checkPermission(KonohaContext *kctx, KonohaStack *sfp, kfileline_t pline)
+static int checkPermission(KonohaContext *kctx, KonohaStack *sfp, int argc, kfileline_t pline)
 {
 	INIT_GCSTACK();
 	const char *B = PLATAPI beginTag(InfoTag);
@@ -657,9 +657,9 @@ static int checkPermission(KonohaContext *kctx, KonohaStack *sfp, kfileline_t pl
 	O_ct(mtd)->p(kctx, sfp, 2, &wb, 1);
 	PLATAPI printf_i("%s", KLIB Kwb_top(kctx, &wb, 1));
 	KLIB Kwb_free(&wb);
-	PLATAPI printf_i("%s\n", E);
+	PLATAPI printf_i(" argc=%d%s\n", argc, E);
 	RESET_GCSTACK();
-	return applySecurityPolicy(kctx, sfp, pline);
+	return applySecurityPolicy(kctx, sfp, argc, pline);
 }
 
 static void CALL_asm(KonohaContext *kctx, kStmt *stmt, int a, kExpr *expr, int shift, int espidx)
@@ -701,7 +701,7 @@ static void CALL_asm(KonohaContext *kctx, kStmt *stmt, int a, kExpr *expr, int s
 		ASM(LOOKUP, SFP_(thisidx), Stmt_nameSpace(stmt), mtd);
 	}
 	if(enforce_security) {
-		ASM(TRACE, ctxcode->uline, SFP_(thisidx), KLIB Knull(kctx, CT_(expr->ty)), checkPermission);
+		ASM(TRACE, ctxcode->uline, SFP_(thisidx), ESP_(espidx, argc), KLIB Knull(kctx, CT_(expr->ty)), checkPermission);
 	}
 	ASM(CALL, ctxcode->uline, SFP_(thisidx), ESP_(espidx, argc), KLIB Knull(kctx, CT_(expr->ty)));
 }
