@@ -123,11 +123,11 @@ struct PlatformApiVar {
 	int     (*setjmp_i)(jmpbuf_i);
 	void    (*longjmp_i)(jmpbuf_i, int);
 
-	char*   (*realpath_i)(const char*, char*);
-	FILE_i* (*fopen_i)(const char*, const char*);
-	int     (*fgetc_i)(FILE_i *);
-	int     (*feof_i)(FILE_i *);
-	int     (*fclose_i)(FILE_i *);
+//	char*   (*realpath_i)(const char*, char*);
+//	FILE_i* (*fopen_i)(const char*, const char*);
+//	int     (*fgetc_i)(FILE_i *);
+//	int     (*feof_i)(FILE_i *);
+//	int     (*fclose_i)(FILE_i *);
 	//
 	void    (*syslog_i)(int priority, const char *message, ...) __PRINTFMT(2, 3);
 	void    (*vsyslog_i)(int priority, const char *message, va_list args);
@@ -141,6 +141,7 @@ struct PlatformApiVar {
 
 	// high-level functions
 	const char* (*formatPackagePath)(char *buf, size_t bufsiz, const char *packageName, const char *ext);
+	const char* (*formatTransparentPath)(char *buf, size_t bufsiz, const char *parent, const char *path);
 	KonohaPackageHandler* (*loadPackageHandler)(const char *packageName);
 	int (*loadScript)(const char *filePath, long uline, void *thunk, int (*evalFunc)(const char*, long, int *, void *));
 	const char* (*beginTag)(kinfotag_t);
@@ -1040,8 +1041,8 @@ struct kMethodVar {
 #define MPOL_PARAMSIZE   (1<<1)
 #define MPOL_SIGNATURE   (1<<2)
 #define MPOL_SETTER      (1<<3)
-#define MPOL_GETTER      MPOL_PARAMSIZE|MPOL_FIRST
-
+#define MPOL_CANONICAL   (1<<5)
+#define MPOL_GETTER      MPOL_PARAMSIZE|MPOL_FIRST|MPOL_CANONICAL
 
 #define K_CALLDELTA   4
 #define K_RTNIDX    (-4)
@@ -1187,7 +1188,7 @@ struct KonohaLibVar {
 	kbool_t      (*Konoha_setModule)(KonohaContext*, int, struct KonohaModule *, kfileline_t);
 	KonohaClass* (*Konoha_defineClass)(KonohaContext*, kpackage_t, kpackage_t, kString *, KDEFINE_CLASS *, kfileline_t);
 
-	KonohaClass*  (*kNameSpace_getClass)(KonohaContext*, kNameSpace *, KonohaClass *, const char *, size_t, ktype_t def);
+	KonohaClass*  (*kNameSpace_getClass)(KonohaContext*, kNameSpace *, const char *, size_t, KonohaClass *);
 	void          (*kNameSpace_loadMethodData)(KonohaContext*, kNameSpace *, intptr_t *d);
 	void          (*kNameSpace_loadConstData)(KonohaContext*, kNameSpace *, const char **d, kfileline_t);
 	kMethod*      (*kNameSpace_getMethodNULL)(KonohaContext*, kNameSpace *, ktype_t cid, kmethodn_t mn, int option, int policy);

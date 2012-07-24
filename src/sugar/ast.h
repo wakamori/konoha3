@@ -119,7 +119,7 @@ static int appendKeyword(KonohaContext *kctx, kNameSpace *ns, kArray *tokenList,
 		if(!Token_resolved(kctx, ns, tk)) {
 			const char *t = S_text(tk->text);
 			if(isalpha(t[0])) {
-				KonohaClass *ct = KLIB kNameSpace_getClass(kctx, ns, NULL/*FIXME*/, S_text(tk->text), S_size(tk->text), TY_unknown);
+				KonohaClass *ct = KLIB kNameSpace_getClass(kctx, ns, S_text(tk->text), S_size(tk->text), NULL);
 				if(ct != NULL) {
 					tk->keyword = KW_TypePattern;
 					tk->ty = ct->classId;
@@ -647,7 +647,7 @@ static kExpr* kStmt_parseExpr(KonohaContext *kctx, kStmt *stmt, kArray *tokenArr
 static kExpr *kStmt_rightJoinExpr(KonohaContext *kctx, kStmt *stmt, kExpr *expr, kArray *tokenArray, int c, int e)
 {
 	if(c < e && expr != K_NULLEXPR && !Stmt_isERR(stmt)) {
-		WarnTagIgnored(kctx, tokenArray, c, e);
+		WARN_IgnoredTokens(kctx, tokenArray, c, e);
 	}
 	return expr;
 }

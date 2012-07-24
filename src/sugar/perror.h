@@ -96,7 +96,6 @@ static void Token_pERR(KonohaContext *kctx, kTokenVar *tk, const char *fmt, ...)
 	Token_textetUnresolved(tk, true);
 }
 
-//#define kStmt_toERR(STMT, ENO)  Stmt_toERR(kctx, STMT, ENO)
 #define Stmt_isERR(STMT)       ((STMT)->build == TSTMT_ERR)
 static SugarSyntax* NameSpace_syn(KonohaContext *kctx, kNameSpace *ns0, ksymbol_t kw, int isnew);
 
@@ -173,20 +172,22 @@ static const char *kToken_t_(KonohaContext *kctx, kToken *tk)
 	}
 }
 
-static void WarnTagIgnored(KonohaContext *kctx, kArray *tokenArray, int s, int e)
+static void WARN_IgnoredTokens(KonohaContext *kctx, kArray *tokenArray, int beginIdx, int endIdx)
 {
-	if(s < e) {
-		int i = s;
+	if(beginIdx < endIdx) {
+		int i = beginIdx;
 		KUtilsWriteBuffer wb;
 		KLIB Kwb_init(&(kctx->stack->cwb), &wb);
 		KLIB Kwb_printf(kctx, &wb, "%s", Token_text(tokenArray->tokenItems[i])); i++;
-		while(i < e) {
+		while(i < endIdx) {
 			KLIB Kwb_printf(kctx, &wb, " %s", Token_text(tokenArray->tokenItems[i])); i++;
 		}
-		pWARN(tokenArray->tokenItems[s]->uline, "ignored tokens: %s", KLIB Kwb_top(kctx, &wb, 1));
+		pWARN(tokenArray->tokenItems[beginIdx]->uline, "ignored tokens: %s", KLIB Kwb_top(kctx, &wb, 1));
 		KLIB Kwb_free(&wb);
 	}
 }
+
+
 
 #ifdef __cplusplus
 }
