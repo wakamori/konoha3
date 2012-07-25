@@ -33,9 +33,9 @@ extern "C" {
 /* ------------------------------------------------------------------------ */
 // Block
 
-static int selectStmtLine(KonohaContext *kctx, kNameSpace *ns, int *indent, kArray *tokenList, int beginIdx, int endIdx, int delim, kArray *tokenArraydst, kToken **tkERRRef);
-static void Block_addStmtLine(KonohaContext *kctx, kBlock *bk, kArray *tokenList, int beginIdx, int end, kToken *tkERR);
-static int makeTree(KonohaContext *kctx, kNameSpace *ns, ksymbol_t tt, kArray *tokenList, int beginIdx, int endIdx, int closech, kArray *tokenArraydst, kToken **tkERRRef);
+static int selectStmtLine(KonohaContext *kctx, kNameSpace *ns, int *indent, kArray *tokenList, int beginIdx, int endIdx, int delim, kArray *tokenArraydst, kToken **errTokenRef);
+static void Block_addStmtLine(KonohaContext *kctx, kBlock *bk, kArray *tokenList, int beginIdx, int end, kToken *errToken);
+static int makeTree(KonohaContext *kctx, kNameSpace *ns, ksymbol_t tt, kArray *tokenList, int beginIdx, int endIdx, int closech, kArray *tokenArraydst, kToken **errTokenRef);
 
 static kBlock *new_Block(KonohaContext *kctx, kNameSpace *ns, kStmt *parent, kArray *tokenList, int beginIdx, int endIdx, int delim)
 {
@@ -45,19 +45,19 @@ static kBlock *new_Block(KonohaContext *kctx, kNameSpace *ns, kStmt *parent, kAr
 	}
 	int i = beginIdx, indent = 0, atop = kArray_size(tokenList);
 	while(i < endIdx) {
-		kToken *tkERR = NULL;
+		kToken *errToken = NULL;
 		DBG_ASSERT(atop == kArray_size(tokenList));
-		i = selectStmtLine(kctx, ns, &indent, tokenList, i, endIdx, delim, tokenList, &tkERR);
+		i = selectStmtLine(kctx, ns, &indent, tokenList, i, endIdx, delim, tokenList, &errToken);
 		int asize = kArray_size(tokenList);
 		if(asize > atop) {
-			Block_addStmtLine(kctx, bk, tokenList, atop, asize, tkERR);
+			Block_addStmtLine(kctx, bk, tokenList, atop, asize, errToken);
 			KLIB kArray_clear(kctx, tokenList, atop);
 		}
 	}
 	return (kBlock*)bk;
 }
 
-static kbool_t Token_resolved(KonohaContext *kctx, kNameSpace *ns, kTokenVar *tk)
+static kbool_t resolveSymbolToken(KonohaContext *kctx, kNameSpace *ns, kTokenVar *tk)
 {
 	ksymbol_t kw = ksymbolA(S_text(tk->text), S_size(tk->text), SYM_NONAME);
 	if(kw != SYM_NONAME) {
@@ -111,12 +111,12 @@ static kTokenVar* TokenType_resolveGenerics(KonohaContext *kctx, kNameSpace *ns,
 	return tk;
 }
 
-static int appendKeyword(KonohaContext *kctx, kNameSpace *ns, kArray *tokenList, int beginIdx, int endIdx, kArray *dst, kToken **tkERR)
+static int appendKeyword(KonohaContext *kctx, kNameSpace *ns, kArray *tokenList, int beginIdx, int endIdx, kArray *dst, kToken **errToken)
 {
 	int next = beginIdx; // don't add
 	kTokenVar *tk = tokenList->tokenVarItems[beginIdx];
 	if(tk->keyword == TK_SYMBOL) {
-		if(!Token_resolved(kctx, ns, tk)) {
+		if(!resolveSymbolToken(kctx, ns, tk)) {
 			const char *t = S_text(tk->text);
 			if(isalpha(t[0])) {
 				KonohaClass *ct = KLIB kNameSpace_getClass(kctx, ns, S_text(tk->text), S_size(tk->text), NULL);
@@ -127,12 +127,12 @@ static int appendKeyword(KonohaContext *kctx, kNameSpace *ns, kArray *tokenList,
 			}
 			else {
 				Token_pERR(kctx, tk, "undefined token: %s", Token_text(tk));
-				tkERR[0] = tk;
+				errToken[0] = tk;
 				return endIdx;
 			}
 		}
 	}
-	Token_textetUnresolved(tk, false);
+	Token_setUnresolved(tk, false);
 	if(TK_isType(tk)) {   // trying to resolve Type[Type, Type]
 		KLIB kArray_add(kctx, dst, tk);
 		while(next + 1 < endIdx) {
@@ -141,7 +141,7 @@ static int appendKeyword(KonohaContext *kctx, kNameSpace *ns, kArray *tokenList,
 			if(topch != '[') break;
 			kArray *abuf = ctxsugar->preparedTokenList;
 			size_t atop = kArray_size(abuf);
-			next = makeTree(kctx, ns, AST_BRACKET, tokenList,  next+1, endIdx, ']', abuf, tkERR);
+			next = makeTree(kctx, ns, AST_BRACKET, tokenList,  next+1, endIdx, ']', abuf, errToken);
 			if(!(kArray_size(abuf) > atop)) return next;
 			tkB = abuf->tokenItems[atop];
 			if(tkB->keyword == AST_BRACKET) {
@@ -178,7 +178,7 @@ static kbool_t Token_toBRACE(KonohaContext *kctx, kTokenVar *tk, kNameSpace *ns)
 	return 0;
 }
 
-static int makeTree(KonohaContext *kctx, kNameSpace *ns, ksymbol_t astkw, kArray *tokenList, int beginIdx, int endIdx, int closech, kArray *tokenArraydst, kToken **tkERRRef)
+static int makeTree(KonohaContext *kctx, kNameSpace *ns, ksymbol_t astkw, kArray *tokenList, int beginIdx, int endIdx, int closech, kArray *tokenArraydst, kToken **errTokenRef)
 {
 	int i, probablyCloseBefore = endIdx - 1;
 	kToken *tk = tokenList->tokenItems[beginIdx];
@@ -197,11 +197,11 @@ static int makeTree(KonohaContext *kctx, kNameSpace *ns, ksymbol_t astkw, kArray
 		int topch = kToken_topch(tk);
 		DBG_ASSERT(topch != '{');
 		if(topch == '(') {
-			i = makeTree(kctx, ns, AST_PARENTHESIS, tokenList, i, endIdx, ')', tkP->sub, tkERRRef);
+			i = makeTree(kctx, ns, AST_PARENTHESIS, tokenList, i, endIdx, ')', tkP->sub, errTokenRef);
 			continue;
 		}
 		if(topch == '[') {
-			i = makeTree(kctx, ns, AST_BRACKET, tokenList, i, endIdx, ']', tkP->sub, tkERRRef);
+			i = makeTree(kctx, ns, AST_BRACKET, tokenList, i, endIdx, ']', tkP->sub, errTokenRef);
 			continue;
 		}
 		if(topch == closech) {
@@ -211,7 +211,7 @@ static int makeTree(KonohaContext *kctx, kNameSpace *ns, ksymbol_t astkw, kArray
 			if(tk->keyword == TK_INDENT) continue; // remove INDENT from tokens;
 			if(tk->keyword == TK_CODE) probablyCloseBefore = i;
 		}
-		i = appendKeyword(kctx, ns, tokenList, i, endIdx, tkP->sub, tkERRRef);
+		i = appendKeyword(kctx, ns, tokenList, i, endIdx, tkP->sub, errTokenRef);
 	}
 	if(tk->keyword != TK_ERR) {
 		Token_pERR(kctx, tkP, "'%c' is expected (probably before %s)", closech, Token_text(tokenList->tokenItems[probablyCloseBefore]));
@@ -220,11 +220,11 @@ static int makeTree(KonohaContext *kctx, kNameSpace *ns, ksymbol_t astkw, kArray
 		tkP->keyword = TK_ERR;
 		KSETv(tkP->text, tk->text);
 	}
-	tkERRRef[0] = tkP;
+	errTokenRef[0] = tkP;
 	return endIdx;
 }
 
-static int selectStmtLine(KonohaContext *kctx, kNameSpace *ns, int *indent, kArray *tokenList, int beginIdx, int endIdx, int delim, kArray *tokenArraydst, kToken **tkERRRef)
+static int selectStmtLine(KonohaContext *kctx, kNameSpace *ns, int *indent, kArray *tokenList, int beginIdx, int endIdx, int delim, kArray *tokenArraydst, kToken **errTokenRef)
 {
 	int i = beginIdx;
 	DBG_ASSERT(endIdx <= kArray_size(tokenList));
@@ -239,7 +239,7 @@ static int selectStmtLine(KonohaContext *kctx, kNameSpace *ns, int *indent, kArr
 			tk1 = tokenList->tokenVarItems[i+1];
 			topch = kToken_topch(tk1);
 			if(i + 1 < endIdx && topch == '(') {
-				i = makeTree(kctx, ns, AST_PARENTHESIS, tokenList, i+1, endIdx, ')', tokenArraydst, tkERRRef);
+				i = makeTree(kctx, ns, AST_PARENTHESIS, tokenList, i+1, endIdx, ')', tokenArraydst, errTokenRef);
 			}
 			continue;
 		}
@@ -261,7 +261,7 @@ static int selectStmtLine(KonohaContext *kctx, kNameSpace *ns, int *indent, kArr
 			return i+1;
 		}
 		if(tk->keyword == TK_ERR) {
-			tkERRRef[0] = tk;
+			errTokenRef[0] = tk;
 			continue;
 		}
 		if(tk->keyword == TK_INDENT) {
@@ -272,14 +272,14 @@ static int selectStmtLine(KonohaContext *kctx, kNameSpace *ns, int *indent, kArr
 		}
 		if(kToken_needsKeywordResolved(tk)) {
 			if(topch == '(') {
-				i = makeTree(kctx, ns, AST_PARENTHESIS, tokenList,  i, endIdx, ')', tokenArraydst, tkERRRef);
+				i = makeTree(kctx, ns, AST_PARENTHESIS, tokenList,  i, endIdx, ')', tokenArraydst, errTokenRef);
 				continue;
 			}
 			else if(topch == '[') {
-				i = makeTree(kctx, ns, AST_BRACKET, tokenList, i, endIdx, ']', tokenArraydst, tkERRRef);
+				i = makeTree(kctx, ns, AST_BRACKET, tokenList, i, endIdx, ']', tokenArraydst, errTokenRef);
 				continue;
 			}
-			i = appendKeyword(kctx, ns, tokenList, i, endIdx, tokenArraydst, tkERRRef);
+			i = appendKeyword(kctx, ns, tokenList, i, endIdx, tokenArraydst, errTokenRef);
 		}
 		else {
 			KLIB kArray_add(kctx, tokenArraydst, tk);
@@ -289,7 +289,7 @@ static int selectStmtLine(KonohaContext *kctx, kNameSpace *ns, int *indent, kArr
 	return i;
 }
 
-static kExpr* kStmt_parseExpr(KonohaContext *kctx, kStmt *stmt, kArray *tokenArray, int s, int e);
+static kExpr* kStmt_parseExpr(KonohaContext *kctx, kStmt *stmt, kArray *tokenArray, int beginIdx, int endIdx);
 
 static int Stmt_addAnnotation(KonohaContext *kctx, kStmt *stmt, kArray *tokenList, int beginIdx, int endIdx)
 {
@@ -477,7 +477,7 @@ static SugarSyntax* NameSpace_getSyntaxRule(KonohaContext *kctx, kNameSpace *ns,
 			tk = tokenList->tokenItems[i];
 			syn = SYN_(ns, tk->keyword);
 			//DBG_P("@ tk->keyword=%s%s, syn=%p", KW_t(tk->keyword), syn);
-			if(syn->syntaxRuleNULL != NULL && syn->priority > 0) {
+			if(syn->syntaxRuleNULL != NULL && syn->precedence_op2 > 0) {
 				return syn;
 			}
 		}
@@ -501,13 +501,13 @@ static kbool_t Stmt_parseSyntaxRule(KonohaContext *kctx, kStmt *stmt, kArray *to
 	return ret;
 }
 
-static void Block_addStmtLine(KonohaContext *kctx, kBlock *bk, kArray *tokenList, int beginIdx, int endIdx, kToken *tkERR)
+static void Block_addStmtLine(KonohaContext *kctx, kBlock *bk, kArray *tokenList, int beginIdx, int endIdx, kToken *errToken)
 {
 	kStmtVar *stmt = new_(StmtVar, tokenList->tokenItems[beginIdx]->uline);
 	KLIB kArray_add(kctx, bk->stmtList, stmt);
 	KINITv(stmt->parentBlockNULL, bk);
-	if(tkERR != NULL) {
-		kStmt_toERR(kctx, stmt, tkERR->text);
+	if(errToken != NULL) {
+		kStmt_toERR(kctx, stmt, errToken->text);
 	}
 	else {
 		int c = Stmt_addAnnotation(kctx, stmt, tokenList, beginIdx, endIdx);
@@ -564,40 +564,71 @@ static kExpr *ParseExpr(KonohaContext *kctx, SugarSyntax *syn, kStmt *stmt, kArr
 
 /* ------------------------------------------------------------------------ */
 
-static kbool_t Stmt_isUnaryOp(KonohaContext *kctx, kStmt *stmt, kToken *tk)
+static kbool_t isUnaryOp(KonohaContext *kctx, kToken *tk, kNameSpace *ns, int *precedenceRef, SugarSyntax **synRef)
 {
-	SugarSyntax *syn = SYN_(Stmt_nameSpace(stmt), tk->keyword);
-	return (syn->op1 != SYM_NONAME);
+	SugarSyntax *syn = SYN_(ns, tk->keyword);
+	synRef[0] = syn;
+	precedenceRef[0] = syn->precedence_op1;
+	return (syn->precedence_op1 > 0);
 }
 
-static int Stmt_skipUnaryOp(KonohaContext *kctx, kStmt *stmt, kArray *tokenArray, int s, int e)
+static int skipUnaryOp(KonohaContext *kctx, kArray *tokenArray, int beginIdx, int endIdx, kNameSpace *ns)
 {
 	int i;
-	for(i = s; i < e; i++) {
+	for(i = beginIdx; i < endIdx; i++) {
 		kToken *tk = tokenArray->tokenItems[i];
-		if(!Stmt_isUnaryOp(kctx, stmt, tk)) break;
+		SugarSyntax *syn = SYN_(ns, tk->keyword);
+		if(syn->precedence_op1 > 0) break;
 	}
 	return i;
 }
 
-static int Stmt_findBinaryOp(KonohaContext *kctx, kStmt *stmt, kArray *tokenArray, int s, int e, SugarSyntax **synRef)
+static int Stmt_findBinaryOp(KonohaContext *kctx, kStmt *stmt, kArray *tokenArray, int beginIdx, int endIdx, SugarSyntax **synRef)
 {
-	int idx = -1, i, prif = 0;
-	for(i = Stmt_skipUnaryOp(kctx, stmt, tokenArray, s, e) + 1; i < e; i++) {
-		kToken *tk = tokenArray->tokenItems[i];
-		SugarSyntax *syn = SYN_(Stmt_nameSpace(stmt), tk->keyword);
-		if(syn->priority > 0) {
-			if(prif < syn->priority || (prif == syn->priority && !(FLAG_is(syn->flag, SYNFLAG_ExprLeftJoinOp2)) )) {
-				prif = syn->priority;
-				idx = i;
-				*synRef = syn;
-			}
-			if(!FLAG_is(syn->flag, SYNFLAG_ExprPostfixOp2)) {  /* check if real binary operator to parse f() + 1 */
-				i = Stmt_skipUnaryOp(kctx, stmt, tokenArray, i+1, e) - 1;
+	int idx = beginIdx, i, precedence = 0;
+	kNameSpace *ns = Stmt_nameSpace(stmt);
+	if(!isUnaryOp(kctx, tokenArray->tokenItems[beginIdx], ns, &precedence, synRef)) {
+		for(i = beginIdx; i < endIdx; i++) {
+			kToken *tk = tokenArray->tokenItems[i];
+			SugarSyntax *syn = SYN_(ns, tk->keyword);
+			if(syn->precedence_op2 > 0) {
+				if(precedence < syn->precedence_op2 || (precedence == syn->precedence_op2 && !(FLAG_is(syn->flag, SYNFLAG_ExprLeftJoinOp2)) )) {
+					precedence = syn->precedence_op2;
+					idx = i;
+					*synRef = syn;
+				}
+//				if(!FLAG_is(syn->flag, SYNFLAG_ExprPostfixOp2)) {  /* check if real binary operator to parse f() + 1 */
+//					i = skipUnaryOp(kctx, tokenArray, i+1, endIdx, ns) - 1;
+//				}
 			}
 		}
 	}
 	return idx;
+}
+
+static kExpr* kStmt_parseExpr(KonohaContext *kctx, kStmt *stmt, kArray *tokenArray, int beginIdx, int endIdx)
+{
+	if(!Stmt_isERR(stmt)) {
+		if(beginIdx < endIdx) {
+			SugarSyntax *syn = NULL;
+			int idx = Stmt_findBinaryOp(kctx, stmt, tokenArray, beginIdx, endIdx, &syn);
+//			if(idx > beginIdx) {
+//				//DBG_P("** Found BinaryOp: beginIdx=%d, idx=%d, endIdx=%d, '%beginIdx'**", beginIdx, idx, endIdx, Token_text(tokenArray->tokenItems[idx]));
+//			}
+			return ParseExpr(kctx, syn, stmt, tokenArray, beginIdx, idx, endIdx);
+		}
+		else {
+			const char *where = "", *token = "";
+			if (0 < beginIdx - 1) {
+				where = " after "; token = Token_text(tokenArray->tokenItems[beginIdx-1]);
+			}
+			else if(endIdx < kArray_size(tokenArray)) {
+				where = " before "; token = Token_text(tokenArray->tokenItems[endIdx]);
+			}
+			kStmt_p(stmt, ErrTag, "expected expression%beginIdx%beginIdx", where, token);
+		}
+	}
+	return K_NULLEXPR;
 }
 
 static kExpr *kStmt_addExprParam(KonohaContext *kctx, kStmt *stmt, kExpr *expr, kArray *tokenArray, int s, int e, int allowEmpty)
@@ -615,33 +646,6 @@ static kExpr *kStmt_addExprParam(KonohaContext *kctx, kStmt *stmt, kExpr *expr, 
 	}
 	KLIB kArray_clear(kctx, tokenArray, s);
 	return expr;
-}
-
-static kExpr* kStmt_parseExpr(KonohaContext *kctx, kStmt *stmt, kArray *tokenArray, int s, int e)
-{
-	if(!Stmt_isERR(stmt)) {
-		if(s < e) {
-			SugarSyntax *syn = NULL;
-			int idx = Stmt_findBinaryOp(kctx, stmt, tokenArray, s, e, &syn);
-			if(idx != -1) {
-				//DBG_P("** Found BinaryOp: s=%d, idx=%d, e=%d, '%s'**", s, idx, e, Token_text(tokenArray->tokenItems[idx]));
-				return ParseExpr(kctx, syn, stmt, tokenArray, s, idx, e);
-			}
-			int c = s;
-			syn = SYN_(Stmt_nameSpace(stmt), (tokenArray->tokenItems[c])->keyword);
-			return ParseExpr(kctx, syn, stmt, tokenArray, c, c, e);
-		}
-		if (0 < s - 1) {
-			kStmt_p(stmt, ErrTag, "expected expression after %s", Token_text(tokenArray->tokenItems[s-1]));
-		}
-		else if(e < kArray_size(tokenArray)) {
-			kStmt_p(stmt, ErrTag, "expected expression before %s", Token_text(tokenArray->tokenItems[e]));
-		}
-		else {
-			kStmt_p(stmt, ErrTag, "expected expression");
-		}
-	}
-	return K_NULLEXPR;
 }
 
 static kExpr *kStmt_rightJoinExpr(KonohaContext *kctx, kStmt *stmt, kExpr *expr, kArray *tokenArray, int c, int e)
@@ -668,9 +672,8 @@ static KMETHOD ParseExpr_Op(KonohaContext *kctx, KonohaStack *sfp)
 	VAR_ParseExpr(stmt, tokenArray, s, c, e);
 	kTokenVar *tk = tokenArray->tokenVarItems[c];
 	kExpr *expr, *rexpr = kStmt_parseExpr(kctx, stmt, tokenArray, c+1, e);
-	kmethodn_t mn = (s == c) ? syn->op1 : syn->op2;
-	if(mn != SYM_NONAME && syn->ExprTyCheck == kmodsugar->UndefinedExprTyCheck) {
-		tk->keyword = mn;
+	if(syn->keyword != KW_LET && syn->ExprTyCheck == kmodsugar->UndefinedExprTyCheck) {
+		DBG_P("switching type checker ..");
 		syn = SYN_(Stmt_nameSpace(stmt), KW_ExprMethodCall);  // switch type checker
 	}
 	if(s == c) { // unary operator

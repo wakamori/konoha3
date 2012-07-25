@@ -4,7 +4,7 @@ K.import("konoha.class");
 
 class C {
 	int x;
-	int succ() {
+	@Final int succ() {
 		return x;
 	}
 }

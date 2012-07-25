@@ -149,8 +149,8 @@ struct SugarSyntaxVar {
 	kFunc                            *StmtTyCheck;
 	kFunc                            *ExprTyCheck;
 	// binary
-	kshort_t   priority;              ktype_t  ty;
-	kmethodn_t op2;                   kmethodn_t op1;
+	ktype_t  ty;
+	kmethodn_t precedence_op2;        kshort_t precedence_op1;
 };
 
 #define SYNIDX_PatternMatch   0
@@ -181,9 +181,10 @@ struct SugarSyntaxVar {
 typedef struct KDEFINE_SYNTAX {
 	ksymbol_t keyword;  kshortflag_t flag;
 	const char *rule;
-	const char *op2;
-	const char *op1;
-	int priority_op2;
+//	const char *op2;
+//	const char *op1;
+	int precedence_op2;
+	int precedence_op1;
 	int type;
 	MethodFunc PatternMatch;
 	MethodFunc ParseExpr;
@@ -221,10 +222,11 @@ struct kTokenVar {
 		kArray  *sub;
 	};
 	kfileline_t     uline;
+	SugarSyntax *syn;
 };
 
 #define kToken_needsKeywordResolved(o)      (TFLAG_is(uintptr_t,(o)->h.magicflag,kObject_Local1))
-#define Token_textetUnresolved(o, B)          TFLAG_set(uintptr_t,(o)->h.magicflag,kObject_Local1,B)
+#define Token_setUnresolved(o, B)          TFLAG_set(uintptr_t,(o)->h.magicflag,kObject_Local1,B)
 #define kToken_topch(tk)                    ((tk)->keyword != TK_TEXT && (S_size((tk)->text) == 1) ? S_text((tk)->text)[0] : 0)
 
 #define TEXPR_UNTYPED       -1   /*THIS MUST NOT HAPPEN*/

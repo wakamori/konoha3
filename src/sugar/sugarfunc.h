@@ -469,10 +469,10 @@ static kExpr *Expr_lookupMethod(KonohaContext *kctx, kStmt *stmt, kExpr *expr, k
 		tkMN->keyword = ksymbolA(S_text(tkMN->text), S_size(tkMN->text), SYM_NEWID);
 	}
 	size_t psize = kArray_size(expr->cons) - 2;
-	kMethod *mtd = KLIB kNameSpace_getMethodNULL(kctx, ns, this_cid, tkMN->keyword, psize, MPOL_LATEST|MPOL_PARAMSIZE);
+	kMethod *mtd = KLIB kNameSpace_getMethodNULL(kctx, ns, this_cid, tkMN->keyword, psize, MPOL_LATEST|MPOL_PARAMSIZE|MPOL_CANONICAL);
 	if(mtd == NULL) {
 		if(tkMN->text != TS_EMPTY) {  // find Dynamic Call ..
-			mtd = KLIB kNameSpace_getMethodNULL(kctx, ns, this_cid, 0/*NONAME*/, 1, MPOL_FIRST|MPOL_PARAMSIZE);
+			mtd = KLIB kNameSpace_getMethodNULL(kctx, ns, this_cid, 0/*NONAME*/, 0, MPOL_FIRST);
 			if(mtd != NULL) {
 				return tyCheckDynamicCallParams(kctx, stmt, expr, mtd, gma, tkMN->text, tkMN->keyword, reqty);
 			}
@@ -553,7 +553,7 @@ static kMethod* Expr_lookUpFuncOrMethod(KonohaContext *kctx, kNameSpace *ns, kEx
 	{
 		ktype_t cid = O_classId(ns->scriptObject);
 		int paramsize = kArray_size(exprN->cons) - 2;
-		kMethod *mtd = KLIB kNameSpace_getMethodNULL(kctx, ns, cid, fn, paramsize, MPOL_FIRST|MPOL_PARAMSIZE);
+		kMethod *mtd = KLIB kNameSpace_getMethodNULL(kctx, ns, cid, fn, paramsize, MPOL_FIRST|MPOL_PARAMSIZE|MPOL_CANONICAL);
 		if(mtd != NULL) {
 			KSETv(exprN->cons->exprItems[1], new_ConstValueExpr(kctx, cid, ns->scriptObject));
 			return mtd;
@@ -563,7 +563,7 @@ static kMethod* Expr_lookUpFuncOrMethod(KonohaContext *kctx, kNameSpace *ns, kEx
 			KSETv(exprN->cons->exprItems[0], new_GetterExpr(kctx, termToken, mtd, new_ConstValueExpr(kctx, cid, ns->scriptObject)));
 			return NULL;
 		}
-		mtd = KLIB kNameSpace_getMethodNULL(kctx, ns, TY_System, fn, paramsize, MPOL_FIRST|MPOL_PARAMSIZE);
+		mtd = KLIB kNameSpace_getMethodNULL(kctx, ns, TY_System, fn, paramsize, MPOL_FIRST|MPOL_PARAMSIZE|MPOL_CANONICAL);
 		if(mtd != NULL) {
 			KSETv(exprN->cons->exprItems[1], new_VariableExpr(kctx, gma, TEXPR_NULL, TY_System, 0));
 		}
@@ -751,7 +751,8 @@ static kbool_t appendAssignmentStmt(KonohaContext *kctx, kExpr *expr, kStmt **la
 static kbool_t Expr_declType(KonohaContext *kctx, kStmt *stmt, kExpr *expr, kGamma *gma, ktype_t ty, kStmt **lastStmtRef)
 {
 	DBG_ASSERT(IS_Expr(expr));
-	if(Expr_isTerm(expr)) {
+	DBG_P("isTerm=%d, expr->syn->keyword=%s%s", Expr_isTerm(expr), PSYM_t(expr->syn->keyword));
+	if(Expr_isTerm(expr) /*&& expr->termToken->keyword == TK_SYMBOL*/) {
 		if(ExprTerm_toVariable(kctx, stmt, expr, gma, ty)) {
 			kExpr *vexpr = new_VariableExpr(kctx, gma, TEXPR_NULL, ty, 0);
 			expr = new_TypedConsExpr(kctx, TEXPR_LET, TY_void, 3, K_NULL, expr, vexpr);
@@ -983,34 +984,34 @@ static void defineDefaultSyntax(KonohaContext *kctx, kNameSpace *ns)
 		{ PATTERN(Expr), .rule ="$expr", PatternMatch_(Expr), TopStmtTyCheck_(Expr), StmtTyCheck_(Expr),  },
 		{ PATTERN(Symbol),  _TERM, PatternMatch_(Symbol),  ExprTyCheck_(Symbol),},
 		{ PATTERN(Usymbol), _TERM, PatternMatch_(Usymbol), /* .rule = "$USYMBOL \"=\" $expr",*/ TopStmtTyCheck_(ConstDecl), ExprTyCheck_(Usymbol),},
-		{ PATTERN(Text), _TERM, ExprTyCheck_(Text),},
-		{ PATTERN(Int), _TERM, ExprTyCheck_(Int),},
-		{ PATTERN(Float), _TERM, },
-		{ PATTERN(Type), _TERM, PatternMatch_(Type), .rule = "$type $expr", StmtTyCheck_(TypeDecl), ExprTyCheck_(Type), },
-		{ PATTERN(Parenthesis), .flag = SYNFLAG_ExprPostfixOp2, ParseExpr_(Parenthesis), .priority_op2 = 16, ExprTyCheck_(FuncStyleCall),}, //AST_PARENTHESIS
+		{ PATTERN(Text),    _TERM, ExprTyCheck_(Text),},
+		{ PATTERN(Int),     _TERM, ExprTyCheck_(Int),},
+		{ PATTERN(Float),   _TERM, },
+		{ PATTERN(Type),    _TERM, PatternMatch_(Type), .rule = "$type $expr", StmtTyCheck_(TypeDecl), ExprTyCheck_(Type), },
+		{ PATTERN(Parenthesis), .flag = SYNFLAG_ExprPostfixOp2, ParseExpr_(Parenthesis), .precedence_op2 = 8, ExprTyCheck_(FuncStyleCall),}, //AST_PARENTHESIS
 		{ PATTERN(Bracket),  },  //AST_BRACKET
 		{ PATTERN(Brace),  }, // AST_BRACE
 		{ PATTERN(Block), PatternMatch_(Block), ExprTyCheck_(Block), },
 		{ PATTERN(Params), PatternMatch_(Params), TopStmtTyCheck_(ParamsDecl), ExprTyCheck_(MethodCall),},
 		{ PATTERN(Toks), PatternMatch_(Toks), },
-		{ TOKEN(DOT), ParseExpr_(DOT), .priority_op2 = 16, },
-		{ TOKEN(DIV), _OP, .op2 = "/", .priority_op2 = 32, },
-		{ TOKEN(MOD), _OP, .op2 = "%", .priority_op2 = 32, },
-		{ TOKEN(MUL), _OP, .op2 = "*", .priority_op2 = 32, },
-		{ TOKEN(ADD), _OP, .op1 = "+", .op2 = "+", .priority_op2 = 64, },
-		{ TOKEN(SUB), _OP, .op1 = "-", .op2 = "-", .priority_op2 = 64, },
-		{ TOKEN(LT), _OP, .op2 = "<", .priority_op2 = 256, },
-		{ TOKEN(LTE), _OP, .op2 = "<=", .priority_op2 = 256, },
-		{ TOKEN(GT), _OP, .op2 = ">", .priority_op2 = 256, },
-		{ TOKEN(GTE), _OP, .op2 = ">=", .priority_op2 = 256, },
-		{ TOKEN(EQ), _OP, .op2 = "==", .priority_op2 = 512, },
-		{ TOKEN(NEQ), _OP, .op2 = "!=", .priority_op2 = 512, },
-		{ TOKEN(AND), _OP, /*.op2 = ""unused*/ .priority_op2 = 1024, ExprTyCheck_(AND)},
-		{ TOKEN(OR), _OP, /*.op2 = ""unused*/ .priority_op2 = 2048, ExprTyCheck_(OR)},
-		{ TOKEN(NOT), _OP, .op1 = "!", },
-//		{ TOKEN(":"),  _OP,  .priority_op2 = 3072,},
-		{ TOKEN(LET),  _OPLeft, /*.op2 = "*"*/ .priority_op2 = 4096, },
-		{ TOKEN(COMMA), ParseExpr_(COMMA), .op2 = "*", .priority_op2 = 8192, /*.flag = SYNFLAG_ExprLeftJoinOP2,*/ },
+		{ TOKEN(DOT), ParseExpr_(DOT), .precedence_op2 = 8, },
+		{ TOKEN(DIV), _OP, .precedence_op2 = 32, },
+		{ TOKEN(MOD), _OP, .precedence_op2 = 32, },
+		{ TOKEN(MUL), _OP, .precedence_op2 = 32, },
+		{ TOKEN(ADD), _OP, .precedence_op2 = 64, },
+		{ TOKEN(SUB), _OP, .precedence_op2 = 64, .precedence_op1 = 16},
+		{ TOKEN(LT), _OP,  .precedence_op2 = 256, },
+		{ TOKEN(LTE), _OP, .precedence_op2 = 256, },
+		{ TOKEN(GT), _OP,  .precedence_op2 = 256, },
+		{ TOKEN(GTE), _OP, .precedence_op2 = 256, },
+		{ TOKEN(EQ), _OP,  .precedence_op2 = 512, },
+		{ TOKEN(NEQ), _OP, .precedence_op2 = 512, },
+		{ TOKEN(AND), _OP, .precedence_op2 = 1024, ExprTyCheck_(AND)},
+		{ TOKEN(OR), _OP,  .precedence_op2 = 2048, ExprTyCheck_(OR)},
+		{ TOKEN(NOT), _OP, .precedence_op1 = 16},
+//		{ TOKEN(":"),  _OP,  .precedence_op2 = 3072,},
+		{ TOKEN(LET),  .flag = SYNFLAG_ExprLeftJoinOp2, ParseExpr_(Op), .precedence_op2 = 4096, },
+		{ TOKEN(COMMA), ParseExpr_(COMMA), .precedence_op2 = 8192, },
 		{ TOKEN(DOLLAR), ParseExpr_(DOLLAR), },
 		{ TOKEN(void), .type = TY_void, .rule ="$type [type: $type \".\"] $SYMBOL $params [$block]", TopStmtTyCheck_(MethodDecl)},
 		{ TOKEN(boolean), .type = TY_Boolean, },
