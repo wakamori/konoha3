@@ -491,7 +491,7 @@ static void Func_init(KonohaContext *kctx, kObject *o, void *conf)
 
 static void Func_reftrace(KonohaContext *kctx, kObject *o)
 {
-	BEGIN_REFTRACE(4);
+	BEGIN_REFTRACE(2);
 	kFunc *fo = (kFunc*)o;
 	KREFTRACEv(fo->self);
 	KREFTRACEv(fo->mtd);
@@ -985,7 +985,7 @@ static void kshare_reftrace(KonohaContext *kctx, KonohaContextVar *ctx)
 	for(i = 0; i < size; i++) {
 		KonohaClass *ct = cts[i];
 		{
-			BEGIN_REFTRACE(4);
+			BEGIN_REFTRACE(3);
 			KREFTRACEv(ct->methodList);
 			KREFTRACEn(ct->shortNameNULL);
 			KREFTRACEn(ct->defaultValueAsNull);
@@ -1053,8 +1053,8 @@ static void Konoha_loadDefaultMethod(KonohaContext *kctx)
 	KDEFINE_METHOD MethodData[] = {
 		_Public|_Immutable|_Const, _F(Object_toString), TY_String, TY_Object, MN_to(TY_String), 0,
 		_Public|_Immutable|_Const, _F(Boolean_opNOT), TY_Boolean, TY_Boolean, MN_("!"), 0,
+		_Public|_Immutable|_Const, _F(Boolean_opEQ), TY_Boolean, TY_Boolean, MN_("=="), 1, TY_Boolean, FN_x,
 		_Public|_Immutable|_Const, _F(Int_opNEQ), TY_Boolean, TY_Boolean, MN_("!="), 1, TY_Boolean, FN_x,
-		_Public|_Immutable|_Const, _F(Int_opEQ), TY_Boolean, TY_Boolean, MN_("=="), 1, TY_Boolean, FN_x,
 		_Public|_Immutable|_Const, _F(Int_opMINUS), TY_Int, TY_Int, MN_("-"), 0,
 		_Public|_Immutable|_Const, _F(Int_opADD), TY_Int, TY_Int, MN_("+"), 1, TY_Int, FN_x,
 		_Public|_Immutable|_Const, _F(Int_opSUB), TY_Int, TY_Int, MN_("-"), 1, TY_Int, FN_x,
