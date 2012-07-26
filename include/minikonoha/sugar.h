@@ -222,12 +222,12 @@ struct kTokenVar {
 		kArray  *sub;
 	};
 	kfileline_t     uline;
-	SugarSyntax *syn;
+	SugarSyntax *resolvedSyntaxInfo;
 };
 
 #define kToken_needsKeywordResolved(o)      (TFLAG_is(uintptr_t,(o)->h.magicflag,kObject_Local1))
 #define Token_setUnresolved(o, B)          TFLAG_set(uintptr_t,(o)->h.magicflag,kObject_Local1,B)
-#define kToken_topch(tk)                    ((tk)->keyword != TK_TEXT && (S_size((tk)->text) == 1) ? S_text((tk)->text)[0] : 0)
+#define Token_topch(tk)                    ((tk)->keyword != TK_TEXT && (S_size((tk)->text) == 1) ? S_text((tk)->text)[0] : 0)
 
 #define TEXPR_UNTYPED       -1   /*THIS MUST NOT HAPPEN*/
 #define TEXPR_CONST          0
@@ -306,6 +306,8 @@ struct kBlockVar {
 	kArray              *stmtList;
 	kExpr               *esp;
 };
+
+typedef kbool_t (*CheckEndOfStmtFunc)(KonohaContext *, kArray *, int *currentIdxRef, int endIdx, int *indentRef, kArray *tokenList, int beginIdx);
 
 typedef struct {
 	ktype_t    ty;    ksymbol_t  fn;
@@ -469,6 +471,7 @@ typedef struct {
 	// export
 	void   (*kNameSpace_setTokenizeFunc)(KonohaContext *, kNameSpace *, int ch, TokenizeFunc, kFunc *, int isAddition);
 	void   (*kNameSpace_tokenize)(KonohaContext *, kNameSpace *, const char *, kfileline_t, kArray *);
+	int (*kStmt_parseTypePattern)(KonohaContext *, kStmt *, kNameSpace *, kArray *, int , int , KonohaClass **classRef);
 
 	kExpr* (*kExpr_setConstValue)(KonohaContext *, kExpr *, ktype_t ty, kObject *o);
 	kExpr* (*kExpr_setUnboxConstValue)(KonohaContext *, kExpr *, ktype_t ty, uintptr_t unboxValue);
@@ -491,7 +494,7 @@ typedef struct {
 	void       (*kNameSpace_addSugarFunc)(KonohaContext *, kNameSpace *, ksymbol_t kw, size_t idx, kFunc *);
 
 	kbool_t    (*makeSyntaxRule)(KonohaContext *, kArray*, int, int, kArray *);
-	kBlock*    (*new_Block)(KonohaContext *, kNameSpace *, kStmt *, kArray *, int, int, int);
+	kBlock*    (*new_Block)(KonohaContext *, kNameSpace *, kStmt *, kArray *, int, int, CheckEndOfStmtFunc);
 	void       (*kBlock_insertAfter)(KonohaContext *, kBlock *, kStmt *target, kStmt *);
 
 	kExpr*     (*kStmt_parseExpr)(KonohaContext *, kStmt *, kArray *tokenArray, int s, int e);
@@ -507,6 +510,7 @@ typedef struct {
 #define EXPORT_SUGAR(base) \
 	base->kNameSpace_setTokenizeFunc = kNameSpace_setTokenizeFunc;\
 	base->kNameSpace_tokenize = kNameSpace_tokenize;\
+	base->kStmt_parseTypePattern = kStmt_parseTypePattern;\
 	base->kStmt_getToken          = kStmt_getToken;\
 	base->kStmt_getBlock          = kStmt_getBlock;\
 	base->kStmt_getExpr           = kStmt_getExpr;\
@@ -598,7 +602,7 @@ static kExpr* kExpr_setVariable(KonohaContext *kctx, kExpr *expr, kGamma *gma, i
 
 // In future, typeof operator is introduced
 
-#define TK_isType(TK)    ((TK)->keyword == KW_TypePattern)
+#define TK_isType(TK)     ((TK)->keyword == KW_TypePattern)
 #define TK_type(TK)       (TK)->ty
 
 #define Stmt_nameSpace(STMT)   kStmt_nameSpace(kctx, STMT)
