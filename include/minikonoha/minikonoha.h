@@ -627,7 +627,7 @@ struct KonohaClassVar {
 	kString    *shortNameNULL;
 	union {   // default value
 		kObject           *defaultValueAsNull;
-		kObjectVar        *defaultValueAsNull_;
+		kObjectVar        *defaultValueAsNullVar;
 	};
 	KUtilsHashMap            *constPoolMapNO;
 	KonohaClass              *searchSimilarClassNULL;
@@ -680,7 +680,7 @@ struct KonohaClassField {
 #define kClass_UnboxType        ((kshortflag_t)(1<<7))
 #define kClass_Interface        ((kshortflag_t)(1<<8))
 #define kClass_TypeVar          ((kshortflag_t)(1<<9))
-#define kClass_Forward          ((kshortflag_t)(1<<10))
+#define kClass_Virtual          ((kshortflag_t)(1<<10))
 
 #define CFLAG_void              kClass_TypeVar|kClass_UnboxType|kClass_Singleton|kClass_Final
 #define CFLAG_var               kClass_TypeVar|kClass_UnboxType|kClass_Singleton|kClass_Final
@@ -703,12 +703,13 @@ struct KonohaClassField {
 #define CT_isFinal(ct)         (TFLAG_is(kshortflag_t,(ct)->cflag, kClass_Final))
 #define TY_isFinal(ct)         (TFLAG_is(kshortflag_t,CT_(ct)->cflag, kClass_Final))
 
-#define TY_isForward(T)     (TFLAG_is(kshortflag_t,(CT_(T))->cflag, kClass_Forward))
-#define CT_isForward(ct)    (TFLAG_is(kshortflag_t,(ct)->cflag, kClass_Forward))
+#define TY_isVirtual(T)     (TFLAG_is(kshortflag_t,(CT_(T))->cflag, kClass_Virtual))
+#define CT_isVirtual(ct)    (TFLAG_is(kshortflag_t,(ct)->cflag, kClass_Virtual))
+#define CT_setVirtual(C, B)   TFLAG_set(kshortflag_t, (C)->cflag, B)
 
 
-// this is used in konoha.class
-#define CT_isDefined(ct)  ((ct)->fieldAllocSize == 0 || (ct)->fieldsize == (ct)->fieldAllocSize)
+//// this is used in konoha.class
+//#define CT_isDefined(ct)  ((ct)->fieldAllocSize == 0 || (ct)->fieldsize == (ct)->fieldAllocSize)
 
 //#define TY_isUnboxType(t)    (TFLAG_is(kshortflag_t,(ClassTBL(t))->cflag, kClass_UnboxType))
 //#define T_isInterface(t)    (TFLAG_is(kshortflag_t,(ClassTBL(t))->cflag, kClass_Interface))
