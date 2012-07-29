@@ -30,7 +30,7 @@ static KMETHOD StmtTyCheck_import(KonohaContext *kctx, KonohaStack *sfp)
 {
 	int ret = false;
 	VAR_StmtTyCheck(stmt, gma);
-	kTokenArray *tokenArray = (kTokenArray *) kStmt_getObjectNULL(kctx, stmt, KW_ToksPattern);
+	kTokenArray *tokenArray = (kTokenArray *) kStmt_getObjectNULL(kctx, stmt, KW_TokenPattern);
 	if (tokenArray == NULL) {
 		RETURNb_(false);
 	}
@@ -43,11 +43,11 @@ static KMETHOD StmtTyCheck_import(KonohaContext *kctx, KonohaStack *sfp)
 			/* name . */
 			kToken *tk  = tokenArray->tokenItems[i+0];
 			kToken *dot = tokenArray->tokenItems[i+1];
-			assert(tk->keyword  == TK_SYMBOL);
-			assert(dot->keyword == KW_DOT);
+//			assert(tk->keyword  == TokenType_SYMBOL);
+//			assert(dot->keyword == KW_DOT);
 			if (i+2 < kArray_size(tokenArray)) {
 				kToken *startTk = tokenArray->tokenItems[i+2];
-				if (startTk->keyword == star) {
+				if (startTk->resolvedSyntaxInfo->keyword == star) {
 					break;
 				}
 			}
@@ -62,7 +62,7 @@ static KMETHOD StmtTyCheck_import(KonohaContext *kctx, KonohaStack *sfp)
 	SugarSyntaxVar *syn1 = (SugarSyntaxVar*) SYN_(ns, KW_ExprMethodCall);
 	kTokenVar *tkImport = GCSAFE_new(TokenVar, 0);
 	kExpr *ePKG = new_ConstValueExpr(kctx, TY_String, UPCAST(pkgname));
-	tkImport->keyword = MN_("import");
+	tkImport->resolvedSymbol = MN_("import");
 	kExpr *expr = SUGAR new_ConsExpr(kctx, syn1, 3, tkImport, new_ConstValueExpr(kctx, O_classId(ns), UPCAST(ns)), ePKG);
 	KLIB kObject_setObject(kctx, stmt, KW_ExprPattern, TY_Expr, expr);
 	ret = SUGAR kStmt_tyCheckByName(kctx, stmt, KW_ExprPattern, gma, TY_Boolean, 0);
@@ -87,7 +87,7 @@ static kbool_t import_setupPackage(KonohaContext *kctx, kNameSpace *ns, isFirstT
 static kbool_t import_initNameSpace(KonohaContext *kctx, kNameSpace *ns, kfileline_t pline)
 {
 	KDEFINE_SYNTAX SYNTAX[] = {
-		{ .keyword = SYM_("import"), .rule = "\"import\" $toks [ \".*\"] ", TopStmtTyCheck_(import)},
+		{ .keyword = SYM_("import"), .rule = "\"import\" $Token [ \".*\"] ", TopStmtTyCheck_(import)},
 		{ .keyword = KW_END, },
 	};
 	SUGAR kNameSpace_defineSyntax(kctx, ns, SYNTAX);

@@ -92,7 +92,7 @@ static void Token_pERR(KonohaContext *kctx, kTokenVar *tk, const char *fmt, ...)
 	kString *errmsg = vperrorf(kctx, ErrTag, tk->uline, -1, fmt, ap);
 	va_end(ap);
 	KSETv(tk->text, errmsg);
-	tk->keyword = TK_ERR;
+	tk->unresolvedTokenType = TokenType_ERR;
 	tk->resolvedSyntaxInfo = NULL;
 }
 
@@ -162,12 +162,12 @@ static kExpr* Stmt_p(KonohaContext *kctx, kStmt *stmt, kToken *tk, int pe, const
 #define Token_text(tk) kToken_t_(kctx, tk)
 static const char *kToken_t_(KonohaContext *kctx, kToken *tk)
 {
-	switch((int)tk->keyword) {
-	case TK_INDENT: return "indent";
-	case TK_CODE: ;
-	case AST_BRACE: return "{... }";
-	case AST_PARENTHESIS: return "(... )";
-	case AST_BRACKET: return "[... ]";
+	switch((int)tk->unresolvedTokenType) {
+	case TokenType_INDENT: return "indent";
+	case TokenType_CODE: ;
+	case KW_BraceGroup: return "{... }";
+	case KW_ParenthesisGroup: return "(... )";
+	case KW_BracketGroup: return "[... ]";
 	default:  return S_text(tk->text);
 	}
 }

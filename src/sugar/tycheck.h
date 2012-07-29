@@ -205,7 +205,7 @@ static kbool_t kStmt_tyCheckByName(KonohaContext *kctx, kStmt *stmt, ksymbol_t n
 
 /* ------------------------------------------------------------------------ */
 
-static KMETHOD UndefinedStmtTyCheck(KonohaContext *kctx, KonohaStack *sfp)  // $expr
+static KMETHOD UndefinedStmtTyCheck(KonohaContext *kctx, KonohaStack *sfp)  // $Expr
 {
 	VAR_StmtTyCheck(stmt, gma);
 	const char *location = kGamma_isTOPLEVEL(gma) ? "at the top level" : "inside the function";
@@ -450,7 +450,7 @@ static kstatus_t kTokenArray_eval(KonohaContext *kctx, kArray *tokenList, int be
 	kstatus_t status = K_CONTINUE;
 	INIT_GCSTACK();
 	ASTEnv env = {ns, tokenList, beginIdx, endIdx, tokenList, NULL};
-	env.symbolSyntaxInfo = SYN_(ns, TK_SYMBOL);
+	env.symbolSyntaxInfo = SYN_(ns, KW_SymbolPattern);
 	int i = beginIdx, indent = 0, atop = kArray_size(tokenList);
 	kBlock *singleBlock = ctxsugar->singleBlock;
 	kMethod *mtd = KLIB new_kMethod(kctx, kMethod_Static, 0, 0, NULL);
