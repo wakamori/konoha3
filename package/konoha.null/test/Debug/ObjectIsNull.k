@@ -1,4 +1,9 @@
+<<<<<<< HEAD
 // written by shinpei
+=======
+// written by shinpei nakata
+
+>>>>>>> master
 K.import("konoha.null");
 
 void test () {
