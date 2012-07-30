@@ -219,7 +219,7 @@ struct SugarSyntaxVar {
 	kFunc                            *ExprTyCheck;
 	// binary
 	ktype_t  ty;
-	kmethodn_t precedence_op2;        kshort_t precedence_op1;
+	kshort_t precedence_op2;        kshort_t precedence_op1;
 };
 
 #define SYNIDX_PatternMatch   0
@@ -489,6 +489,7 @@ typedef struct {
 	kExpr* (*kExpr_setUnboxConstValue)(KonohaContext *, kExpr *, ktype_t ty, uintptr_t unboxValue);
 	kExpr* (*kExpr_setVariable)(KonohaContext *, kExpr *, kGamma *, kexpr_t build, ktype_t ty, intptr_t index);
 
+	uintptr_t   (*kStmt_parseFlag)(KonohaContext *kctx, kStmt *stmt, KonohaFlagSymbolData *flagData, uintptr_t flag);
 	kToken*     (*kStmt_getToken)(KonohaContext *, kStmt *, ksymbol_t kw, kToken *def);
 	kExpr*      (*kStmt_getExpr)(KonohaContext *, kStmt *, ksymbol_t kw, kExpr *def);
 	const char* (*kStmt_getText)(KonohaContext *, kStmt *, ksymbol_t kw, const char *def);
@@ -525,6 +526,7 @@ typedef struct {
 	base->kNameSpace_tokenize        = kNameSpace_tokenize;\
 	base->kNameSpace_resolveTokenArray = kNameSpace_resolveTokenArray;\
 	base->kStmt_parseTypePattern     = kStmt_parseTypePattern;\
+	base->kStmt_parseFlag            = kStmt_parseFlag;\
 	base->kStmt_getToken             = kStmt_getToken;\
 	base->kStmt_getBlock             = kStmt_getBlock;\
 	base->kStmt_getExpr              = kStmt_getExpr;\
@@ -615,7 +617,7 @@ static kExpr* kExpr_setVariable(KonohaContext *kctx, kExpr *expr, kGamma *gma, i
 
 ///* ------------------------------------------------------------------------ */
 
-static inline void kToken_setVirtualTypeLiteral(KonohaContext *kctx, kToken *tk, kNameSpace *ns, ktype_t type)
+static inline void kToken_setTypeId(KonohaContext *kctx, kToken *tk, kNameSpace *ns, ktype_t type)
 {
 	((kTokenVar*)tk)->resolvedTypeId = type;
 	((kTokenVar*)tk)->resolvedSyntaxInfo = kmodsugar->kNameSpace_getSyntax(kctx, ns, KW_TypePattern, 0);
