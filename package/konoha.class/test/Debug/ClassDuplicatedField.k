@@ -2,8 +2,14 @@
 
 K.import("konoha.class");
 
+class C {
+	String name;
+	String name;
+}
+
 void test() {
-	Object o = new Object();
+	C c = new C();
 }
 
 test();
+
