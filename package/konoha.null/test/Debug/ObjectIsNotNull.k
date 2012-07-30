@@ -1,0 +1,9 @@
+// written by shinpei
+K.import("konoha.null");
+
+void test () {
+	Object obj = null;
+	assert(obj.isNotNull() == false);
+}
+
+test();
