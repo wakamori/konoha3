@@ -229,7 +229,7 @@ static kbool_t kNameSpace_mergeConstData(KonohaContext *kctx, kNameSpaceVar *ns,
 	}
 	else {
 		KUtilsWriteBuffer wb;
-		KLIB Kwb_init(&(ctxsugar->errorMessageBuffer), &wb);
+		KLIB Kwb_init(&(KonohaContext_getSugarContext(kctx)->errorMessageBuffer), &wb);
 		for(i = 0; i < nitems; i++) {
 			if(checkLocalConflictedConstValue(kctx, ns, kvs+i, pline)) continue;
 			KLIB Kwb_write(kctx, &wb, (const char*)(kvs+i), sizeof(KUtilsKeyValue));
@@ -372,7 +372,7 @@ static int formatLowerCanonicalName(char *buf, size_t bufsiz, const char *name)
 		}
 		i++;
 		p++;
-		if(!(i < bufsiz)) break;
+		if(!(i + 1 < bufsiz)) break;
 	}
 	buf[i] = 0;
 	return i;
@@ -387,10 +387,10 @@ static kbool_t checkMethodPolicyOption(KonohaContext *kctx, kMethod *mtd, int op
 	if(TFLAG_is(int, policy, MPOL_SIGNATURE)) {
 		if(mtd->paramdom != option) return false;
 	}
-	if(TFLAG_is(int, policy, MPOL_SETTER)) {
-		kParam *param = Method_param(mtd);
-		if(param->psize != 1 && param->paramtypeItems[0].ty != (ktype_t)option) return false;
-	}
+//	if(TFLAG_is(int, policy, MPOL_SETTER)) {
+//		kParam *param = Method_param(mtd);
+//		if(param->psize > 0 && param->paramtypeItems[param->psize - 1].ty != (ktype_t)option) return false;
+//	}
 	return true;
 }
 

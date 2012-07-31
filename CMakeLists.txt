@@ -102,31 +102,34 @@ else(KONOHA_VM_MODULE)
 endif(KONOHA_VM_MODULE)
 
 set(PACKAGES
-	sugar
 	konoha
-	konoha.null
-	konoha.int
-	konoha.float
-	konoha.math
-	konoha.string
-	konoha.bytes
 	konoha.array
-	konoha.iterator
-	konoha.hashmap
 	konoha.assign
-	konoha.while
-	konoha.new
+	konoha.bytes
 	konoha.class
+	konoha.defined
+	konoha.float
 	konoha.global
+	konoha.hashmap
+	konoha.i
+	konoha.import
+	konoha.int
+	konoha.iterator
+	konoha.math
+	konoha.new
+	konoha.null
+	konoha.rope
+	konoha.string
+	konoha.while
+	sugar
 	llvm
 	konoha.pcre
 ##	konoha.io
-	konoha.i
 	posix.process
 	posix.file
 	posix.fd
 ##	konoha.socket
-	konoha.rope
+##	konoha.rope
 ##	konoha.subproc
 ##	konoha.mpi
 ##	curl
@@ -136,7 +139,6 @@ set(PACKAGES
 	python
 	apache
 	tracevm
-	konoha.import
 #	openssl
 #	logpool
 )

@@ -35,8 +35,8 @@ static KMETHOD ExprTyCheck_assign(KonohaContext *kctx, KonohaStack *sfp)
 {
 	VAR_ExprTyCheck(stmt, expr, gma, reqty);
 	kNameSpace *ns = Stmt_nameSpace(stmt);  // leftHandExpr = rightHandExpr
-	kExpr *leftHandExpr = SUGAR kStmt_tyCheckByNameAt(kctx, stmt, expr, 1, gma, TY_var, TPOL_ALLOWVOID);
-	kExpr *rightHandExpr = SUGAR kStmt_tyCheckByNameAt(kctx, stmt, expr, 2, gma, leftHandExpr->ty, 0);
+	kExpr *leftHandExpr = SUGAR kStmt_tyCheckExprAt(kctx, stmt, expr, 1, gma, TY_var, TPOL_ALLOWVOID);
+	kExpr *rightHandExpr = SUGAR kStmt_tyCheckExprAt(kctx, stmt, expr, 2, gma, leftHandExpr->ty, 0);
 	if(rightHandExpr != K_NULLEXPR && leftHandExpr != K_NULLEXPR) {
 		if(leftHandExpr->build == TEXPR_LOCAL || leftHandExpr->build == TEXPR_FIELD || leftHandExpr->build == TEXPR_STACKTOP) {
 			((kExprVar*)expr)->build = TEXPR_LET;
@@ -47,15 +47,19 @@ static KMETHOD ExprTyCheck_assign(KonohaContext *kctx, KonohaStack *sfp)
 		if(leftHandExpr->build == TEXPR_CALL) {  // check getter and transform to setter
 			kMethod *mtd = leftHandExpr->cons->methodItems[0];
 			DBG_ASSERT(IS_Method(mtd));
-			if((MN_isGETTER(mtd->mn) || MN_isISBOOL(mtd->mn)) && !Method_isStatic(mtd)) {
+			if(MN_isGETTER(mtd->mn)) {
 				ktype_t cid = leftHandExpr->cons->exprItems[1]->ty;
-				mtd = KLIB kNameSpace_getMethodNULL(kctx, ns, cid, MN_toSETTER(mtd->mn), leftHandExpr->ty, MPOL_SETTER|MPOL_CANONICAL);
+				ktype_t paramType = leftHandExpr->ty; //CT_(cid)->realtype(kctx, CT_(cid), CT_(leftHandExpr->ty));
+				mtd = KLIB kNameSpace_getMethodNULL(kctx, ns, cid, MN_toSETTER(mtd->mn), paramType, MPOL_SETTER|MPOL_CANONICAL);
+				DBG_P("cid=%s, mtd=%p", TY_t(cid), mtd);
 				if(mtd != NULL) {
 					KSETv(leftHandExpr->cons->methodItems[0], mtd);
 					KLIB kArray_add(kctx, leftHandExpr->cons, rightHandExpr);
 					RETURN_(SUGAR kStmt_tyCheckCallParamExpr(kctx, stmt, leftHandExpr, mtd, gma, reqty));
 				}
+				SUGAR Stmt_p(kctx, stmt, (kToken*)expr, ErrTag, "setter is undefined");
 			}
+			SUGAR Stmt_p(kctx, stmt, (kToken*)expr, ErrTag, "getter is expected");
 		}
 		SUGAR Stmt_p(kctx, stmt, (kToken*)expr, ErrTag, "variable name is expected");
 	}
