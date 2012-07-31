@@ -87,7 +87,6 @@ extern "C" {
 /* kcode */
 
 int verbose_code     = 0;  // global variable
-int enforce_security = 0;  // global variable
 
 static void EXPR_asm(KonohaContext *kctx, kStmt *stmt, int a, kExpr *expr, int shift, int espidx);
 
