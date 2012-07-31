@@ -1134,7 +1134,7 @@ static KMETHOD StmtTyCheck_MethodDecl(KonohaContext *kctx, KonohaStack *sfp)
 		MethodDeclFlag[4].symbol = SYM_("@Final");
 		MethodDeclFlag[5].symbol = SYM_("@Override");
 		MethodDeclFlag[6].symbol = SYM_("@Restricted");
-		MethodDeclFlag[6].symbol = SYM_("@Trace");
+		MethodDeclFlag[7].symbol = SYM_("@Trace");
 	}
 	uintptr_t flag    = kStmt_parseFlag(kctx, stmt, MethodDeclFlag, 0);
 	kNameSpace *ns    = Stmt_nameSpace(stmt);

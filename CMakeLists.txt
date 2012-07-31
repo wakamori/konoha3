@@ -138,7 +138,7 @@ set(PACKAGES
 ##	mecab
 	python
 	apache
-	tracevm
+#	tracevm
 #	openssl
 #	logpool
 )
