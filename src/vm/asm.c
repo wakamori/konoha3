@@ -689,10 +689,6 @@ static void CALL_asm(KonohaContext *kctx, kStmt *stmt, int a, kExpr *expr, int s
 //		}
 //	}
 //	else {
-	if (Method_isTrace(mtd)) {
-		//asm("int3");
-		ASM(TRACE,  stmt->uline, SFP_(thisidx), myTrace);
-	}
 	if(Method_isFinal(mtd) || !Method_isVirtual(mtd)) {
 		ASM(NSET, NC_(thisidx-1), (intptr_t)mtd, CT_Method);
 	}
