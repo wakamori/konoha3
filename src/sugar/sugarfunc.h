@@ -1124,7 +1124,7 @@ static KMETHOD StmtTyCheck_MethodDecl(KonohaContext *kctx, KonohaStack *sfp)
 	static KonohaFlagSymbolData MethodDeclFlag[] = {
 		{kMethod_Public}, {kMethod_Const}, {kMethod_Static},
 		{kMethod_Virtual}, {kMethod_Final}, {kMethod_Override},
-		{kMethod_Restricted},
+		{kMethod_Restricted}, {kMethod_Trace}
 	};
 	if(MethodDeclFlag[0].symbol == 0) {   // this is a tricky technique
 		MethodDeclFlag[0].symbol = SYM_("@Public");
@@ -1134,6 +1134,7 @@ static KMETHOD StmtTyCheck_MethodDecl(KonohaContext *kctx, KonohaStack *sfp)
 		MethodDeclFlag[4].symbol = SYM_("@Final");
 		MethodDeclFlag[5].symbol = SYM_("@Override");
 		MethodDeclFlag[6].symbol = SYM_("@Restricted");
+		MethodDeclFlag[6].symbol = SYM_("@Trace");
 	}
 	uintptr_t flag    = kStmt_parseFlag(kctx, stmt, MethodDeclFlag, 0);
 	kNameSpace *ns    = Stmt_nameSpace(stmt);

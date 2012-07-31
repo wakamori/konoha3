@@ -958,6 +958,9 @@ struct kParamVar {
 #define kMethod_Abstract             ((uintptr_t)(1<<10))
 #define kMethod_Coercion             ((uintptr_t)(1<<11))
 #define kMethod_SmartReturn          ((uintptr_t)(1<<12))
+
+#define kMethod_Trace           ((uintptr_t)(1<<13))
+
 //#define kMethod_CALLCC               ((uintptr_t)(1<<8))
 //#define kMethod_FASTCALL             ((uintptr_t)(1<<9))
 //#define kMethod_D                    ((uintptr_t)(1<<10))
@@ -970,6 +973,9 @@ struct kParamVar {
 #define Method_setStatic(o,B)  TFLAG_set(uintptr_t, (o)->flag, kMethod_Static,B)
 #define Method_isConst(o)      (TFLAG_is(uintptr_t, (o)->flag, kMethod_Const))
 #define Method_isOverride(o)      (TFLAG_is(uintptr_t, (o)->flag, kMethod_Override))
+
+#define Method_isTrace(o)       (TFLAG_is(uintptr_t, (o)->flag, kMethod_Trace))
+
 
 #define Method_isVirtual(o)         (TFLAG_is(uintptr_t, (o)->flag,kMethod_Virtual))
 #define Method_isFinal(o)           (TFLAG_is(uintptr_t, (o)->flag,kMethod_Final))
