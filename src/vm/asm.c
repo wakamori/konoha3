@@ -689,17 +689,16 @@ static void CALL_asm(KonohaContext *kctx, kStmt *stmt, int a, kExpr *expr, int s
 //		}
 //	}
 //	else {
-	if (Method_isTrace(mtd)) {
-		//asm("int3");
-		ASM(TRACE,  stmt->uline, SFP_(thisidx), myTrace);
-	}
 	if(Method_isFinal(mtd) || !Method_isVirtual(mtd)) {
 		ASM(NSET, NC_(thisidx-1), (intptr_t)mtd, CT_Method);
 	}
 	else {
 		ASM(LOOKUP, SFP_(thisidx), Stmt_nameSpace(stmt), mtd);
 	}
-	ASM(TRACE, ctxcode->uline, SFP_(thisidx), ESP_(espidx, argc), KLIB Knull(kctx, CT_(expr->ty)), checkPermission);
+	if (Method_isTrace(mtd)) {
+		//asm("int3");
+		ASM(TRACE, ctxcode->uline, SFP_(thisidx), ESP_(espidx, argc), KLIB Knull(kctx, CT_(expr->ty)), myTrace);
+	}
 	ASM(CALL, ctxcode->uline, SFP_(thisidx), ESP_(espidx, argc), KLIB Knull(kctx, CT_(expr->ty)));
 }
 
