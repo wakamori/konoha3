@@ -87,7 +87,6 @@ extern "C" {
 /* kcode */
 
 int verbose_code     = 0;  // global variable
-int enforce_security = 0;  // global variable
 
 static void EXPR_asm(KonohaContext *kctx, kStmt *stmt, int a, kExpr *expr, int shift, int espidx);
 
@@ -700,12 +699,7 @@ static void CALL_asm(KonohaContext *kctx, kStmt *stmt, int a, kExpr *expr, int s
 	else {
 		ASM(LOOKUP, SFP_(thisidx), Stmt_nameSpace(stmt), mtd);
 	}
-	if(enforce_security) {
-		if(checkPermission(kctx, NULL, argc, ctxcode->uline)) {
-			ASM(ERROR, ESP_(espidx, argc), msg);
-		}
-		ASM(TRACE, ctxcode->uline, SFP_(thisidx), ESP_(espidx, argc), KLIB Knull(kctx, CT_(expr->ty)), checkPermission);
-	}
+	ASM(TRACE, ctxcode->uline, SFP_(thisidx), ESP_(espidx, argc), KLIB Knull(kctx, CT_(expr->ty)), checkPermission);
 	ASM(CALL, ctxcode->uline, SFP_(thisidx), ESP_(espidx, argc), KLIB Knull(kctx, CT_(expr->ty)));
 }
 
