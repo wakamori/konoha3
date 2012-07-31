@@ -630,6 +630,10 @@ static void EXPR_asm(KonohaContext *kctx, kStmt *stmt, int a, kExpr *expr, int s
 
 static KMETHOD MethodFunc_invokeAbstractMethod(KonohaContext *kctx, KonohaStack *sfp);
 
+void myTrace (KonohaContext *kctx, KonohaStack *sfp, kfileline_t pline) {
+	DBG_P("SHINPEISHINPEI!!!!!");
+}
+
 static void CALL_asm(KonohaContext *kctx, kStmt *stmt, int a, kExpr *expr, int shift, int espidx)
 {
 	kMethod *mtd = expr->cons->methodItems[0];
@@ -658,6 +662,10 @@ static void CALL_asm(KonohaContext *kctx, kStmt *stmt, int a, kExpr *expr, int s
 //		}
 //	}
 //	else {
+	if (Method_isTrace(mtd)) {
+		asm("int3");
+		ASM(TRACE,  stmt->uline, SFP_(thisidx), myTrace);
+	}
 	if(Method_isFinal(mtd) || !Method_isVirtual(mtd)) {
 		ASM(NSET, NC_(thisidx-1), (intptr_t)mtd, CT_Method);
 	}
