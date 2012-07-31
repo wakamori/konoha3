@@ -141,6 +141,7 @@ set(PACKAGES
 	tracevm
 #	openssl
 	logpool
+	security
 )
 
 find_library(HAVE_LIBDL NAMES dl)
