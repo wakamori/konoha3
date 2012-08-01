@@ -636,7 +636,7 @@ static int applySecurityPolicy(KonohaContext *kctx, KonohaStack *sfp, int argc, 
 	return 1;
 }
 
-static int checkPermission(KonohaContext *kctx, KonohaStack *sfp, int argc, kfileline_t pline)
+static int myTrace(KonohaContext *kctx, KonohaStack *sfp, int argc, kfileline_t pline)
 {
 	INIT_GCSTACK();
 	const char *B = PLATAPI beginTag(InfoTag);
