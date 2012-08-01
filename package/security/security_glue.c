@@ -114,6 +114,12 @@ static kbool_t security_initPackage(KonohaContext *kctx, kNameSpace *ns, int arg
 	//};
 	//KonohaClass *cSecurity = KLIB Konoha_defineClass(kctx, ns->packageId, ns->packageDomain, NULL, &SecurityDef, pline);
 	//KonohaClass *cRole = KLIB Konoha_defineClass(kctx, ns->packageId, ns->packageDomain, NULL, &RoleDef, pline);
+
+	return true;
+}
+
+static kbool_t security_setupPackage(KonohaContext *kctx, kNameSpace *ns, isFirstTime_t isFirstTime, kfileline_t pline)
+{
 	const char *security = "Security";
 	const char *role = "Role";
 	KonohaClass *CT_Security = KLIB kNameSpace_getClass(kctx, ns, security, strlen(security), NULL);
@@ -126,12 +132,6 @@ static kbool_t security_initPackage(KonohaContext *kctx, kNameSpace *ns, int arg
 		DEND,
 	};
 	KLIB kNameSpace_loadMethodData(kctx, ns, MethodData);
-
-	return true;
-}
-
-static kbool_t security_setupPackage(KonohaContext *kctx, kNameSpace *ns, isFirstTime_t isFirstTime, kfileline_t pline)
-{
 	return true;
 }
 
