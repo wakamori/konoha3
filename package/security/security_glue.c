@@ -129,18 +129,44 @@ static void Role_reftrace(KonohaContext *kctx, kObject *o)
 	END_REFTRACE();
 }
 
-static void acl_set(KonohaContext *kctx, kString *name, kArray *a)
+static kinline uintptr_t aclhash(KonohaContext *kctx, kString *name, kString *method)
 {
-	uintptr_t hcode = strhash(S_text(name), S_size(name));
-	KUtilsHashMap *map = kmodsecurity->acl;
-	map_addu(kctx, map, hcode, (uintptr_t)a);
+	const char *name1 = S_text(name), *name2 = S_text(method);
+	size_t len1 = S_size(name), len2 = S_size(method);
+	uintptr_t i, hcode = 0;
+	for(i = 0; i < len1; i++) {
+		hcode = name1[i] + (31 * hcode);
+	}
+	for(i = 0; i < len2; i++) {
+		hcode = name2[i] + (31 * hcode);
+	}
+	return hcode;
 }
 
-static kArray *acl_get(KonohaContext *kctx, kString *name)
+static void acl_set(KonohaContext *kctx, kString *name, kString *method)
 {
-	uintptr_t hcode = strhash(S_text(name), S_size(name));
+	uintptr_t hcode;
+	if(method == NULL) {
+		hcode = strhash(S_text(name), S_size(name));
+	}
+	else {
+		hcode = aclhash(kctx, name, method);
+	}
 	KUtilsHashMap *map = kmodsecurity->acl;
-	return (kArray *)map_getu(kctx, map, hcode, 0);
+	map_addu(kctx, map, hcode, 1);
+}
+
+static kbool_t acl_get(KonohaContext *kctx, kString *name, kString *method)
+{
+	uintptr_t hcode;
+	if(method == NULL) {
+		hcode = strhash(S_text(name), S_size(name));
+	}
+	else {
+		hcode = aclhash(kctx, name, method);
+	}
+	KUtilsHashMap *map = kmodsecurity->acl;
+	return (kbool_t)map_getu(kctx, map, hcode, 0);
 }
 
 /* ------------------------------------------------------------------------ */
@@ -150,25 +176,15 @@ static KMETHOD Security_addRole(KonohaContext *kctx, KonohaStack *sfp)
 {
 	struct _kRole *role = (struct _kRole *)sfp[1].asObject;
 	kString *name = role->name;
-	if(acl_get(kctx, name) != NULL) {
+	if(acl_get(kctx, name, NULL)) {
 		DBG_P("Role %s has already added.", S_text(name));
 		RETURNvoid_();
 	}
 	else {
-		acl_set(kctx, name, new_(Array, 0));
+		acl_set(kctx, name, NULL);
 	}
 	RETURNvoid_();
 }
-
-////## Role Security.getRole(String name);
-//static KMETHOD Role_setPermission(KonohaContext *kctx, KonohaStack *sfp)
-//{
-//	struct _kSecurity *security = (struct _kSecurity *)sfp[0].asObject;
-//	struct _kRole *role = (struct _kRole *)sfp[0].asObject;
-//	kString *method = sfp[1].asString;
-//	asm("int3");
-//	RETURNvoid_();
-//}
 
 //## Role String.toRole();
 static KMETHOD String_toRole(KonohaContext *kctx, KonohaStack *sfp)
@@ -191,6 +207,16 @@ static KMETHOD Role_new(KonohaContext *kctx, KonohaStack *sfp)
 	kString *name = sfp[1].asString;
 	DBG_P("Role.new called, with name=%s", S_text(name));
 	RETURN_(new_(Role, name));
+}
+
+//## void Security.addPermission(Role role, String method);
+static KMETHOD Security_addPermission(KonohaContext *kctx, KonohaStack *sfp)
+{
+	struct _kRole *role = (struct _kRole *)sfp[1].asObject;
+	kString *method = sfp[2].asString;
+	DBG_P("add permission %s to role %s", S_text(method), S_text(role->name));
+	acl_set(kctx, role->name, method);
+	RETURNvoid_();
 }
 
 //## Boolean Security.checkPermission(Role role, String method);
@@ -235,6 +261,7 @@ static kbool_t security_initPackage(KonohaContext *kctx, kNameSpace *ns, int arg
 		_Public, _F(Role_toString), TY_String, TY_Role, MN_to(TY_String), 0,
 		_Public, _F(Security_addRole), TY_void, TY_Security, MN_("addRole"), 1, TY_Role, FN_("role"),
 		//_Public, _F(Security_getRole), TY_Role, TY_Security, MN_("getRole"), 1, TY_String, FN_("name"),
+		_Public, _F(Security_addPermission), TY_void, TY_Security, MN_("addPermission"), 2, TY_Role, FN_("role"), TY_String, FN_("method"),
 		_Public, _F(Security_checkPermission), TY_Boolean, TY_Security, MN_("checkPermission"), 2, TY_Role, FN_("role"), TY_String, FN_("method"),
 		_Public, _F(Role_new), TY_Role, TY_Role, MN_("new"), 1, TY_String, FN_("name"),
 		DEND,
