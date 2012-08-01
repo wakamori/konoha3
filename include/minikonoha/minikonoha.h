@@ -502,6 +502,7 @@ struct KonohaContextRuntimeVar {
 //#define MOD_IO      14
 //#define MOD_llvm    15
 #define MOD_REGEX   16
+#define MOD_security   17
 
 struct KonohaContextModule {
 	uintptr_t unique;
