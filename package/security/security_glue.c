@@ -31,56 +31,56 @@ extern "C" {
 
 /* ------------------------------------------------------------------------ */
 
-typedef const struct _kSecurity kSecurity;
-struct _kSecurity {
-	KonohaObjectHeader h;
-};
-
-typedef const struct _kRole kRole;
-struct _kRole {
-	KonohaObjectHeader h;
-};
-
-/* ------------------------------------------------------------------------ */
-
-static void Security_init(KonohaContext *kctx, kObject *o, void *conf)
-{
-}
-
-
-static void Security_free(KonohaContext *kctx, kObject *o)
-{
-}
-
-static void Role_init(KonohaContext *kctx, kObject *o, void *conf)
-{
-}
-
-
-static void Role_free(KonohaContext *kctx, kObject *o)
-{
-}
+//typedef const struct _kSecurity kSecurity;
+//struct _kSecurity {
+//	KonohaObjectHeader h;
+//};
+//
+//typedef const struct _kRole kRole;
+//struct _kRole {
+//	KonohaObjectHeader h;
+//};
 
 /* ------------------------------------------------------------------------ */
 
-//## void Security.addRole(Role role);
-static KMETHOD Security_addRole(KonohaContext *kctx, KonohaStack *sfp)
-{
-	struct _kSecurity *security = (struct _kSecurity *)sfp[0].asObject;
-	struct _kRole *role = (struct _kRole *)sfp[1].asObject;
-	asm("int3");
-	RETURNvoid_();
-}
+//static void Security_init(KonohaContext *kctx, kObject *o, void *conf)
+//{
+//}
+//
+//
+//static void Security_free(KonohaContext *kctx, kObject *o)
+//{
+//}
+//
+//static void Role_init(KonohaContext *kctx, kObject *o, void *conf)
+//{
+//}
+//
+//
+//static void Role_free(KonohaContext *kctx, kObject *o)
+//{
+//}
 
-//## Role Security.getRole(String name);
-static KMETHOD Role_setPermission(KonohaContext *kctx, KonohaStack *sfp)
-{
-	struct _kSecurity *security = (struct _kSecurity *)sfp[0].asObject;
-	struct _kRole *role = (struct _kRole *)sfp[0].asObject;
-	kString *method = sfp[1].asString;
-	asm("int3");
-	RETURNvoid_();
-}
+/* ------------------------------------------------------------------------ */
+
+////## void Security.addRole(Role role);
+//static KMETHOD Security_addRole(KonohaContext *kctx, KonohaStack *sfp)
+//{
+//	struct _kSecurity *security = (struct _kSecurity *)sfp[0].asObject;
+//	struct _kRole *role = (struct _kRole *)sfp[1].asObject;
+//	asm("int3");
+//	RETURNvoid_();
+//}
+//
+////## Role Security.getRole(String name);
+//static KMETHOD Role_setPermission(KonohaContext *kctx, KonohaStack *sfp)
+//{
+//	struct _kSecurity *security = (struct _kSecurity *)sfp[0].asObject;
+//	struct _kRole *role = (struct _kRole *)sfp[0].asObject;
+//	kString *method = sfp[1].asString;
+//	asm("int3");
+//	RETURNvoid_();
+//}
 
 //## Boolean Security.checkPermission(Role role, String method);
 static KMETHOD Security_checkPermission(KonohaContext *kctx, KonohaStack *sfp)
@@ -96,24 +96,28 @@ static KMETHOD Security_checkPermission(KonohaContext *kctx, KonohaStack *sfp)
 #define _Im         kMethod_Immutable
 #define _F(F)       (intptr_t)(F)
 
-#define CT_Security cSecurity
-#define TY_Security CT_Security->classId
-#define CT_Role     cRole
-#define TY_Role     CT_Role->classId
+//#define CT_Security cSecurity
+#define TY_Security CT_Security->typeId
+//#define CT_Role     cRole
+#define TY_Role     CT_Role->typeId
 static kbool_t security_initPackage(KonohaContext *kctx, kNameSpace *ns, int argc, const char**args, kfileline_t pline)
 {
-	KDEFINE_CLASS SecurityDef = {
-		STRUCTNAME(Security),
-		.init = Security_init,
-		.free = Security_free,
-	};
-	KDEFINE_CLASS RoleDef = {
-		STRUCTNAME(Role),
-		.init = Role_init,
-		.free = Role_free,
-	};
-	KonohaClass *cSecurity = KLIB Konoha_defineClass(kctx, ns->packageId, ns->packageDomain, NULL, &SecurityDef, pline);
-	KonohaClass *cRole = KLIB Konoha_defineClass(kctx, ns->packageId, ns->packageDomain, NULL, &RoleDef, pline);
+	//KDEFINE_CLASS SecurityDef = {
+	//	STRUCTNAME(Security),
+	//	.init = Security_init,
+	//	.free = Security_free,
+	//};
+	//KDEFINE_CLASS RoleDef = {
+	//	STRUCTNAME(Role),
+	//	.init = Role_init,
+	//	.free = Role_free,
+	//};
+	//KonohaClass *cSecurity = KLIB Konoha_defineClass(kctx, ns->packageId, ns->packageDomain, NULL, &SecurityDef, pline);
+	//KonohaClass *cRole = KLIB Konoha_defineClass(kctx, ns->packageId, ns->packageDomain, NULL, &RoleDef, pline);
+	const char *security = "Security";
+	const char *role = "Role";
+	KonohaClass *CT_Security = KLIB kNameSpace_getClass(kctx, ns, security, strlen(security), NULL);
+	KonohaClass *CT_Role = KLIB kNameSpace_getClass(kctx, ns, role, strlen(role), NULL);
 	intptr_t MethodData[] = {
 		//_Public, _F(Security_addRole), TY_void, TY_Security, MN_("addRole"), 1, TY_Role, FN_("role"),
 		//_Public, _F(Security_getRole), TY_Role, TY_Security, MN_("getRole"), 1, TY_String, FN_("name"),
