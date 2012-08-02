@@ -45,7 +45,6 @@ extern int verbose_debug;
 extern int verbose_code;
 extern int verbose_sugar;
 extern int verbose_gc;
-extern kString *enforce_security;
 
 #include <minikonoha/platform_posix.h>
 
@@ -433,9 +432,6 @@ static void konoha_enforce(KonohaContext *kctx, char *role)
 	};
 	kNameSpace *ns = KNULL(NameSpace);
 	KLIB kNameSpace_loadConstData(kctx, ns, KonohaConst_(TextData), 0);
-	KUtilsKeyValue *kv = KLIB kNameSpace_getConstNULL(kctx, ns, SYM_("ROLE"));
-	DBG_ASSERT(kv != NULL);
-	enforce_security = kv->stringValue;
 }
 
 static void konoha_import(KonohaContext *kctx, char *packagename)
@@ -540,6 +536,7 @@ static int konoha_parseopt(KonohaContext* konoha, PlatformApiVar *plat, int argc
 
 		case 'E':
 			konoha_enforce(konoha, optarg);
+			konoha_import(konoha, "security");
 			break;
 
 		case 'I':

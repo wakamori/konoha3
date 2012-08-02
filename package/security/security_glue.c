@@ -24,6 +24,9 @@
 
 #include <minikonoha/minikonoha.h>
 #include <minikonoha/sugar.h>
+#include <minikonoha/security.h>
+
+extern kString *enforce_security;
 
 #ifdef __cplusplus
 extern "C" {
@@ -31,47 +34,10 @@ extern "C" {
 
 /* ------------------------------------------------------------------------ */
 
-#define ksecuritymod        ((ksecuritymod_t*)kctx->mod[MOD_security])
-#define kmodsecurity        ((kmodsecurity_t*)kctx->modshare[MOD_security])
-#define IS_defineSecurity() (kctx->modshare[MOD_security] != NULL)
-#define CT_Security         kmodsecurity->cSecurity
-#define CT_Role             kmodsecurity->cRole
-#define TY_Security         CT_Security->typeId
-#define TY_Role             CT_Role->typeId
-#define IS_Security(O)      ((O)->h.ct == CT_Security)
-#define IS_Role(O)          ((O)->h.ct == CT_Role)
-
-typedef struct {
-	KonohaModule h;
-	KUtilsHashMap *acl; // access control list (map)
-	KonohaClass *cSecurity;
-	KonohaClass *cRole;
-} kmodsecurity_t;
-
-typedef struct {
-	KonohaContextModule h;
-} ksecuritymod_t;
-
-typedef const struct _kSecurity kSecurity;
-struct _kSecurity {
-	KonohaObjectHeader h;
-};
-
-typedef const struct _kRole kRole;
-struct _kRole {
-	KonohaObjectHeader h;
-	kString *name;
-};
-
-/* ------------------------------------------------------------------------ */
-
 extern kObjectVar **KONOHA_reftail(KonohaContext *kctx, size_t size);
 
 static void val_reftrace(KonohaContext *kctx, KUtilsHashMapEntry *p)
 {
-	BEGIN_REFTRACE(1);
-	KREFTRACEv(p->objectValue);
-	END_REFTRACE();
 }
 
 /* ------------------------------------------------------------------------ */
@@ -84,6 +50,9 @@ static void kmodsecurity_setup(KonohaContext *kctx, struct KonohaModule *def, in
 static void kmodsecurity_reftrace(KonohaContext *kctx, struct KonohaModule *baseh)
 {
 	kmodsecurity_t *mod = (kmodsecurity_t *)baseh;
+	BEGIN_REFTRACE(1);
+	KREFTRACEv(mod->checkPermission);
+	END_REFTRACE();
 	KLIB Kmap_reftrace(kctx, mod->acl, val_reftrace);
 }
 
@@ -108,10 +77,10 @@ static void Role_init(KonohaContext *kctx, kObject *o, void *conf)
 {
 	struct _kRole *role = (struct _kRole *)o;
 	if(conf == NULL) {
-		role->name = KNULL(String);
+		KINITv(role->name, KNULL(String));
 	}
 	else {
-		role->name = (kString *)conf;
+		KINITv(role->name, (kString *)conf);
 	}
 }
 
@@ -135,6 +104,7 @@ static kinline uintptr_t aclhash(KonohaContext *kctx, kString *name, kString *me
 	for(i = 0; i < len1; i++) {
 		hcode = name1[i] + (31 * hcode);
 	}
+	hcode = ' ' + (31 * hcode);
 	for(i = 0; i < len2; i++) {
 		hcode = name2[i] + (31 * hcode);
 	}
@@ -220,7 +190,10 @@ static KMETHOD Security_addPermission(KonohaContext *kctx, KonohaStack *sfp)
 //## Boolean Security.checkPermission(Role role, String method);
 static KMETHOD Security_checkPermission(KonohaContext *kctx, KonohaStack *sfp)
 {
-	RETURNb_(true);
+	struct _kRole *role = (struct _kRole *)sfp[1].asObject;
+	kString *method = sfp[2].asString;
+	DBG_P("check permission %s of role %s", S_text(method), S_text(role->name));
+	RETURNb_(acl_get(kctx, role->name, method));
 }
 
 /* ------------------------------------------------------------------------ */
@@ -233,14 +206,23 @@ static KMETHOD Security_checkPermission(KonohaContext *kctx, KonohaStack *sfp)
 
 static kbool_t security_initPackage(KonohaContext *kctx, kNameSpace *ns, int argc, const char**args, kfileline_t pline)
 {
+	KUtilsKeyValue *kv = KLIB kNameSpace_getConstNULL(kctx, KNULL(NameSpace), SYM_("ROLE"));
+	if(kv == NULL) {
+		kv = KLIB kNameSpace_getConstNULL(kctx, ns, SYM_("ROLE"));
+		if(kv == NULL) {
+			kreportf(CritTag, pline, "global variable ROLE is undefined.");
+			return false;
+		}
+	}
 	kmodsecurity_t *base = (kmodsecurity_t*)KCALLOC(sizeof(kmodsecurity_t), 1);
 	base->h.name     = "security";
 	base->h.setup    = kmodsecurity_setup;
 	base->h.reftrace = kmodsecurity_reftrace;
 	base->h.free     = kmodsecurity_free;
-	base->acl        = KLIB Kmap_init(kctx, 0);
+	KINITv(base->acl, KLIB Kmap_init(kctx, 0));
 	KDEFINE_CLASS SecurityDef = {
 		STRUCTNAME(Security),
+		.cflag = kClass_Final,
 		.init = Security_init,
 		.free = Security_free,
 	};
@@ -265,7 +247,10 @@ static kbool_t security_initPackage(KonohaContext *kctx, kNameSpace *ns, int arg
 		DEND,
 	};
 	KLIB kNameSpace_loadMethodData(kctx, ns, MethodData);
-
+	kMethod *mtd = KLIB kNameSpace_getMethodNULL(kctx, ns, TY_Security, MN_("checkPermission"), 0, MPOL_FIRST);
+	DBG_ASSERT(mtd != NULL);
+	KINITv(base->checkPermission, mtd);
+	enforce_security = kv->stringValue;
 	return true;
 }
 
