@@ -131,7 +131,7 @@ set(PACKAGES
 ##	konoha.socket
 ##	konoha.rope
 ##	konoha.subproc
-##	konoha.mpi
+	konoha.mpi
 ##	curl
 	ijit
 ##	jansson
@@ -140,7 +140,7 @@ set(PACKAGES
 	apache
 #	tracevm
 #	openssl
-#	logpool
+	logpool
 )
 
 find_library(HAVE_LIBDL NAMES dl)
