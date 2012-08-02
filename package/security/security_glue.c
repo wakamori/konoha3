@@ -316,7 +316,17 @@ static kbool_t security_initNameSpace(KonohaContext *kctx,  kNameSpace *ns, kfil
 
 static kbool_t security_setupNameSpace(KonohaContext *kctx, kNameSpace *ns, kfileline_t pline)
 {
-	return true;
+	char pathbuf[256];
+	const char *policypath = PLATAPI formatPackagePath(pathbuf, sizeof(pathbuf), "security", "_policy.k");
+	kMethod *mtd = KLIB kNameSpace_getMethodNULL(kctx, ns, TY_NameSpace, MN_("load"), 0, MPOL_FIRST);
+	INIT_GCSTACK();
+	BEGIN_LOCAL(lsfp, K_CALLDELTA + 1);
+	KSETv(lsfp[K_CALLDELTA+0].o, (kObject *)ns);
+	KSETv(lsfp[K_CALLDELTA+1].s, KLIB new_kString(kctx, policypath, strlen(policypath), 0));
+	KCALL(lsfp, 0, mtd, 2, KNULL(Boolean));
+	END_LOCAL();
+	RESET_GCSTACK();
+	return lsfp[0].boolValue;
 }
 
 KDEFINE_PACKAGE* security_init(void)
