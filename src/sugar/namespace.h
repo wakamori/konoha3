@@ -532,7 +532,19 @@ static kMethod* kMethod_replaceWith(KonohaContext *kctx, kMethodVar *oldMethod, 
 
 static kbool_t checkMethodIsPermitted(KonohaContext *kctx, kNameSpace *ns, kMethod *mtd)
 {
-	return true;
+	INIT_GCSTACK();
+	BEGIN_LOCAL(lsfp, K_CALLDELTA + 2);
+	KSETv(lsfp[K_CALLDELTA+0].o, KLIB Knull(kctx, CT_Security));
+	KSETv(lsfp[K_CALLDELTA+1].o, KLIB new_kObject(kctx, CT_Role, (uintptr_t)enforce_security));
+	KUtilsWriteBuffer wb;
+	KLIB Kwb_init(&(kctx->stack->cwb), &wb);
+	KLIB Kwb_printf(kctx, &wb, "%s.%s%s", Method_t(mtd));
+	KSETv(lsfp[K_CALLDELTA+2].s, KLIB new_kString(kctx, KLIB Kwb_top(kctx, &wb, 0), Kwb_bytesize(&wb), SPOL_POOL));
+	KLIB Kwb_free(&wb);
+	KCALL(lsfp, 0, kmodsecurity->checkPermission, 2, KNULL(Boolean));
+	END_LOCAL();
+	RESET_GCSTACK();
+	return lsfp[0].boolValue;
 }
 
 static kMethod* kNameSpace_addMethod(KonohaContext *kctx, kNameSpace *ns, kMethod *mtd)

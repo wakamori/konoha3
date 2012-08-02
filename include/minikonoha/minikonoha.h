@@ -1444,5 +1444,6 @@ typedef struct DEFINE_TESTFUNC {
 
 #include "logger.h"
 #include "gc.h"
+#include "security.h"
 
 #endif /* MINIOKNOHA_H_ */
