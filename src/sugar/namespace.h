@@ -26,7 +26,7 @@
 // ---------------------------------------------------------------------------
 // Syntax Management
 
-int enforce_security = 0;  // global variable
+kString *enforce_security = NULL;  // global variable
 
 static void checkFuncArray(KonohaContext *kctx, kNameSpace *ns, kFunc **funcItems);
 static void kNameSpace_parseSugarRule2(KonohaContext *kctx, kNameSpace *ns, const char *rule, kfileline_t uline, kArray *ruleList);
@@ -542,7 +542,7 @@ static kMethod* kNameSpace_addMethod(KonohaContext *kctx, kNameSpace *ns, kMetho
 		((kMethodVar*)mtd)->packageId = ns->packageId;
 	}
 	DBG_P("loading method %s.%s%s: @Public=%d", Method_t(mtd), Method_isPublic(mtd), mtd->flag);
-	if(enforce_security && !checkMethodIsPermitted(kctx, ns, mtd)) {
+	if((enforce_security != NULL) && !checkMethodIsPermitted(kctx, ns, mtd)) {
 		DBG_P("definition of method %s.%s%s is restricted.", Method_t(mtd));
 		return NULL;
 	}
