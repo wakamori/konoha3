@@ -117,8 +117,6 @@ static void Role_init(KonohaContext *kctx, kObject *o, void *conf)
 
 static void Role_free(KonohaContext *kctx, kObject *o)
 {
-	struct _kRole *role = (struct _kRole *)o;
-	DBG_ASSERT(role->name == NULL);
 }
 
 static void Role_reftrace(KonohaContext *kctx, kObject *o)
