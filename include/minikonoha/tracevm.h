@@ -22,21 +22,45 @@
  * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  ***************************************************************************/
 
-#include<minikonoha/minikonoha.h>
-#include<minikonoha/sugar.h>
-#include<minikonoha/tracevm.h>
-#include"tracevm_glue.h"
+#ifndef MODTRACEVM_H_
+#define MODTRACEVM_H_
 
-// --------------------------------------------------------------------------
+#ifndef MINIOKNOHA_H_
+#error Do not include tracevm.h without minikonoha.h.
+#endif
 
-KDEFINE_PACKAGE* tracevm_init(void)
-{
-	static KDEFINE_PACKAGE d = {
-		KPACKNAME("tracevm", "1.0"),
-		.initPackage = tracevm_initPackage,
-		.setupPackage = tracevm_setupPackage,
-		.initNameSpace = tracevm_initNameSpace,
-		.setupNameSpace = tracevm_setupNameSpace,
-	};
-	return &d;
-}
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+/* ------------------------------------------------------------------------ */
+
+#define ktracemod        ((ktracemod_t*)kctx->mod[MOD_tracevm])
+#define kmodtrace        ((kmodtrace_t*)kctx->modshare[MOD_tracevm])
+#define IS_defineTrace() (kctx->modshare[MOD_tracevm] != NULL)
+#define CT_Trace         kmodtrace->cTrace
+#define TY_Trace         CT_Trace->typeId
+#define IS_Trace(O)      ((O)->h.ct == CT_Trace)
+
+typedef int (*FTrace)(KonohaContext *, KonohaStack *, kfileline_t);
+typedef struct {
+	KonohaModule h;
+	FTrace       beforeTrace;
+	kMethod      *before;
+	KonohaClass  *cTrace;
+} kmodtrace_t;
+
+typedef struct {
+	KonohaContextModule h;
+} ktracemod_t;
+
+typedef const struct _kTrace kTrace;
+struct _kTrace {
+	KonohaObjectHeader h;
+};
+
+#ifdef __cplusplus
+} /* extern "C" */
+#endif
+
+#endif /* MODTRACE_H_ */

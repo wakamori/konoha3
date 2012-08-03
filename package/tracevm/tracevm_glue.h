@@ -23,26 +23,7 @@
  ***************************************************************************/
 
 #ifndef TRACEVM_GLUE_H
-#define TRACEVM_GLUE_H_
-#include <minikonoha/minikonoha.h>
-#include <minikonoha/sugar.h>
-#define MOD_tracevm 97 /* TODO */
-#define ktracemod ((ktracemod_t*)kctx->mod[MOD_tracevm])
-#define kmodtrace ((kmodtrace_t*)kctx->modshare[MOD_tracevm])
-#define GenCodeMtd (kmodtrace)->genCode
-#define GenCodeDefault (kmodtrace)->defaultCodeGen
-
-typedef void (*FgenCode)(KonohaContext *, kMethod *, kBlock * );
-typedef struct {
-	KonohaModule h;
-	kMethod *genCode;
-	kArray *constPool;
-	FgenCode defaultCodeGen;
-}kmodtrace_t;
-
-typedef struct {
-	KonohaContextModule h;
-} ktracemod_t;
+#define TRACEVM_GLUE_H
 
 static void kmodtrace_setup(KonohaContext *kctx, struct KonohaModule *def, int newctx)
 {
@@ -56,16 +37,67 @@ static void kmodtrace_reftrace(KonohaContext *kctx, struct KonohaModule*baseh)
 {
 	kmodtrace_t *mod = (kmodtrace_t *)baseh;
 	BEGIN_REFTRACE(1);
-	KREFTRACEv(mod->genCode);
+	KREFTRACEv(mod->before);
 	END_REFTRACE();
 }
 
 static void kmodtrace_free(KonohaContext *kctx, struct KonohaModule *baseh)
 {
-	kmodtrace_t *modshare = (kmodtrace_t *)baseh;
 	KFREE(baseh, sizeof(kmodtrace_t));
-
 }
+
+/* ------------------------------------------------------------------------ */
+
+static int beforeTrace(KonohaContext *kctx, KonohaStack *sfp, kfileline_t pline)
+{
+	kMethod *trace = sfp[K_MTDIDX].mtdNC;
+	kParam *pa = Method_param(trace);
+	kMethod *mtd = kmodtrace->before;
+	DBG_ASSERT(mtd != NULL);
+	INIT_GCSTACK();
+	((KonohaContextVar*)kctx)->esp += K_CALLDELTA;
+	BEGIN_LOCAL(lsfp, K_CALLDELTA + 3);
+	KSETv(lsfp[K_CALLDELTA+0].asObject, KLIB Knull(kctx, CT_Trace));
+	KUtilsWriteBuffer wb;
+	KLIB Kwb_init(&(kctx->stack->cwb), &wb);
+	KLIB Kwb_printf(kctx, &wb, "%s.%s%s", Method_t(trace));
+	KSETv(lsfp[K_CALLDELTA+1].s, KLIB new_kString(kctx, KLIB Kwb_top(kctx, &wb, 0), Kwb_bytesize(&wb), SPOL_POOL));
+	KLIB Kwb_free(&wb);
+	kArray *a = new_(Array, pa->psize);
+	size_t i;
+	for(i = 0; i < pa->psize; i++) {
+		ktype_t paramType = pa->paramtypeItems[i].ty;
+		/* TODO: correct type */
+		if(TY_isUnbox(paramType)) {
+			KLIB kArray_add(kctx, a, KLIB new_kObject(kctx, CT_(paramType), sfp[i+1].unboxValue));
+		}
+		else {
+			KLIB kArray_add(kctx, a, sfp[i+1].o);
+		}
+	}
+	KSETv(lsfp[K_CALLDELTA+2].asArray, a);
+	KCALL(lsfp, 0, mtd, 3, KNULL(Boolean));
+	END_LOCAL();
+	((KonohaContextVar*)kctx)->esp -= K_CALLDELTA;
+	RESET_GCSTACK();
+	return lsfp[0].boolValue == true ? 0 : -1;
+}
+
+static KMETHOD DEFAULT_Before(KonohaContext *kctx, KonohaStack *sfp)
+{
+	DBG_P("default before");
+}
+
+/* ------------------------------------------------------------------------ */
+
+//## void Trace.setBefore(Func[Boolean,String,Object[]] beforefunc);
+static KMETHOD Trace_setBefore(KonohaContext *kctx, KonohaStack *sfp)
+{
+	kFunc *fo = sfp[1].asFunc;
+	KSETv(kmodtrace->before, fo->mtd);
+	RETURNvoid_();
+}
+
 /* ------------------------------------------------------------------------ */
 
 #define _Public   kMethod_Public
@@ -75,17 +107,6 @@ static void kmodtrace_free(KonohaContext *kctx, struct KonohaModule *baseh)
 #define _Static   kMethod_Static
 #define _F(F)   (intptr_t)(F)
 
-/****************************************************************/
-static void kGenTraceCode(KonohaContext *kctx, kMethod *mtd, kBlock *bk)
-{
-	DBG_P("start trace code generation");
-	BEGIN_LOCAL(lsfp, 8);
-	KSETv(lsfp[K_CALLDELTA+1].asMethod, mtd);
-	KSETv(lsfp[K_CALLDELTA+2].asObject, (kObject*)bk);
-	KCALL(lsfp, 0, GenCodeMtd, 2, K_NULL);
-	END_LOCAL();
-}
-
 static kbool_t tracevm_initPackage(KonohaContext *kctx, kNameSpace *ns, int argc, const char **args, kfileline_t pline)
 {
 	kmodtrace_t *base = (kmodtrace_t*)KCALLOC(sizeof(kmodtrace_t), 1);
@@ -93,18 +114,32 @@ static kbool_t tracevm_initPackage(KonohaContext *kctx, kNameSpace *ns, int argc
 	base->h.setup        = kmodtrace_setup;
 	base->h.reftrace     = kmodtrace_reftrace;
 	base->h.free         = kmodtrace_free;
-	base->defaultCodeGen = kctx->klib->kMethod_genCode;
-
+	base->beforeTrace    = beforeTrace;
+	KDEFINE_CLASS TraceDef = {
+		STRUCTNAME(Trace),
+		.cflag = kClass_Final,
+	};
+	base->cTrace = KLIB Konoha_defineClass(kctx, ns->packageId, ns->packageDomain, NULL, &TraceDef, pline);
 	KLIB Konoha_setModule(kctx, MOD_tracevm, &base->h, pline);
+	KINITv(base->before, KLIB new_kMethod(kctx, 0, 0, 0, DEFAULT_Before));
+
+	/* Array[Object] */
+	kparamtype_t P_ObjectArray[] = {{TY_Object}};
+	int TY_ObjectArray = (KLIB KonohaClass_Generics(kctx, CT_Array, TY_void, 1, P_ObjectArray))->typeId;
+	/* Func[Boolean,String,Object[]] */
+	kparamtype_t P_FuncBefore[] = {{TY_String}, {TY_ObjectArray}};
+	int TY_FuncBefore = (KLIB KonohaClass_Generics(kctx, CT_Func, TY_Boolean, 2, P_FuncBefore))->typeId;
+
+	KDEFINE_METHOD MethodData[] = {
+		_Public, _F(Trace_setBefore), TY_void, TY_Trace, MN_("setBefore"), 1, TY_FuncBefore, FN_("func"),
+		DEND,
+	};
+	KLIB kNameSpace_loadMethodData(kctx, ns, MethodData);
 	return true;
 }
 
-static kbool_t tracevm_setupPackage(KonohaContext *kctx, kNameSpace *ns, kfileline_t pline)
+static kbool_t tracevm_setupPackage(KonohaContext *kctx, kNameSpace *ns, isFirstTime_t isFirstTime, kfileline_t pline)
 {
-	kMethod *mtd = KLIB kNameSpace_getMethodNULL(kctx, ns, TY_System, MN_("genCode"));
-	KonohaLibVar *l = (KonohaLibVar*)kctx->klib;
-	l->kMethod_genCode = GenCodeDefault;
-	KLIB kNameSpace_syncMethods(kctx);
 	return true;
 }
 
