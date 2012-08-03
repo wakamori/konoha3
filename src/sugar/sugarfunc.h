@@ -1160,7 +1160,7 @@ static KMETHOD StmtTyCheck_MethodDecl(KonohaContext *kctx, KonohaStack *sfp)
 	static KonohaFlagSymbolData MethodDeclFlag[] = {
 		{kMethod_Public}, {kMethod_Const}, {kMethod_Static},
 		{kMethod_Virtual}, {kMethod_Final}, {kMethod_Override},
-		{kMethod_Restricted}, {kMethod_Trace}
+		{kMethod_Restricted}, {kMethod_Trace},
 	};
 	if(MethodDeclFlag[0].symbol == 0) {   // this is a tricky technique
 		MethodDeclFlag[0].symbol = SYM_("@Public");
