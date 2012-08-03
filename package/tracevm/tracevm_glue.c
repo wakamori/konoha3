@@ -95,7 +95,7 @@ static int beforeTrace(KonohaContext *kctx, KonohaStack *sfp, kfileline_t pline)
 	END_LOCAL();
 	((KonohaContextVar*)kctx)->esp -= K_CALLDELTA;
 	RESET_GCSTACK();
-	return lsfp[K_CALLDELTA].boolValue == true ? 0 : -1;
+	return lsfp[0].boolValue == true ? 0 : -1;
 }
 
 static int afterTrace(KonohaContext *kctx, KonohaStack *sfp, kfileline_t pline)
