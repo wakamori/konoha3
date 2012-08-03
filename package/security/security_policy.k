@@ -6,4 +6,4 @@ K.import("konoha.new");
  *   }
  */
 Security.addRole(new Role("Admin"));
-Security.addPermission(new Role("Admin"), "NameSpace.man");
+Security.addPermission(new Role("Admin"), "System.static_test");

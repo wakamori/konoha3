@@ -256,7 +256,7 @@ static kbool_t kBlock_tyCheckAll(KonohaContext *kctx, kBlock *bk, kGamma *gma)
 		KdumpStmt(kctx, stmt);
 		if(syn == NULL) continue; /* This means 'done' */
 		if(Stmt_isERR(stmt) || !Stmt_TyCheck(kctx, syn, stmt, gma)) {
-			DBG_ASSERT(Stmt_isERR(stmt));
+			//DBG_ASSERT(Stmt_isERR(stmt));
 			kGamma_setERROR(gma, 1);
 			result = false;
 			break;
