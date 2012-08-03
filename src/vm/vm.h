@@ -339,8 +339,8 @@ static void KonohaVirtualMachine_onSafePoint(KonohaContext *kctx, KonohaStack *s
 	} \
 
 #define OPEXEC_ERROR(UL, msg, ESP) {\
-		kreportf(NoneTag, 0, "RuntimeScriptException: %s", S_text(msg));\
-		kraise(0);\
+		/*kreportf(NoneTag, 0, "RuntimeScriptException: %s", S_text(msg));*/\
+		/*kraise(0);*/\
 	}\
 
 #define OPEXEC_ERROR2(start, msg) { \
