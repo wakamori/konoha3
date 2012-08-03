@@ -83,7 +83,7 @@ typedef struct ksfx_t {
 } ksfx_t;
 
 typedef void (*ThreadCodeFunc)(KonohaContext *kctx, struct VirtualMachineInstruction *, void**);
-typedef int  (*TraceFunc)(KonohaContext *kctx, KonohaStack *sfp, int argc, kfileline_t pline);
+typedef int  (*TraceFunc)(KonohaContext *kctx, KonohaStack *sfp, kfileline_t pline);
 
 typedef struct {
 	kMethod *mtd;

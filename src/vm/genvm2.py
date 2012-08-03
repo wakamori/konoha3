@@ -36,7 +36,7 @@ YIELD      0
 ERROR      0                  uline:u msg:String esp:ro
 SAFEPOINT  0                  uline:u esp:ro
 CHKSTACK   0                  uline:u
-TRACE      0                  uline:u thisidx:ro espshift:ro tyo:co trace:f
+TRACE      0                  uline:u thisidx:ro tyo:co trace:f
 
 #SCALL      0                 uline:u thisidx:ro espshift:ro mtd:Method  tyo:co
 #VCALL      0                  uline:u thisidx:ro espshift:ro mtd:Method  tyo:co
