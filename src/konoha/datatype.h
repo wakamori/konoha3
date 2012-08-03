@@ -1045,6 +1045,7 @@ static void Konoha_loadDefaultMethod(KonohaContext *kctx)
 	int FN_x = FN_("x");
 	KDEFINE_METHOD MethodData[] = {
 		_Public|_Immutable|_Const, _F(Object_toString), TY_String, TY_Object, MN_to(TY_String), 0,
+		_Public|_Immutable|_Const, _F(Object_toInt), TY_Int, TY_Object, MN_to(TY_Int), 0,
 		_Public|_Immutable|_Const, _F(Boolean_opNOT), TY_Boolean, TY_Boolean, MN_("!"), 0,
 		_Public|_Immutable|_Const, _F(Boolean_opEQ), TY_Boolean, TY_Boolean, MN_("=="), 1, TY_Boolean, FN_x,
 		_Public|_Immutable|_Const, _F(Int_opNEQ), TY_Boolean, TY_Boolean, MN_("!="), 1, TY_Boolean, FN_x,

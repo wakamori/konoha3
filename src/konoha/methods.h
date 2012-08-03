@@ -36,6 +36,11 @@ static KMETHOD Object_toString(KonohaContext *kctx, KonohaStack *sfp)
 	RETURN_(s);
 }
 
+static KMETHOD Object_toInt(KonohaContext *kctx, KonohaStack *sfp)
+{
+	RETURNi_(O_unbox(sfp[0].asObject));
+}
+
 //## @Const method Boolean Boolean.opNOT();
 static KMETHOD Boolean_opNOT(KonohaContext *kctx, KonohaStack *sfp)
 {

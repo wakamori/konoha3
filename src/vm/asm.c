@@ -669,7 +669,7 @@ static void CALL_asm(KonohaContext *kctx, kStmt *stmt, int a, kExpr *expr, int s
 	}
 	ASM(CALL, ctxcode->uline, SFP_(thisidx), ESP_(espidx, argc), KLIB Knull(kctx, CT_(expr->ty)));
 	//if(Method_isTrace(mtd)) {
-	//	ASM(TRACE, ctxcode->uline, SFP_(thisidx), ESP_(espidx, argc), KLIB Knull(kctx, CT_(expr->ty)), kmodtrace->afterTrace);
+	//	ASM(TRACE, ctxcode->uline, SFP_(thisidx), KLIB Knull(kctx, CT_(expr->ty)), kmodtrace->afterTrace);
 	//}
 }
 

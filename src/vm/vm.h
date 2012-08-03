@@ -318,8 +318,6 @@ static void KonohaVirtualMachine_onSafePoint(KonohaContext *kctx, KonohaStack *s
 		if(unlikely(F(kctx, sfp_, UL) < 0)) {\
 			sfp_[K_RTNIDX].o = CTO;\
 			pc = PC_NEXT(pc);\
-			/*kfileline_t uline = (UL == 0) ? rbp[K_ULINEIDX2].uline : UL;*/\
-			/*kreportf(CritTag, uline, "permission denied");*/\
 		}\
 	} \
 

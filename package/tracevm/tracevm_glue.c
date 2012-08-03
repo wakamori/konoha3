@@ -63,33 +63,37 @@ static void Trace_free(KonohaContext *kctx, kObject *o)
 {
 }
 
-#define TRACE_DELTA K_CALLDELTA + K_CALLDELTA
-
 static int beforeTrace(KonohaContext *kctx, KonohaStack *sfp, kfileline_t pline)
 {
 	kMethod *trace = sfp[K_MTDIDX].mtdNC;
 	kParam *pa = Method_param(trace);
-	int argc = pa->psize + 1;
 	kMethod *mtd = kmodtrace->before;
 	DBG_ASSERT(mtd != NULL);
 	INIT_GCSTACK();
-	BEGIN_LOCAL(lsfp, TRACE_DELTA + 3);
-	KSETv(lsfp[TRACE_DELTA+0].asObject, KLIB Knull(kctx, CT_Trace));
+	((KonohaContextVar*)kctx)->esp += K_CALLDELTA;
+	BEGIN_LOCAL(lsfp, K_CALLDELTA + 3);
+	KSETv(lsfp[K_CALLDELTA+0].asObject, KLIB Knull(kctx, CT_Trace));
 	KUtilsWriteBuffer wb;
 	KLIB Kwb_init(&(kctx->stack->cwb), &wb);
 	KLIB Kwb_printf(kctx, &wb, "%s.%s%s", Method_t(trace));
-	KSETv(lsfp[TRACE_DELTA+1].s, KLIB new_kString(kctx, KLIB Kwb_top(kctx, &wb, 0), Kwb_bytesize(&wb), SPOL_POOL));
+	KSETv(lsfp[K_CALLDELTA+1].s, KLIB new_kString(kctx, KLIB Kwb_top(kctx, &wb, 0), Kwb_bytesize(&wb), SPOL_POOL));
 	KLIB Kwb_free(&wb);
-	kArray *a = new_(Array, argc);
+	kArray *a = new_(Array, pa->psize);
 	size_t i;
 	for(i = 0; i < pa->psize; i++) {
 		ktype_t paramType = pa->paramtypeItems[i].ty;
-		kObject *o = KLIB new_kObject(kctx, CT_(paramType), sfp[i+1].unboxValue);
-		KLIB kArray_add(kctx, a, o);/*FIXME: correct type*/
+		/* TODO: correct type */
+		if(TY_isUnbox(paramType)) {
+			KLIB kArray_add(kctx, a, KLIB new_kObject(kctx, CT_(paramType), sfp[i+1].unboxValue));
+		}
+		else {
+			KLIB kArray_add(kctx, a, sfp[i+1].o);
+		}
 	}
-	KSETv(lsfp[TRACE_DELTA+2].asArray, a);
-	KCALL(lsfp + K_CALLDELTA, 0, mtd, 3, KNULL(Boolean));
+	KSETv(lsfp[K_CALLDELTA+2].asArray, a);
+	KCALL(lsfp, 0, mtd, 3, KNULL(Boolean));
 	END_LOCAL();
+	((KonohaContextVar*)kctx)->esp -= K_CALLDELTA;
 	RESET_GCSTACK();
 	return lsfp[K_CALLDELTA].boolValue == true ? 0 : -1;
 }
@@ -99,18 +103,18 @@ static int afterTrace(KonohaContext *kctx, KonohaStack *sfp, kfileline_t pline)
 //	kMethod *mtd = kmodtrace->after;
 //	DBG_ASSERT(mtd != NULL);
 //	INIT_GCSTACK();
-//	BEGIN_LOCAL(lsfp, TRACE_DELTA + 4);
-//	KSETv(lsfp[TRACE_DELTA+0].asObject, KLIB Knull(kctx, CT_Trace));
+//	BEGIN_LOCAL(lsfp, K_CALLDELTA + 4);
+//	KSETv(lsfp[K_CALLDELTA+0].asObject, KLIB Knull(kctx, CT_Trace));
 //	KUtilsWriteBuffer wb;
 //	KLIB Kwb_init(&(kctx->stack->cwb), &wb);
 //	KLIB Kwb_printf(kctx, &wb, "%s.%s%s", Method_t(sfp[K_MTDIDX2-K_CALLDELTA].mtdNC));
-//	KSETv(lsfp[TRACE_DELTA+1].s, KLIB new_kString(kctx, KLIB Kwb_top(kctx, &wb, 0), Kwb_bytesize(&wb), SPOL_POOL));
+//	KSETv(lsfp[K_CALLDELTA+1].s, KLIB new_kString(kctx, KLIB Kwb_top(kctx, &wb, 0), Kwb_bytesize(&wb), SPOL_POOL));
 //	KLIB Kwb_free(&wb);
 //	if(Method_returnType(mtd) == TY_void) {
-//		KSETv(lsfp[TRACE_DELTA+2].asObject, K_NULL);
+//		KSETv(lsfp[K_CALLDELTA+2].asObject, K_NULL);
 //	}
 //	else {
-//		KSETv(lsfp[TRACE_DELTA+2].asObject, sfp[K_RTNIDX].asObject);
+//		KSETv(lsfp[K_CALLDELTA+2].asObject, sfp[K_RTNIDX].asObject);
 //	}
 //	kArray *a = new_(Array, argc);
 //	size_t i;
@@ -120,7 +124,7 @@ static int afterTrace(KonohaContext *kctx, KonohaStack *sfp, kfileline_t pline)
 //		kObject *o = KLIB new_kObject(kctx, CT_(paramType), sfp[i+1].unboxValue);
 //		KLIB kArray_add(kctx, a, o);/*FIXME: incorrect type*/
 //	}
-//	KSETv(lsfp[TRACE_DELTA+3].asArray, a);
+//	KSETv(lsfp[K_CALLDELTA+3].asArray, a);
 //	KCALL(lsfp + K_CALLDELTA, 0, mtd, 4, KNULL(Boolean));
 //	END_LOCAL();
 //	RESET_GCSTACK();
