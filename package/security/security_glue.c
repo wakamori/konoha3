@@ -320,7 +320,7 @@ static kbool_t security_setupNameSpace(KonohaContext *kctx, kNameSpace *ns, kfil
 	const char *policypath = PLATAPI formatPackagePath(pathbuf, sizeof(pathbuf), "security", "_policy.k");
 	kMethod *mtd = KLIB kNameSpace_getMethodNULL(kctx, ns, TY_NameSpace, MN_("load"), 0, MPOL_FIRST);
 	INIT_GCSTACK();
-	BEGIN_LOCAL(lsfp, K_CALLDELTA + 1);
+	BEGIN_LOCAL(lsfp, K_CALLDELTA + 2);
 	KSETv(lsfp[K_CALLDELTA+0].o, (kObject *)ns);
 	KSETv(lsfp[K_CALLDELTA+1].s, KLIB new_kString(kctx, policypath, strlen(policypath), 0));
 	KCALL(lsfp, 0, mtd, 2, KNULL(Boolean));
