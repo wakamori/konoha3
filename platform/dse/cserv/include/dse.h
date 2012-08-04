@@ -223,8 +223,8 @@ static void *dse_dispatch(void *arg)
 	struct dReq *dreq;
 	struct dRes *dres;
 	char cmd_konoha[] = "minikonoha";
-	char cmd_opt_tycheck[] = "-c";
-	char cmd_sh[] = "sh";
+	//char cmd_opt_tycheck[] = "-c";
+	//char cmd_sh[] = "sh";
 	pid_t pid;
 	int status = 0;
 	logpool_t *lp;

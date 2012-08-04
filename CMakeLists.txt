@@ -133,9 +133,9 @@ set(PACKAGES
 ##	konoha.rope
 ##	konoha.subproc
 	konoha.mpi
-##	curl
-##	ijit
-##	jansson
+	curl
+	ijit
+	jansson
 ##	mecab
 	python
 	apache
@@ -143,6 +143,7 @@ set(PACKAGES
 #	openssl
 	logpool
 	security
+	dse
 )
 
 find_library(HAVE_LIBDL NAMES dl)
