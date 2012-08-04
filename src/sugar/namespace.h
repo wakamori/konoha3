@@ -26,7 +26,7 @@
 // ---------------------------------------------------------------------------
 // Syntax Management
 
-kString *enforce_security = NULL;  // global variable
+kRole *enforce_security = NULL;  // global variable
 
 static void checkFuncArray(KonohaContext *kctx, kNameSpace *ns, kFunc **funcItems);
 static void kNameSpace_parseSugarRule2(KonohaContext *kctx, kNameSpace *ns, const char *rule, kfileline_t uline, kArray *ruleList);
@@ -535,7 +535,7 @@ static kbool_t checkMethodIsPermitted(KonohaContext *kctx, kNameSpace *ns, kMeth
 	INIT_GCSTACK();
 	BEGIN_LOCAL(lsfp, K_CALLDELTA + 2);
 	KSETv(lsfp[K_CALLDELTA+0].o, KLIB Knull(kctx, CT_Security));
-	KSETv(lsfp[K_CALLDELTA+1].o, KLIB new_kObject(kctx, CT_Role, (uintptr_t)enforce_security));
+	KSETv(lsfp[K_CALLDELTA+1].o, (kObject *)enforce_security);
 	KUtilsWriteBuffer wb;
 	KLIB Kwb_init(&(kctx->stack->cwb), &wb);
 	KLIB Kwb_printf(kctx, &wb, "%s.%s%s", Method_t(mtd));

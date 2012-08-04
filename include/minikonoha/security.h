@@ -48,6 +48,7 @@ extern "C" {
 typedef struct {
 	KonohaModule h;
 	KUtilsHashMap *acl; // access control list (map)
+	KUtilsHashMap *roles;
 	kMethod *checkPermission;
 	KonohaClass *cSecurity;
 	KonohaClass *cRole;
@@ -66,9 +67,11 @@ typedef const struct _kRole kRole;
 struct _kRole {
 	KonohaObjectHeader h;
 	kString *name;
+	kRole *parent;
 };
 
 #ifdef __cplusplus
 } /* extern "C" */
 #endif
+
 #endif /* MODSECURITY_H_ */
