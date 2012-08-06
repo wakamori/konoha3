@@ -50,7 +50,7 @@ static KMETHOD Array_set(KonohaContext *kctx, KonohaStack *sfp)
 		a->unboxItems[n] = sfp[2].unboxValue;
 	}
 	else {
-		KSETv(a->objectItems[n], sfp[2].o);
+		KSETv(a, a->objectItems[n], sfp[2].o);
 	}
 }
 
@@ -80,7 +80,7 @@ static KMETHOD Array_newArray(KonohaContext *kctx, KonohaStack *sfp)
 		size_t i;
 		kObject *null = KLIB Knull(kctx, CT_(O_p0(a)));
 		for(i = 0; i < asize; i++) {
-			KSETv(a->objectItems[i], null);
+			KSETv(a, a->objectItems[i], null);
 		}
 	}
 	RETURN_(a);
@@ -138,7 +138,7 @@ static KMETHOD Array_new(KonohaContext *kctx, KonohaStack *sfp)
 		size_t i;
 		kObject *null = KLIB Knull(kctx, CT_(O_p0(a)));
 		for(i = 0; i < asize; i++) {
-			KSETv(a->objectItems[i], null);
+			KSETv(a, a->objectItems[i], null);
 		}
 	}
 	RETURN_(a);
@@ -221,8 +221,8 @@ static KMETHOD ExprTyCheck_Bracket(KonohaContext *kctx, KonohaStack *sfp)
 	}
 	kMethod *mtd = KLIB kNameSpace_getMethodNULL(kctx, Stmt_nameSpace(stmt), TY_Array, MN_("newList"), 0, MPOL_FIRST);
 	DBG_ASSERT(mtd != NULL);
-	KSETv(expr->cons->methodItems[0], mtd);
-	KSETv(expr->cons->exprItems[1], SUGAR kExpr_setVariable(kctx, NULL, gma, TEXPR_NEW, requestClass->typeId, 0));
+	KSETv(expr, expr->cons->methodItems[0], mtd);
+	KSETv(expr, expr->cons->exprItems[1], SUGAR kExpr_setVariable(kctx, NULL, gma, TEXPR_NEW, requestClass->typeId, 0));
 	RETURN_(Expr_typed(expr, TEXPR_CALL, requestClass->typeId));
 }
 
@@ -246,7 +246,7 @@ static KMETHOD ParseExpr_Bracket(KonohaContext *kctx, KonohaStack *sfp)
 		if(leftExpr == K_NULLEXPR) {
 			RETURN_(leftExpr);
 		}
-		if(leftExpr->syn->keyword == KW_new) {  // new int[100]
+		if(leftExpr->syn->keyword == SYM_("new")) {  // new int[100]
 			kExpr_setsyn(leftExpr, SYN_(Stmt_nameSpace(stmt), KW_ExprMethodCall));
 			leftExpr = SUGAR kStmt_addExprParam(kctx, stmt, leftExpr, currentToken->subTokenList, 0, kArray_size(currentToken->subTokenList), 0/*allowEmpty*/);
 		}

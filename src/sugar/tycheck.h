@@ -44,10 +44,10 @@ static kExpr *ExprTyCheckFunc(KonohaContext *kctx, kFunc *fo, kStmt *stmt, kExpr
 {
 	INIT_GCSTACK();
 	BEGIN_LOCAL(lsfp, K_CALLDELTA + 5);
-	KSETv(lsfp[K_CALLDELTA+0].o, fo->self);
-	KSETv(lsfp[K_CALLDELTA+1].o, (kObject*)stmt);
-	KSETv(lsfp[K_CALLDELTA+2].o, (kObject*)expr);
-	KSETv(lsfp[K_CALLDELTA+3].o, (kObject*)gma);
+	KSETv_AND_WRITE_BARRIER(NULL, lsfp[K_CALLDELTA+0].o, fo->self, GC_NO_WRITE_BARRIER);
+	KSETv_AND_WRITE_BARRIER(NULL, lsfp[K_CALLDELTA+1].o, (kObject*)stmt, GC_NO_WRITE_BARRIER);
+	KSETv_AND_WRITE_BARRIER(NULL, lsfp[K_CALLDELTA+2].o, (kObject*)expr, GC_NO_WRITE_BARRIER);
+	KSETv_AND_WRITE_BARRIER(NULL, lsfp[K_CALLDELTA+3].o, (kObject*)gma,  GC_NO_WRITE_BARRIER);
 	lsfp[K_CALLDELTA+4].intValue = reqty;
 	KCALL(lsfp, 0, fo->mtd, 5, K_NULLEXPR);
 	END_LOCAL();
@@ -83,15 +83,15 @@ static kExpr *ExprTyCheck(KonohaContext *kctx, kStmt *stmt, kExpr *expr, kGamma 
 static void Expr_putConstValue(KonohaContext *kctx, kExpr *expr, KonohaStack *sfp)
 {
 	if(expr->build == TEXPR_CONST) {
-		KSETv(sfp[0].asObject, expr->objectConstValue);
+		KSETv_AND_WRITE_BARRIER(NULL, sfp[0].asObject, expr->objectConstValue, GC_NO_WRITE_BARRIER);
 		sfp[0].unboxValue = O_unbox(expr->objectConstValue);
 	}else if(expr->build == TEXPR_NCONST) {
 		sfp[0].unboxValue = expr->unboxConstValue;
 	}else if(expr->build == TEXPR_NEW) {
-		KSETv(sfp[0].asObject, KLIB new_kObject(kctx, CT_(expr->ty), 0));
+		KSETv_AND_WRITE_BARRIER(NULL, sfp[0].asObject, KLIB new_kObject(kctx, CT_(expr->ty), 0), GC_NO_WRITE_BARRIER);
 	}else {
 		assert(expr->build == TEXPR_NULL);
-		KSETv(sfp[0].asObject, KLIB Knull(kctx, CT_(expr->ty)));
+		KSETv_AND_WRITE_BARRIER(NULL, sfp[0].asObject, KLIB Knull(kctx, CT_(expr->ty)), GC_NO_WRITE_BARRIER);
 		sfp[0].unboxValue = 0;
 	}
 }
@@ -124,7 +124,7 @@ static kExpr *new_BoxingExpr(KonohaContext *kctx, kExpr *expr, ktype_t reqty)
 	if(expr->build == TEXPR_NCONST) {
 		kExprVar *Wexpr = (kExprVar*)expr;
 		Wexpr->build = TEXPR_CONST;
-		KINITv(Wexpr->objectConstValue, KLIB new_kObject(kctx, CT_(Wexpr->ty), Wexpr->unboxConstValue));
+		KINITp(Wexpr, Wexpr->objectConstValue, KLIB new_kObject(kctx, CT_(Wexpr->ty), Wexpr->unboxConstValue));
 		Expr_setObjectConstValue(Wexpr, 1);
 		Wexpr->ty = reqty;
 		return expr;
@@ -181,7 +181,7 @@ static kExpr* kStmt_tyCheckExprAt(KonohaContext *kctx, kStmt *stmt, kExpr *exprP
 	if(!Expr_isTerm(exprP) && pos < kArray_size(exprP->cons)) {
 		kExpr *expr = exprP->cons->exprItems[pos];
 		expr = Expr_tyCheck(kctx, stmt, expr, gma, reqty, pol);
-		KSETv(exprP->cons->exprItems[pos], expr);
+		KSETv(exprP->cons, exprP->cons->exprItems[pos], expr);
 		return expr;
 	}
 	return K_NULLEXPR;
@@ -216,9 +216,9 @@ static KMETHOD UndefinedStmtTyCheck(KonohaContext *kctx, KonohaStack *sfp)  // $
 static kbool_t Stmt_TyCheckFunc(KonohaContext *kctx, kFunc *fo, kStmt *stmt, kGamma *gma)
 {
 	BEGIN_LOCAL(lsfp, K_CALLDELTA + 3);
-	KSETv(lsfp[K_CALLDELTA+0].o, (kObject*)fo->self);
-	KSETv(lsfp[K_CALLDELTA+1].o, (kObject*)stmt);
-	KSETv(lsfp[K_CALLDELTA+2].o, (kObject*)gma);
+	KSETv_AND_WRITE_BARRIER(NULL, lsfp[K_CALLDELTA+0].o, (kObject*)fo->self, GC_NO_WRITE_BARRIER);
+	KSETv_AND_WRITE_BARRIER(NULL, lsfp[K_CALLDELTA+1].o, (kObject*)stmt, GC_NO_WRITE_BARRIER);
+	KSETv_AND_WRITE_BARRIER(NULL, lsfp[K_CALLDELTA+2].o, (kObject*)gma , GC_NO_WRITE_BARRIER);
 	KCALL(lsfp, 0, fo->mtd, 3, K_FALSE);
 	END_LOCAL();
 	return lsfp[0].boolValue;
@@ -304,11 +304,10 @@ static kBlock* Method_newBlock(KonohaContext *kctx, kMethod *mtd, kNameSpace *ns
 		script = S_text(mtd->sourceCodeToken->text);
 		uline = mtd->sourceCodeToken->uline;
 	}
-	kArray *tokenArray = KonohaContext_getSugarContext(kctx)->preparedTokenList;
-	size_t pos = kArray_size(tokenArray);
-	kNameSpace_tokenize(kctx, ns, script, uline, tokenArray);
-	kBlock *bk = new_Block(kctx, ns, NULL, tokenArray, pos, kArray_size(tokenArray), SemiColon);
-	KLIB kArray_clear(kctx, tokenArray, pos);
+	TokenRange rangeBuf, *range = new_TokenListRange(kctx, ns, KonohaContext_getSugarContext(kctx)->preparedTokenList, &rangeBuf);
+	TokenRange_tokenize(kctx, range, script, uline);
+	kBlock *bk = new_Block(kctx, NULL/*parentStmt*/, range, SemiColon);
+	TokenRange_pop(kctx, range);
 	return bk;
 }
 
@@ -389,7 +388,6 @@ static kstatus_t kBlock_genEvalCode(KonohaContext *kctx, kBlock *bk, kMethod *mt
 	GAMMA_PUSH(gma, &newgma);
 	Gamma_initIt(kctx, &newgma, Method_param(mtd));
 	kBlock_tyCheckAll(kctx, bk, gma);
-	DBG_P("@@@@@@@@@@@ SIZE=%d ", kArray_size(bk->stmtList));
 	GAMMA_POP(gma, &newgma);
 
 	kStmt *stmt = bk->stmtList->stmtItems[0];
@@ -425,7 +423,7 @@ static kstatus_t kMethod_runEval(KonohaContext *kctx, kMethod *mtd, ktype_t rtyp
 		if((jumpResult = PLATAPI setjmp_i(*base->evaljmpbuf)) == 0) {
 			//DBG_P("TY=%s, running EVAL..", TY_t(rtype));
 			if(base->evalty != TY_void) {
-				KSETv(lsfp[K_CALLDELTA+1].o, base->stack[base->evalidx].o);
+				KSETv_AND_WRITE_BARRIER(NULL, lsfp[K_CALLDELTA+1].o, base->stack[base->evalidx].o, GC_NO_WRITE_BARRIER);
 				lsfp[K_CALLDELTA+1].intValue = base->stack[base->evalidx].intValue;
 			}
 			KCALL(lsfp, 0, mtd, 0, KLIB Knull(kctx, CT_(rtype)));
@@ -446,32 +444,29 @@ static kstatus_t kMethod_runEval(KonohaContext *kctx, kMethod *mtd, ktype_t rtyp
 	return result;
 }
 
-static kstatus_t kTokenArray_eval(KonohaContext *kctx, kArray *tokenList, int beginIdx, int endIdx, kNameSpace *ns)
+static kstatus_t TokenRange_eval(KonohaContext *kctx, TokenRange *sourceRange)
 {
 	kstatus_t status = K_CONTINUE;
-	INIT_GCSTACK();
-	ASTEnv env = {ns, tokenList, beginIdx, endIdx, tokenList, NULL};
-	env.symbolSyntaxInfo = SYN_(ns, KW_SymbolPattern);
-	int i = beginIdx, indent = 0, atop = kArray_size(tokenList);
-	kBlock *singleBlock = KonohaContext_getSugarContext(kctx)->singleBlock;
 	kMethod *mtd = KLIB new_kMethod(kctx, kMethod_Static, 0, 0, NULL);
 	PUSH_GCSTACK(mtd);
 	KLIB Method_setParam(kctx, mtd, TY_Object, 0, NULL);
-
-	while(i < endIdx) {
-		env.beginIdx = i;
-		i = kNameSpace_selectStmtTokenList(kctx, &env, &indent, SemiColon);
-		int asize = kArray_size(tokenList);
-		if(asize > atop) {
-			KSETv(((kBlockVar*)singleBlock)->blockNameSpace, ns);
+	int i = sourceRange->beginIdx, indent = 0;
+	kBlock *singleBlock = KonohaContext_getSugarContext(kctx)->singleBlock;
+	while(i < sourceRange->endIdx) {
+		TokenRange rangeBuf, *range = new_TokenStackRange(kctx, sourceRange, &rangeBuf);
+		sourceRange->beginIdx = i;
+		i = TokenRange_selectStmtToken(kctx, range, sourceRange, SemiColon, &indent);
+//		DBG_P("sourceRange->beginIdx=%d, i=%d, range=%d,%d", sourceRange->beginIdx, i, range->beginIdx, range->endIdx);
+		if(range->errToken != NULL) return K_BREAK;
+		if(range->endIdx > range->beginIdx) {
+			KSETv(singleBlock, ((kBlockVar*)singleBlock)->blockNameSpace, sourceRange->ns);
 			KLIB kArray_clear(kctx, singleBlock->stmtList, 0);
-			kBlock_addNewStmt(kctx, singleBlock, tokenList, atop, asize, env.errToken);
-			KLIB kArray_clear(kctx, tokenList, atop);
+			kBlock_addNewStmt(kctx, singleBlock, range);
+			TokenRange_pop(kctx, range);
 			status = kBlock_genEvalCode(kctx, singleBlock, mtd);
 			if(status != K_CONTINUE) break;
 		}
 	}
-	RESET_GCSTACK();
 	return status;
 }
 

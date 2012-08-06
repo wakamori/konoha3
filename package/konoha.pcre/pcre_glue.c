@@ -365,7 +365,7 @@ static void Regex_set(KonohaContext *kctx, kRegex *re, kString *ptns, kString *o
 	const char *ptn = S_text(ptns);
 	const char *opt = S_text(opts);
 	knh_Regex_setGlobalOption(re, opt);
-	KSETv(re->pattern, ptns);
+	KSETv(re, re->pattern, ptns);
 	re->reg = pcre_regmalloc(kctx, ptns);
 	pcre_regcomp(kctx, re->reg, ptn, pcre_parsecflags(kctx, opt));
 	re->eflags = pcre_parseeflags(kctx, opt);
@@ -423,7 +423,7 @@ static KMETHOD String_match(KonohaContext *kctx, KonohaStack *sfp)
 		int i, isGlobalOption = Regex_isGlobalOption(re);
 		a = new_(Array, nmatch);/*TODO new_Array(TY_String)*/
 		BEGIN_LOCAL(lsfp, 1);
-		KSETv(lsfp[0].asArray, a);
+		KSETv_AND_WRITE_BARRIER(NULL, lsfp[0].asArray, a, GC_NO_WRITE_BARRIER);
 		do {
 			int res = pcre_regexec(kctx, re->reg, str, nmatch, pmatch, re->eflags);
 			if(res != 0) {
@@ -511,7 +511,7 @@ static KMETHOD String_split(KonohaContext *kctx, KonohaStack *sfp)
 		if (str < eos) {
 			a = new_(Array, 0); // TODO new_Array(kctx, TY_String, 0);
 			BEGIN_LOCAL(lsfp, 1);
-			KSETv(lsfp[0].asArray, a);
+			KSETv_AND_WRITE_BARRIER(NULL, lsfp[0].asArray, a, GC_NO_WRITE_BARRIER);
 			while (str <= eos) {
 				int res = pcre_regexec(kctx, re->reg, str, KREGEX_MATCHSIZE, pmatch, re->eflags);
 				if (res == 0) {
@@ -593,9 +593,9 @@ static KMETHOD parseREGEX(KonohaContext *kctx, KonohaStack *sfp)
 		RETURNi_(0);
 	}
 	/*FIXME: we need to care about context sensitive case*/
-	//int tokenArrayize = kArray_size(tenv->tokenList);
-	//if(tokenArrayize > 0) {
-	//	kToken *tkPrev = tenv->tokenList->tokenItems[tokenArrayize - 1];
+	//int tokenListize = kArray_size(tenv->tokenList);
+	//if(tokenListize > 0) {
+	//	kToken *tkPrev = tenv->tokenList->tokenItems[tokenListize - 1];
 	//	if(tkPrev->unresolvedTokenType == TokenType_INT ||
 	//		(tkPrev->topCharHint != '(' && tkPrev->unresolvedTokenType == TokenType_SYMBOL)) {
 	//		RETURNi_(0);
