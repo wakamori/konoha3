@@ -247,6 +247,16 @@ struct SugarSyntaxVar {
 #define SYNFLAG_StmtJumpAhead      ((kshortflag_t)1 << 9)  /* continue */
 #define SYNFLAG_StmtJumpSkip       ((kshortflag_t)1 << 10)  /* break */
 
+// operator priority
+#define OP_PRIORITY_HIGHEST  200
+#define OP_PRIORITY_LOWEST  9900
+
+#define OP1_PRIORITY(x) \
+	.precedence_op1 = (OP_PRIORITY_HIGHEST + (x * 100))
+
+#define OP2_PRIORITY(x) \
+	.precedence_op2 = (OP_PRIORITY_HIGHEST + (x * 100))
+
 typedef struct KDEFINE_SYNTAX {
 	ksymbol_t keyword;  kshortflag_t flag;
 	const char *rule;
@@ -308,7 +318,10 @@ typedef struct TokenRange {
 	int beginIdx;
 	int endIdx;
 	kNameSpace *ns;
-	kToken *errToken;
+	union {
+		kToken *errToken;
+		struct MacroSet *macroSet;
+	};
 } TokenRange;
 
 #define TokenRange_end(kctx, range)  	range->endIdx = kArray_size(range->tokenList);
@@ -316,6 +329,11 @@ typedef struct TokenRange {
 		KLIB kArray_clear(kctx, range->tokenList, range->beginIdx);\
 		range->endIdx = range->beginIdx;\
 	}\
+
+typedef struct MacroSet {
+	ksymbol_t   symbol;
+	TokenRange *macro;
+} MacroSet;
 
 typedef kbool_t (*CheckEndOfStmtFunc2)(KonohaContext *, TokenRange *range, TokenRange *sourceRange, int *currentIdxRef, int *indentRef);
 
