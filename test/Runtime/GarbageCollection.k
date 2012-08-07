@@ -1,4 +1,7 @@
-K.import("konoha");
+// written by unknown (maybe ide)
+K.import("konoha.while");
+K.import("konoha.assign");
+
 void f() {
 	int i = 0;
 	String t = "longLived";

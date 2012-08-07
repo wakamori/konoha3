@@ -1,7 +1,8 @@
 // written by shinpei
-
-K.import("konoha")
-K.import("konoha.iterator")
+K.import("konoha.while");
+K.import("konoha.new");
+K.import("konoha.iterator");
+K.import("konoha.array");
 
 void iteratorTest () {
 	Array[int] ia = new int[3];
