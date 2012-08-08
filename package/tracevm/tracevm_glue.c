@@ -63,20 +63,43 @@ static void Trace_free(KonohaContext *kctx, kObject *o)
 {
 }
 
+static int callTrace(KonohaContext *kctx, KonohaStack *sfp, kfileline_t pline, kMethod *mtd)
+{
+	kParam *pa = Method_param(mtd);
+	KCALL(sfp, 0, mtd, pa->psize, KNULL(Boolean));
+	return sfp[0].boolValue == true ? 0 : -1;
+}
+
+		kMethod *mtd_ = rbp[THIS+K_MTDIDX2].mtdNC;\
+		KonohaStack *sfp_ = SFP(rshift(rbp, THIS)); \
+		sfp_[K_RTNIDX].o = CTO;\
+		sfp_[K_RTNIDX].uline = UL;\
+		sfp_[K_SHIFTIDX].shift = THIS; \
+		sfp_[K_PCIDX].pc = PC_NEXT(pc);\
+		sfp_[K_MTDIDX].mtdNC = mtd_;\
+		klr_setesp(kctx, SFP(rshift(rbp, espshift)));\
+		(mtd_)->invokeMethodFunc(kctx, sfp_); \
+		sfp_[K_MTDIDX].mtdNC = NULL;\
+
 static int beforeTrace(KonohaContext *kctx, KonohaStack *sfp, kfileline_t pline)
 {
 	kMethod *trace = sfp[K_MTDIDX].mtdNC;
 	kParam *pa = Method_param(trace);
-	kMethod *mtd = kmodtrace->before;
+	KUtilsWriteBuffer wb;
+	KLIB Kwb_init(&(kctx->stack->cwb), &wb);
+	KLIB Kwb_printf(kctx, &wb, "%s.%s%sTRACE", Method_t(trace));
+	DBG_P("kwb_top=%s", KLIB Kwb_top(kctx, &wb, 0));
+	kMethod *mtd = KLIB kNameSpace_getMethodNULL(kctx, O_typeId(sfp[0].o), O_typeId(sfp[0].o), MN_(KLIB Kwb_top(kctx, &wb, 0)), 0, MPOL_FIRST);
+	if(mtd != NULL && callTrace(kctx, sfp, pline, mtd) != 0) {
+		return -1;
+	}
+	mtd = kmodtrace->before;
 	DBG_ASSERT(mtd != NULL);
 	INIT_GCSTACK();
 	((KonohaContextVar*)kctx)->esp += K_CALLDELTA;
 	BEGIN_LOCAL(lsfp, K_CALLDELTA + 3);
 	KSETv_AND_WRITE_BARRIER(NULL, lsfp[K_CALLDELTA+0].asObject, KLIB Knull(kctx, CT_Trace), GC_NO_WRITE_BARRIER);
-	KUtilsWriteBuffer wb;
-	KLIB Kwb_init(&(kctx->stack->cwb), &wb);
-	KLIB Kwb_printf(kctx, &wb, "%s.%s%s", Method_t(trace));
-	KSETv_AND_WRITE_BARRIER(NULL, lsfp[K_CALLDELTA+1].s, KLIB new_kString(kctx, KLIB Kwb_top(kctx, &wb, 0), Kwb_bytesize(&wb), SPOL_POOL), GC_NO_WRITE_BARRIER);
+	KSETv_AND_WRITE_BARRIER(NULL, lsfp[K_CALLDELTA+1].s, KLIB new_kString(kctx, KLIB Kwb_top(kctx, &wb, 0), Kwb_bytesize(&wb) - 5, SPOL_POOL), GC_NO_WRITE_BARRIER);
 	KLIB Kwb_free(&wb);
 	kArray *a = new_(Array, pa->psize);
 	size_t i;
