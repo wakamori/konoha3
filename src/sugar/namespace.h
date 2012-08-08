@@ -534,12 +534,12 @@ static kbool_t checkMethodIsPermitted(KonohaContext *kctx, kNameSpace *ns, kMeth
 {
 	INIT_GCSTACK();
 	BEGIN_LOCAL(lsfp, K_CALLDELTA + 2);
-	KSETv(lsfp[K_CALLDELTA+0].o, KLIB Knull(kctx, CT_Security));
-	KSETv(lsfp[K_CALLDELTA+1].o, (kObject *)enforce_security);
+	KSETv_AND_WRITE_BARRIER(NULL, lsfp[K_CALLDELTA+0].o, KLIB Knull(kctx, CT_Security), GC_NO_WRITE_BARRIER);
+	KSETv_AND_WRITE_BARRIER(NULL, lsfp[K_CALLDELTA+1].o, (kObject *)enforce_security, GC_NO_WRITE_BARRIER);
 	KUtilsWriteBuffer wb;
 	KLIB Kwb_init(&(kctx->stack->cwb), &wb);
 	KLIB Kwb_printf(kctx, &wb, "%s.%s%s", Method_t(mtd));
-	KSETv(lsfp[K_CALLDELTA+2].s, KLIB new_kString(kctx, KLIB Kwb_top(kctx, &wb, 0), Kwb_bytesize(&wb), SPOL_POOL));
+	KSETv_AND_WRITE_BARRIER(NULL, lsfp[K_CALLDELTA+2].s, KLIB new_kString(kctx, KLIB Kwb_top(kctx, &wb, 0), Kwb_bytesize(&wb), SPOL_POOL), GC_NO_WRITE_BARRIER);
 	KLIB Kwb_free(&wb);
 	KCALL(lsfp, 0, kmodsecurity->checkPermission, 2, KNULL(Boolean));
 	END_LOCAL();

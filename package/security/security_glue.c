@@ -217,7 +217,7 @@ static KMETHOD Role_newwithParent(KonohaContext *kctx, KonohaStack *sfp)
 	kString *pname = parent->name;
 	DBG_P("Role.new called, with name=%s, parent=%s", S_text(name), S_text(pname));
 	struct _kRole *role = (struct _kRole *)KLIB new_kObject(kctx, CT_Role, (uintptr_t)name);
-	KSETv(role->parent, parent);
+	KSETv(role, role->parent, parent);
 	RETURN_(role);
 }
 
@@ -371,8 +371,8 @@ static kRole *getRole(KonohaContext *kctx, kNameSpace *ns) {
 	INIT_GCSTACK();
 	/* call Security.getRole(ROLE) */
 	BEGIN_LOCAL(lsfp, K_CALLDELTA + 1);
-	KSETv(lsfp[K_CALLDELTA+0].o, KLIB Knull(kctx, CT_Security));
-	KSETv(lsfp[K_CALLDELTA+1].asString, rolename);
+	KSETv_AND_WRITE_BARRIER(NULL, lsfp[K_CALLDELTA+0].o, KLIB Knull(kctx, CT_Security), GC_NO_WRITE_BARRIER);
+	KSETv_AND_WRITE_BARRIER(NULL, lsfp[K_CALLDELTA+1].asString, rolename, GC_NO_WRITE_BARRIER);
 	kMethod *getrole = KLIB kNameSpace_getMethodNULL(kctx, ns, TY_Security, MN_("getRole"), 0, MPOL_FIRST);
 	DBG_ASSERT(getrole != NULL);
 	KCALL(lsfp, 0, getrole, 1, KNULL(Role));
@@ -388,8 +388,8 @@ static kbool_t security_setupNameSpace(KonohaContext *kctx, kNameSpace *ns, kfil
 	kMethod *mtd = KLIB kNameSpace_getMethodNULL(kctx, ns, TY_NameSpace, MN_("load"), 0, MPOL_FIRST);
 	INIT_GCSTACK();
 	BEGIN_LOCAL(lsfp, K_CALLDELTA + 2);
-	KSETv(lsfp[K_CALLDELTA+0].o, (kObject *)ns);
-	KSETv(lsfp[K_CALLDELTA+1].s, KLIB new_kString(kctx, policypath, strlen(policypath), 0));
+	KSETv_AND_WRITE_BARRIER(NULL, lsfp[K_CALLDELTA+0].o, (kObject *)ns, GC_NO_WRITE_BARRIER);
+	KSETv_AND_WRITE_BARRIER(NULL, lsfp[K_CALLDELTA+1].s, KLIB new_kString(kctx, policypath, strlen(policypath), 0), GC_NO_WRITE_BARRIER);
 	KCALL(lsfp, 0, mtd, 2, KNULL(Boolean));
 	END_LOCAL();
 	RESET_GCSTACK();
