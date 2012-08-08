@@ -491,7 +491,7 @@ static int konoha_handler(request_rec *r)
 	kNameSpace *ns = KNULL(NameSpace);
 	KLIB kNameSpace_compileAllDefinedMethods(kctx);
 	KonohaClass *CT_Script = KLIB kNameSpace_getClass(kctx, ns, "Script", 6, 0);
-	ktype_t TY_Script = CT_Script->classId;
+	ktype_t TY_Script = CT_Script->typeId;
 	kMethod *mtd = KLIB kNameSpace_getMethodNULL(kctx, ns, TY_Script/*TODO*/, MN_("handler"), 0, MPOL_LATEST);
 	if (mtd == NULL) {
 		ap_log_rerror(APLOG_MARK, APLOG_CRIT, 0, r, "Script.handler() not found");
