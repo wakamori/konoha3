@@ -72,7 +72,7 @@ static void kException_addStackTrace(KonohaContext *kctx, KonohaStack *sfp, kExc
 	kfileline_t uline = sfp[K_RTNIDX].uline;
 	if(uline > 0) {
 		const char *file = FileId_t(uline);
-		KLIB Kwb_printf(kctx, &wb, "(%s:%d) %s.%s%s" , shortfilename(file), (kushort_t)uline, Method_t(mtd));
+		KLIB Kwb_printf(kctx, &wb, "(%s:%d) %s.%s%s" , PLATAPI shortFilePath(file), (kushort_t)uline, Method_t(mtd));
 	}
 //	int i = 0, psize = Method_paramsize(mtd);
 //	kParam *pa = Method_param(mtd);
@@ -129,7 +129,7 @@ static void Kthrow(KonohaContext *kctx, KonohaStack *sfp)
 			p--;
 		}
 	}
-	KLIB Kraise(kctx, 1);
+	//KLIB Kraise(kctx, 1);
 }
 
 /* ------------------------------------------------------------------------ */

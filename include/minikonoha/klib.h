@@ -53,13 +53,6 @@ static kinline uintptr_t strhash(const char *name, size_t len)
 	return hcode;
 }
 
-static kinline const char* shortfilename(const char *str)
-{
-	/*XXX g++ 4.4.5 need char* cast to compile it. */
-	char *p = (char *) strrchr(str, '/');
-	return (p == NULL) ? str : (const char*)p+1;
-}
-
 #define FileId_s(X)  FileId_s_(kctx, X)
 #define FileId_t(X)  S_text(FileId_s_(kctx, X))
 static kinline kString* FileId_s_(KonohaContext *kctx, kfileline_t fileid)
@@ -183,7 +176,7 @@ static kinline size_t check_index(KonohaContext *kctx, kint_t n, size_t max, kfi
 {
 	size_t n1 = (size_t)n;
 	if(unlikely(!(n1 < max))) {
-		kreportf(CritTag, pline, "Script!!: out of array index %ld < %lu", n, max);
+		KLIB Kraise(kctx, EXPT_("OutOfArrayBoundary"), NULL, pline);
 	}
 	return n1;
 }

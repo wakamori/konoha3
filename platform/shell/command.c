@@ -237,6 +237,11 @@ static const char* TEST_end(kinfotag_t t)
 	return "";
 }
 
+static const char* TEST_shortText(const char *msg)
+{
+	return "(omitted..)";
+}
+
 static int TEST_vprintf(const char *fmt, va_list ap)
 {
 	stdlog_count++;
@@ -250,6 +255,16 @@ static int TEST_printf(const char *fmt, ...)
 	int res = vfprintf(stdlog, fmt, ap);
 	va_end(ap);
 	return res;
+}
+
+static void TEST_reportCaughtException(const char *exceptionName, const char *scriptName, int line, const char *optionalMessage)
+{
+	if(line != 0) {
+		fprintf(stdlog, " ** %s (%s:%d)\n", exceptionName, scriptName, line);
+	}
+	else {
+		fprintf(stdlog, " ** %s\n", exceptionName);
+	}
 }
 
 //static int check_result2(FILE *fp0, FILE *fp1)
@@ -305,7 +320,7 @@ static void make_report(const char *testname)
 		char script_file[256];
 		char correct_file[256];
 		char result_file[256];
-		snprintf(report_file, 256,  "%s/REPORT_%s.txt", path, shortfilename(testname));
+		snprintf(report_file, 256,  "%s/REPORT_%s.txt", path, shortFilePath(testname));
 		snprintf(script_file, 256,  "%s", testname);
 		snprintf(correct_file, 256, "%s.proof", script_file);
 		snprintf(result_file, 256,  "%s.tested", script_file);
@@ -316,13 +331,13 @@ static void make_report(const char *testname)
 			fputc(ch, fp);
 		}
 		fclose(fp2);
-		fprintf(fp, "Expected Result (in %s)\n=====\n", shortfilename(result_file));
+		fprintf(fp, "Expected Result (in %s)\n=====\n", result_file);
 		fp2 = fopen(correct_file, "r");
 		while((ch = fgetc(fp2)) != EOF) {
 			fputc(ch, fp);
 		}
 		fclose(fp2);
-		fprintf(fp, "Result (in %s)\n=====\n", shortfilename(result_file));
+		fprintf(fp, "Result (in %s)\n=====\n", result_file);
 		fp2 = fopen(result_file, "r");
 		while((ch = fgetc(fp2)) != EOF) {
 			fputc(ch, fp);
@@ -442,13 +457,13 @@ static void konoha_import(KonohaContext *kctx, char *packagename)
 static void konoha_startup(KonohaContext *kctx, const char *startup_script)
 {
 	char buf[256];
-	char *path = getenv("KONOHA_SCRIPTPATH"), *local = "";
+	const char *path = PLATAPI getenv_i("KONOHA_SCRIPTPATH"), *local = "";
 	if(path == NULL) {
-		path = getenv("KONOHA_HOME");
+		path = PLATAPI getenv_i("KONOHA_HOME");
 		local = "/script";
 	}
 	if(path == NULL) {
-		path = getenv("HOME");
+		path = PLATAPI getenv_i("HOME");
 		local = "/.minikonoha/script";
 	}
 	snprintf(buf, sizeof(buf), "%s%s/%s.k", path, local, startup_script);
@@ -546,6 +561,8 @@ static int konoha_parseopt(KonohaContext* konoha, PlatformApiVar *plat, int argc
 			plat->vprintf_i = TEST_vprintf;
 			plat->beginTag  = TEST_begin;
 			plat->endTag    = TEST_end;
+			plat->shortText = TEST_shortText;
+			plat->reportCaughtException = TEST_reportCaughtException;
 			return KonohaContext_test(konoha, optarg);
 
 		case '?':

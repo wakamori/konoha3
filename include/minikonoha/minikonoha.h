@@ -117,35 +117,54 @@ struct PlatformApiVar {
 	const char *name;
 	size_t  stacksize;
 
-	// low-level functions
+	// system info
+	const char* (*getenv_i)(const char*);
+
+	// memory
 	void*   (*malloc_i)(size_t);
 	void    (*free_i)(void *);
+
+	// setjmp
 	int     (*setjmp_i)(jmpbuf_i);
 	void    (*longjmp_i)(jmpbuf_i, int);
 
-//	char*   (*realpath_i)(const char*, char*);
-//	FILE_i* (*fopen_i)(const char*, const char*);
-//	int     (*fgetc_i)(FILE_i *);
-//	int     (*feof_i)(FILE_i *);
-//	int     (*fclose_i)(FILE_i *);
-	//
+	// iconv + system path
+	uintptr_t   (*iconv_open_i)(const char* tocode, const char* fromcode);
+    size_t      (*iconv_i)(uintptr_t iconv, char **inbuf, size_t *inbytesleft, char **outbuf, size_t *outbytesleft);
+    int         (*iconv_close_i)(uintptr_t iconv);
+	const char* (*getSystemCharset)(void);
+	const char* (*formatSystemPath)(char *buf, size_t bufsiz, const char *path);
+	const char* (*formatKonohaPath)(char *buf, size_t bufsiz, const char *path);
+
+	// time
+	unsigned long long (*getTimeMilliSecond)(void);
+
+	/* message */
 	void    (*syslog_i)(int priority, const char *message, ...) __PRINTFMT(2, 3);
 	void    (*vsyslog_i)(int priority, const char *message, va_list args);
 	int     (*printf_i)(const char *fmt, ...) __PRINTFMT(2, 3);
 	int     (*vprintf_i)(const char *fmt, va_list args);
 	int     (*snprintf_i)(char *str, size_t size, const char *fmt, ...);
 	int     (*vsnprintf_i)(char *str, size_t size, const char *fmt, va_list args);
+
     void    (*qsort_i)(void *base, size_t nel, size_t width, int (*compar)(const void *, const void *));
     // abort
 	void    (*exit_i)(int p);
 
-	// high-level functions
+	/* high-level functions */
+
+	// file load
+	const char* (*shortFilePath)(const char *path);
 	const char* (*formatPackagePath)(char *buf, size_t bufsiz, const char *packageName, const char *ext);
 	const char* (*formatTransparentPath)(char *buf, size_t bufsiz, const char *parent, const char *path);
 	KonohaPackageHandler* (*loadPackageHandler)(const char *packageName);
 	int (*loadScript)(const char *filePath, long uline, void *thunk, int (*evalFunc)(const char*, long, int *, void *));
+
+	// message
+	const char* (*shortText)(const char *msg);
 	const char* (*beginTag)(kinfotag_t);
 	const char* (*endTag)(kinfotag_t);
+	void (*reportCaughtException)(const char *exceptionName, const char *scriptName, int line, const char *optionalMessage);
 	void  (*debugPrintf)(const char *file, const char *func, int line, const char *fmt, ...) __PRINTFMT(4, 5);
 };
 
@@ -485,6 +504,8 @@ struct KonohaContextRuntimeVar {
 	kObjectVar**               reftail;
 	ktype_t                    evalty;
 	kushort_t                  evalidx;
+	kfileline_t                thrownScriptLine;
+	kString                   *optionalErrorMessage;
 	jmpbuf_i                  *evaljmpbuf;
 	KonohaStack               *jump_bottom;
 };
@@ -1200,7 +1221,7 @@ struct KonohaLibVar {
 
 	void          (*KCodeGen)(KonohaContext*, kMethod *, kBlock *);
 	void          (*Kreportf)(KonohaContext*, kinfotag_t, kfileline_t, const char *fmt, ...);
-	void          (*Kraise)(KonohaContext*, int isContinue);     // module
+	void          (*Kraise)(KonohaContext*, int symbol, KonohaStack *, kfileline_t);
 
 	uintptr_t     (*Ktrace)(KonohaContext*, struct klogconf_t *logconf, ...);
 };
@@ -1234,6 +1255,7 @@ struct KonohaLibVar {
 #define ksymbolA(T, L, DEF)       (KPI)->Ksymbol(kctx, T, L, SPOL_ASCII, DEF)
 #define ksymbolSPOL(T, L, SPOL, DEF)       (KPI)->Ksymbol(kctx, T, L, SPOL, DEF)
 #define SYM_(T)                   (KPI)->Ksymbol(kctx, T, (sizeof(T)-1), SPOL_TEXT|SPOL_ASCII, _NEWID)
+#define EXPT_(T)                  (KPI)->Ksymbol(kctx, (T "Exception"), (sizeof(T "Exception")-1), SPOL_TEXT|SPOL_ASCII, _NEWID)
 #define FN_(T)                    (KPI)->Ksymbol(kctx, T, (sizeof(T)-1), SPOL_TEXT|SPOL_ASCII, _NEWID)
 #define MN_(T)                    (KPI)->Ksymbol(kctx, T, (sizeof(T)-1), SPOL_TEXT|SPOL_ASCII, _NEWID)
 #define T_mn(X)                   SYM_PRE(X), SYM_t(X)
