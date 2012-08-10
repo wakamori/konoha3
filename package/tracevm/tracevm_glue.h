@@ -57,11 +57,11 @@ static int beforeTrace(KonohaContext *kctx, KonohaStack *sfp, kfileline_t pline)
 	INIT_GCSTACK();
 	((KonohaContextVar*)kctx)->esp += K_CALLDELTA;
 	BEGIN_LOCAL(lsfp, K_CALLDELTA + 3);
-	KSETv(lsfp[K_CALLDELTA+0].asObject, KLIB Knull(kctx, CT_Trace));
+	KSETv_AND_WRITE_BARRIER(NULL, lsfp[K_CALLDELTA+0].asObject, KLIB Knull(kctx, CT_Trace), GC_NO_WRITE_BARRIER);
 	KUtilsWriteBuffer wb;
 	KLIB Kwb_init(&(kctx->stack->cwb), &wb);
 	KLIB Kwb_printf(kctx, &wb, "%s.%s%s", Method_t(trace));
-	KSETv(lsfp[K_CALLDELTA+1].s, KLIB new_kString(kctx, KLIB Kwb_top(kctx, &wb, 0), Kwb_bytesize(&wb), SPOL_POOL));
+	KSETv_AND_WRITE_BARRIER(NULL, lsfp[K_CALLDELTA+1].s, KLIB new_kString(kctx, KLIB Kwb_top(kctx, &wb, 0), Kwb_bytesize(&wb), SPOL_POOL), GC_NO_WRITE_BARRIER);
 	KLIB Kwb_free(&wb);
 	kArray *a = new_(Array, pa->psize);
 	size_t i;
@@ -75,7 +75,7 @@ static int beforeTrace(KonohaContext *kctx, KonohaStack *sfp, kfileline_t pline)
 			KLIB kArray_add(kctx, a, sfp[i+1].o);
 		}
 	}
-	KSETv(lsfp[K_CALLDELTA+2].asArray, a);
+	KSETv_AND_WRITE_BARRIER(NULL, lsfp[K_CALLDELTA+2].asArray, a, GC_NO_WRITE_BARRIER);
 	KCALL(lsfp, 0, mtd, 3, KNULL(Boolean));
 	END_LOCAL();
 	((KonohaContextVar*)kctx)->esp -= K_CALLDELTA;
@@ -94,7 +94,7 @@ static KMETHOD DEFAULT_Before(KonohaContext *kctx, KonohaStack *sfp)
 static KMETHOD Trace_setBefore(KonohaContext *kctx, KonohaStack *sfp)
 {
 	kFunc *fo = sfp[1].asFunc;
-	KSETv(kmodtrace->before, fo->mtd);
+	KSETv_AND_WRITE_BARRIER(NULL, kmodtrace->before, fo->mtd, GC_NO_WRITE_BARRIER);
 	RETURNvoid_();
 }
 
