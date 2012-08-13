@@ -7,7 +7,7 @@ void test() {
 	//check whether or not "g" modifier is set.
 	RegExp patt = /W3S/g;
 	assert(patt.global == true);
-	patt= /W3S/;
+	patt = /W3S/;
 	patt.compile(patt);
 	assert(patt.global == false);
 }
