@@ -3,7 +3,7 @@
 K.import("konoha.string");
 
 void test() {
-	assert("Hello World!".length == 12);
+	assert("こんにちは、世界!".length == 9);
 	assert("".length == 0);
 }
 

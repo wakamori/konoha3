@@ -4,11 +4,11 @@ K.import("konoha.string");
 K.import("konoha.regexp");
 
 void test() {
-	assert("The rain in SPAIN stays mainly in the plain".match(/ain/g) == "ain,ain,ain");
-	assert("The rain in SPAIN stays mainly in the plain".match(/ain/gi) == "ain,AIN,ain,ain");
-	RegExp patt = /[A-C]/gi;
-	assert("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefgijklmnopqrstuvwxyz".match(patt) == "'A','B','C','a','b','c'");
-	assert("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefgijklmnopqrstuvwxyz".match(/[A-C]/g) == "'A','B','C'");
+	assert("世界、こんにちは、世界".match(/世界/g) == "世界,世界");
+	assert("世界、こんにちは、世界".match(/せかい/gi).isNull());
+	RegExp patt = /[あ-は]/gi;
+	assert("こんにちは、世界abc123!@#".match(patt) == "'こ','に','ち','は'");
+	assert("こんにちは、世界abc123!@#".match(/[0-ん]/g) == "'こ','ん','に','ち','は','、','a','b','c','1','2','3','@'");
 }
 
 test();
