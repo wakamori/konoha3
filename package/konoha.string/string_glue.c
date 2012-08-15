@@ -38,7 +38,10 @@ extern "C" {
 #define S_msize(s)      text_mlen(S_text(s), S_size(s))
 #define S_length(s)     (S_isASCII(s) ? S_size(s) : S_msize(s))
 #define CT_StringArray0 CT_p0(kctx, CT_Array, TY_String)
-#define get_index(s, n) ((n < 0) ? S_length(s) + n : n)
+#define S_index(s, n)   ((n < 0) ? S_length(s) + n : n)
+
+/* FIXME: needs throw? */
+#define S_range(s, n)   ((n < 0) ? 0 : ((n > S_length(s)) ? S_length(s) : n))
 
 /* ------------------------------------------------------------------------ */
 
@@ -186,6 +189,24 @@ static kString* S_tolower(KonohaContext *kctx, kString *s0, size_t start)
 	return s;
 }
 
+static kString *S_substring(KonohaContext *kctx, KonohaStack *sfp, kString *s0, size_t start, size_t length)
+{
+	kString *ret = NULL;
+	if (S_isASCII(s0)) {
+		start = check_index(kctx, start, S_size(s0), sfp[K_RTNIDX].uline);
+		const char *new_text = S_text(s0) + start;
+		ret = KLIB new_kString(kctx, new_text, length, SPOL_ASCII|SPOL_POOL); // FIXME SPOL
+	}
+	else {
+		ret = S_msubstr(kctx, s0, start, length);
+		if (unlikely(ret == NULL)) {
+			kreportf(CritTag, sfp[K_RTNIDX].uline, "Script!!: out of array index %ld", sfp[1].intValue);
+			KLIB Kraise(kctx, EXPT_("OutOfStringBoundary"), sfp, sfp[K_RTNIDX].uline);
+		}
+	}
+	return ret;
+}
+
 /* // The function below must not use for ASCII string (nakata) */
 /* static kString *new_MultiByteSubString(KonohaContext *kctx, kString *s, size_t moff, size_t mlen) */
 /* { */
@@ -271,13 +292,7 @@ static KMETHOD String_indexOfwithStart(KonohaContext *kctx, KonohaStack *sfp)
 {
 	kString *s0 = sfp[0].asString, *s1 = sfp[1].asString;
 	kint_t start = sfp[2].intValue;
-	size_t length = S_length(s0);
-	if(start < 0) { /* FIXME: needs throw? */
-		start = 0;
-	}
-	if(start > length) { /* FIXME: needs throw? */
-		start = length;
-	}
+	start = S_range(s0, start);
 	if(S_size(s1) > 0) {
 		long loc = -1;
 		const char *t0 = S_text(s0);
@@ -325,14 +340,7 @@ static KMETHOD String_lastIndexOfwithStart(KonohaContext *kctx, KonohaStack *sfp
 {
 	kString *s0 = sfp[0].asString;
 	kString *s1 = sfp[1].asString;
-	kint_t start = sfp[2].intValue;
-	size_t size = S_length(s0);
-	if(start < 0) { /* FIXME: needs throw? */
-		start = 0;
-	}
-	if(start > size) { /* FIXME: needs throw? */
-		start = size;
-	}
+	kint_t start = S_range(s0, sfp[2].intValue);
 	const char *t0 = S_text(s0);
 	const char *t1 = S_text(s1);
 	intptr_t loc = text_mlen(t0, (size_t)start) - S_size(s1);
@@ -450,28 +458,16 @@ static KMETHOD String_charCodeAt(KonohaContext *kctx, KonohaStack *sfp)
 }
 
 /* ------------------------------------------------------------------------ */
+//## @Const method String String.slice(Int start);
 //## @Const method String String.substr(Int start);
 /* Microsoft's JScript does not support negative values for the start index. */
 
 static KMETHOD String_substr(KonohaContext *kctx, KonohaStack *sfp)
 {
 	kString *s0 = sfp[0].asString;
-	size_t offset = get_index(s0, sfp[1].intValue);
-	kString *ret = NULL;
-	size_t new_size = S_length(s0) - offset;
-	if (S_isASCII(s0)) {
-		offset = check_index(kctx, offset, S_size(s0), sfp[K_RTNIDX].uline);
-		const char *new_text = S_text(s0) + offset;
-		ret = KLIB new_kString(kctx, new_text, new_size, SPOL_ASCII|SPOL_POOL); // FIXME SPOL
-	}
-	else {
-		ret = S_msubstr(kctx, s0, offset, new_size);
-		if (unlikely(ret == NULL)) {
-			kreportf(CritTag, sfp[K_RTNIDX].uline, "Script!!: out of array index %ld", sfp[1].intValue);
-			KLIB Kraise(kctx, EXPT_("OutOfStringBoundary"), sfp, sfp[K_RTNIDX].uline);
-		}
-	}
-	RETURN_(ret);
+	size_t start = S_index(s0, sfp[1].intValue);
+	kint_t length = S_length(s0);
+	RETURN_(S_substring(kctx, sfp, s0, start, length));
 }
 
 /* ------------------------------------------------------------------------ */
@@ -481,28 +477,12 @@ static KMETHOD String_substr(KonohaContext *kctx, KonohaStack *sfp)
 static KMETHOD String_substrwithLength(KonohaContext *kctx, KonohaStack *sfp)
 {
 	kString *s0 = sfp[0].asString;
-	size_t offset = get_index(s0, sfp[1].intValue);
-	kint_t length = sfp[2].intValue;
-	if(length <= 0) {
+	size_t start = S_index(s0, sfp[1].intValue);
+	kint_t length = S_range(s0, sfp[2].intValue);
+	if(length == 0) {
 		RETURN_(KNULL(String));
 	}
-	kString *ret = NULL;
-	if(S_isASCII(s0)) {
-		offset = check_index(kctx, offset, S_size(s0), sfp[K_RTNIDX].uline);
-		size_t new_size = S_size(s0) - offset;
-		if(length < new_size) {
-			length = new_size;
-		}
-		ret = KLIB new_kString(kctx, S_text(s0) + offset, length, SPOL_ASCII|SPOL_POOL); // FIXME SPOL
-	}
-	else {
-		ret = S_msubstr(kctx, s0, offset, length);
-		if(unlikely(ret == NULL)) {
-			kreportf(CritTag, sfp[K_RTNIDX].uline, "Script!!: out of array index %ld", (int)offset);
-			KLIB Kraise(kctx, EXPT_("OutOfStringBoundary"), sfp, sfp[K_RTNIDX].uline);
-		}
-	}
-	RETURN_(ret);
+	RETURN_(S_substring(kctx, sfp, s0, start, length));
 }
 
 /* ------------------------------------------------------------------------ */
@@ -579,53 +559,16 @@ static KMETHOD String_fromCharCode(KonohaContext *kctx, KonohaStack *sfp)
 }
 
 /* ------------------------------------------------------------------------ */
-//## @Const method String String.slice(Int start);
+//## @Const method String String.slice(Int start, Int end);
 
 static KMETHOD String_slice(KonohaContext *kctx, KonohaStack *sfp)
 {
 	kString *s0 = sfp[0].asString;
-	kint_t start = get_index(s0, sfp[1].intValue);
-	kString *ret = NULL;
-	if (S_isASCII(s0)) {
-		start = check_index(kctx, start, S_size(s0), sfp[K_RTNIDX].uline);
-		const char *new_text = S_text(s0) + start;
-		size_t new_size = S_size(s0) - start;
-		ret = KLIB new_kString(kctx, new_text, new_size, SPOL_ASCII|SPOL_POOL); // FIXME SPOL
-	}
-	else {
-		ret = S_msubstr(kctx, s0, start, S_size(s0));
-		if (unlikely(ret == NULL)) {
-			kreportf(CritTag, sfp[K_RTNIDX].uline, "Script!!: out of array index %ld", (int)sfp[1].intValue);
-			KLIB Kraise(kctx, EXPT_("OutOfStringBoundary"), sfp, sfp[K_RTNIDX].uline);
-		}
-	}
-	RETURN_(ret);
-}
-
-/* ------------------------------------------------------------------------ */
-//## @Const method String String.slice(Int start, Int end);
-
-static KMETHOD String_slicewithEnd(KonohaContext *kctx, KonohaStack *sfp)
-{
-	kString *s0 = sfp[0].asString;
-	kint_t start = get_index(s0, sfp[1].intValue);
-	kint_t end = get_index(s0, sfp[2].intValue);
-	kString *ret = NULL;
-	if (S_isASCII(s0)) {
-		start = check_index(kctx, start, S_size(s0), sfp[K_RTNIDX].uline);
-		end = check_index(kctx, end, S_size(s0), sfp[K_RTNIDX].uline);
-		const char *new_text = S_text(s0) + start;
-		size_t new_size = end - start;
-		ret = KLIB new_kString(kctx, new_text, new_size, SPOL_ASCII|SPOL_POOL); // FIXME SPOL
-	}
-	else {
-		ret = S_msubstr(kctx, s0, start, end - start);
-		if (unlikely(ret == NULL)) {
-			kreportf(CritTag, sfp[K_RTNIDX].uline, "Script!!: out of array index %ld", (int)sfp[1].intValue);
-			KLIB Kraise(kctx, EXPT_("OutOfStringBoundary"), sfp, sfp[K_RTNIDX].uline);
-		}
-	}
-	RETURN_(ret);
+	kint_t start = S_index(s0, sfp[1].intValue);
+	kint_t end = S_index(s0, sfp[2].intValue);
+	end = check_index(kctx, end, S_length(s0), sfp[K_RTNIDX].uline);
+	size_t length = end - start;
+	RETURN_(S_substring(kctx, sfp, s0, start, length));
 }
 
 /* ------------------------------------------------------------------------ */
@@ -682,14 +625,14 @@ static KMETHOD String_splitwithSeparatorLimit(KonohaContext *kctx, KonohaStack *
 	kString *separator = sfp[1].asString;
 	kint_t limit = sfp[2].intValue;
 	size_t length = S_length(s0);
-	if(limit > length) {
-		limit = length;
-	}
 	kArray *a = (kArray*)KLIB new_kObject(kctx, CT_StringArray0, 0);
 	const char *start = S_text(s0);
 	const char *end = start + S_size(s0);
 	if(S_size(separator) == 0) {
 		size_t i;
+		if(limit > length) {
+			limit = length;
+		}
 		for(i = 0; i < limit; i++) {
 			if(S_isASCII(s0)) {
 				KLIB kArray_add(kctx, a, KLIB new_kString(kctx, S_text(s0) + i, 1, SPOL_POOL|SPOL_ASCII));
@@ -715,6 +658,43 @@ static KMETHOD String_splitwithSeparatorLimit(KonohaContext *kctx, KonohaStack *
 		}
 	}
 	RETURN_(a);
+}
+
+/* ------------------------------------------------------------------------ */
+//## @Const method String String.substring(Int indexA);
+
+static KMETHOD String_substring(KonohaContext *kctx, KonohaStack *sfp)
+{
+	kString *s0 = sfp[0].asString;
+	size_t indexA = S_range(s0, sfp[1].intValue);
+	size_t length = S_length(s0);
+	RETURN_(S_substring(kctx, sfp, s0, indexA, length));
+}
+
+/* ------------------------------------------------------------------------ */
+//## @Const method String String.substring(Int indexA, Int indexB);
+
+static KMETHOD String_substringwithIndexB(KonohaContext *kctx, KonohaStack *sfp)
+{
+	kString *s0 = sfp[0].asString;
+	size_t indexA = S_range(s0, sfp[1].intValue);
+	size_t indexB = S_range(s0, sfp[2].intValue);
+	if(indexA > indexB) {
+		/* swap */
+		size_t tmp = indexA;
+		indexA = indexB;
+		indexB = tmp;
+	}
+	size_t length = indexB - indexA;
+	RETURN_(S_substring(kctx, sfp, s0, indexA, length));
+}
+
+/* ------------------------------------------------------------------------ */
+//## @Const method String String.valueOf();
+
+static KMETHOD String_valueOf(KonohaContext *kctx, KonohaStack *sfp)
+{
+	RETURN_(sfp[0].asString);
 }
 
 // --------------------------------------------------------------------------
@@ -748,8 +728,8 @@ static kbool_t string_initPackage(KonohaContext *kctx, kNameSpace *ns, int argc,
 		//TODO/*JS*/_Public|_Const|_Im, _F(String_replace), TY_String, TY_String, MN_("replace"), 2, TY_RegExp, FN_("searchvalue"), TY_String, FN_("newvalue"),
 		/*JS*/_Public|_Const|_Im, _F(String_indexOf), TY_Int, TY_String, MN_("search"), 1, TY_String, FN_("searchvalue"),
 		//TODO/*JS*/_Public|_Const|_Im, _F(String_search), TY_Int, TY_String, MN_("search"), 1, TY_RegExp, FN_("searchvalue"),
-		/*JS*/_Public|_Const|_Im, _F(String_slice), TY_String, TY_String, MN_("slice"), 1, TY_Int, FN_("start"),
-		/*JS*/_Public|_Const|_Im, _F(String_slicewithEnd), TY_String, TY_String, MN_("slice"), 2, TY_Int, FN_("start"), TY_Int, FN_("end"),
+		/*JS*/_Public|_Const|_Im, _F(String_substr), TY_String, TY_String, MN_("slice"), 1, TY_Int, FN_("start"),
+		/*JS*/_Public|_Const|_Im, _F(String_slice), TY_String, TY_String, MN_("slice"), 2, TY_Int, FN_("start"), TY_Int, FN_("end"),
 		/*JS*/_Public|_Im, _F(String_split), TY_StringArray0, TY_String, MN_("split"), 0,
 		/*JS*/_Public|_Im, _F(String_splitwithSeparator), TY_StringArray0, TY_String, MN_("split"), 1, TY_String, FN_("separator"),
 		//TODO/*JS*/_Public|_Im, _F(String_split), TY_StringArray0, TY_String, MN_("split"), 1, TY_RegExp, FN_("separator"),
@@ -757,11 +737,11 @@ static kbool_t string_initPackage(KonohaContext *kctx, kNameSpace *ns, int argc,
 		//TODO/*JS*/_Public|_Im, _F(String_split), TY_StringArray0, TY_String, MN_("split"), 2, TY_RegExp, FN_("separator"), TY_Int, FN_("limit"),
 		/*JS*/_Public|_Const|_Im, _F(String_substr), TY_String, TY_String, MN_("substr"), 1, TY_Int, FN_("start"),
 		/*JS*/_Public|_Const|_Im, _F(String_substrwithLength), TY_String, TY_String, MN_("substr"), 2, TY_Int, FN_("start"), TY_Int, FN_("length"),
-		//TODO/*JS*/_Public|_Const|_Im, _F(String_substring), TY_String, TY_String, MN_("substring"), 1, TY_Int, FN_("from"),
-		//TODO/*JS*/_Public|_Const|_Im, _F(String_substring), TY_String, TY_String, MN_("substring"), 2, TY_Int, FN_("from"), TY_Int, FN_("to"),
+		/*JS*/_Public|_Const|_Im, _F(String_substring), TY_String, TY_String, MN_("substring"), 1, TY_Int, FN_("indexA"),
+		/*JS*/_Public|_Const|_Im, _F(String_substringwithIndexB), TY_String, TY_String, MN_("substring"), 2, TY_Int, FN_("indexA"), TY_Int, FN_("indexB"),
 		/*JS*/_Public|_Const|_Im, _F(String_toLower), TY_String, TY_String, MN_("toLowerCase"), 0,
 		/*JS*/_Public|_Const|_Im, _F(String_toUpper), TY_String, TY_String, MN_("toUpperCase"), 0,
-		//TODO/*JS*/_Public|_Const|_Im, _F(String_valueOf), TY_String, TY_String, MN_("valueOf"), 0,
+		/*JS*/_Public|_Const|_Im, _F(String_valueOf), TY_String, TY_String, MN_("valueOf"), 0,
 		_Public|_Const|_Im, _F(String_opHAS),      TY_Boolean, TY_String, MN_("opHAS"), 1, TY_String, FN_s,
 		_Public|_Const|_Im, _F(String_trim),       TY_String, TY_String, MN_("trim"), 0,
 		_Public|_Const|_Im, _F(String_get),        TY_String, TY_String, MN_("get"), 1, TY_Int, FN_n,
