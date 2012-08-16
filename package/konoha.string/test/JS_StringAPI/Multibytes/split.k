@@ -3,9 +3,9 @@
 K.import("konoha.string");
 
 void test() {
-	assert("How are you doing today?".split(" ") == "How,are,you,doing,today?");
-	assert("How are you doing today?".split() == "How are you doing today?");
-	assert("How are you doing today?".split("o") == "H,w are y,u d,ing t,day?");
+	assert("こんにちは、世界、日本は?".split("、") == "'こんにちは','世界','日本は?'");
+	assert("こんにちは、世界、日本は?".split() == "こんにちは、世界、日本は?");
+	assert("こんにちは、世界、日本は?".split("は") == "'こんにち','、世界、日本','?'");
 }
 
 test();

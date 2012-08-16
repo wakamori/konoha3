@@ -4,11 +4,12 @@ K.import("konoha.string");
 K.import("konoha.regexp");
 
 void test() {
-	assert("Hello, world!".search("world") == 7);
-	assert("Hello, world!".search("World") == -1);
-	assert("Hello, world!".search(/World/gi) == 7);
-	assert("Hello, world!".search(/World/g) == -1);
-	assert("Hello, world!".search(/World/i) == 7);
+	assert("こんにちは、世界!".search("世界") == 6);
+	assert("こんにちは、世界!".search("せかい") == -1);
+	assert("こんにちは、世界!".search() == 0);
+	assert("こんにちは、世界!".search(/世界/gi) == 6);
+	assert("こんにちは、世界!".search(/世界/g) == 6);
+	assert("こんにちは、世界!".search(/世界/i) == 6);
 }
 
 test();
