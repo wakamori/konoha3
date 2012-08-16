@@ -105,24 +105,26 @@ static kbytes_t knh_bytes_mofflen(kbytes_t v, size_t moff, size_t mlen)
 #define _SUBCHAR(s0) (S_isASCII(s0) ? _ASCII : 0)
 #define _CHARSIZE(len) (len==1 ? _ASCII : _UTF8)
 
-static kArray *kStringToCharArray(KonohaContext *kctx, kString *bs, int istrim)
+static kArray *kStringToCharArray(KonohaContext *kctx, kString *bs, int istrim, kint_t limit)
 {
 	kbytes_t base = {S_size(bs), {S_text(bs)}};
-	size_t i, n = base.len;
-	kArray *a = (kArray*)KLIB new_kObject(kctx, CT_StringArray0, 0);
-	if(S_isASCII(bs)) {
-		for(i = 0; i < n; i++) {
-			if(istrim && isspace(base.utext[i])) continue;
-			KLIB kArray_add(kctx, a, KLIB new_kString(kctx, base.text+i, 1, _ALWAYS|_ASCII));
-		}
+	size_t i, n = (S_isASCII(bs) ? base.len : knh_bytes_mlen(base));
+	if(limit >= 0 && limit < n) {
+		/* limit array size */
+		n = limit;
 	}
-	else {
-		n = knh_bytes_mlen(base);
-		for(i = 0; i < n; i++) {
-			if(istrim && isspace(base.utext[i])) continue;
-			kbytes_t sub = knh_bytes_mofflen(base, i, 1);
-			KLIB kArray_add(kctx, a, KLIB new_kString(kctx, sub.text, sub.len, _ALWAYS|((sub.len == 1) ? _ASCII:_UTF8)));
+	kArray *a = (kArray*)KLIB new_kObject(kctx, CT_StringArray0, 0);
+	kString *s = NULL;
+	for(i = 0; i < n; i++) {
+		if(istrim && isspace(base.utext[i])) continue;
+		if(S_isASCII(bs)) {
+			s = KLIB new_kString(kctx, base.text+i, 1, _ALWAYS|_ASCII);
 		}
+		else {
+			kbytes_t sub = knh_bytes_mofflen(base, i, 1);
+			s = KLIB new_kString(kctx, sub.text, sub.len, _ALWAYS|((sub.len == 1) ? _ASCII:_UTF8));
+		}
+		KLIB kArray_add(kctx, a, s);
 	}
 	return a;
 }
@@ -531,11 +533,11 @@ static KMETHOD String_split(KonohaContext *kctx, KonohaStack *sfp)
 			}
 			END_LOCAL();
 		} else { // for 0-length patterh
-			a = kStringToCharArray(kctx, KLIB new_kString(kctx, str, S_size(s0), SPOL_POOL), 0);
+			a = kStringToCharArray(kctx, KLIB new_kString(kctx, str, S_size(s0), SPOL_POOL), 0, -1/* no limit */);
 		}
 	}
 	else {
-		a = kStringToCharArray(kctx, s0, 0);
+		a = kStringToCharArray(kctx, s0, 0, -1/* no limit */);
 	}
 	RETURN_(a);
 }
@@ -547,7 +549,11 @@ static KMETHOD String_splitwithSeparatorLimit(KonohaContext *kctx, KonohaStack *
 {
 	kString *s0 = sfp[0].asString;
 	kRegExp *re = sfp[1].re;
-	//kint_t limit = sfp[2].intValue; /* TODO */
+	kint_t limit = sfp[2].intValue;
+	if(limit < 0) {
+		/* ignore limit */
+		limit = S_size(s0);
+	}
 	kArray *a = NULL;
 	size_t asize = 0;
 	if (IS_NOTNULL(re) && S_size(re->pattern) > 0) {
@@ -558,7 +564,7 @@ static KMETHOD String_splitwithSeparatorLimit(KonohaContext *kctx, KonohaStack *
 			a = (kArray*)KLIB new_kObject(kctx, CT_StringArray0, 0);
 			BEGIN_LOCAL(lsfp, 1);
 			KSETv_AND_WRITE_BARRIER(NULL, lsfp[0].asArray, a, GC_NO_WRITE_BARRIER);
-			while (str <= eos) {
+			while (str <= eos && asize < limit) {
 				int res = pcre_regexec(kctx, re->reg, str, KREGEXP_MATCHSIZE, pmatch, re->eflags);
 				if (res == 0) {
 					size_t len = pmatch[0].rm_eo;
@@ -576,11 +582,11 @@ static KMETHOD String_splitwithSeparatorLimit(KonohaContext *kctx, KonohaStack *
 			}
 			END_LOCAL();
 		} else { // for 0-length patterh
-			a = kStringToCharArray(kctx, KLIB new_kString(kctx, str, S_size(s0), SPOL_POOL), 0);
+			a = kStringToCharArray(kctx, KLIB new_kString(kctx, str, S_size(s0), SPOL_POOL), 0, limit);
 		}
 	}
 	else {
-		a = kStringToCharArray(kctx, s0, 0);
+		a = kStringToCharArray(kctx, s0, 0, limit);
 	}
 	RETURN_(a);
 }

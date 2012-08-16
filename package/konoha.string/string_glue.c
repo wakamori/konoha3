@@ -625,6 +625,10 @@ static KMETHOD String_splitwithSeparatorLimit(KonohaContext *kctx, KonohaStack *
 	kString *separator = sfp[1].asString;
 	kint_t limit = sfp[2].intValue;
 	size_t length = S_length(s0);
+	if(limit < 0) {
+		/* ignore limit */
+		limit = length;
+	}
 	kArray *a = (kArray*)KLIB new_kObject(kctx, CT_StringArray0, 0);
 	const char *start = S_text(s0);
 	const char *end = start + S_size(s0);
