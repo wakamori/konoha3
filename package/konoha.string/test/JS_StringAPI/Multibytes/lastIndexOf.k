@@ -3,15 +3,16 @@
 K.import("konoha.string");
 
 void test() {
-	assert("canal".lastIndexOf("a") == 3);
-	assert("canal".lastIndexOf("a", 2) == 1);
-	assert("canal".lastIndexOf("a", 0) == -1);
-	assert("canal".lastIndexOf("x") == -1);
-	assert("canal".lastIndexOf("CANAL") == -1);
-	assert("Hello planet earth, you are a great planet.".lastIndexOf("planet") == 36);
-	assert("Hello planet earth, you are a great planet.".indexOf("planet") == 6);
-	assert("Hello planet earth, you are a great planet.".lastIndexOf("earth") == 13);
-	assert("Hello planet earth, you are a great planet.".indexOf("earth") == 13);
+	assert("こんにちは、にほん".lastIndexOf("に") == 6);
+	assert("こんにちは、にほん".lastIndexOf("に", 2) == 2);
+	assert("こんにちは、にほん".lastIndexOf("に", 0) == -1);
+	assert("こんにちは、にほん".lastIndexOf("あ") == -1);
+	assert("こんにちは、にほん".lastIndexOf("日本") == -1);
+
+	assert("こんにちは、にほん".lastIndexOf("に") == 6);
+	assert("こんにちは、にほん".indexOf("に") == 2);
+	assert("こんにちは、にほん".lastIndexOf("は") == 4);
+	assert("こんにちは、にほん".indexOf("は") == 4);
 }
 
 test();

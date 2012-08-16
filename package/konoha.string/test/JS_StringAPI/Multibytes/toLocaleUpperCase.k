@@ -3,7 +3,7 @@
 K.import("konoha.string");
 
 void test() {
-	assert("Hello World!".toLocaleUpperCase() == "HELLO WORLD!");
+	assert("こんにちは、世界!".toLocaleUpperCase() == "こんにちは、世界!");
 }
 
 test();
