@@ -3,8 +3,8 @@
 K.import("konoha.string");
 
 void test() {
-	assert("ABC".charCodeAt(0) == 65);
-	assert("HELLO WORLD".charCodeAt(0) == 72);
+	assert("こんにちは、世界".charCodeAt(0) == 12371);
+	assert("こんにちは、世界".charCodeAt(999).isNull());
 }
 
 test();
