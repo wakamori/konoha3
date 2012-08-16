@@ -33,15 +33,22 @@
 extern "C" {
 #endif
 
-#define CT_StringArray0 CT_p0(kctx, CT_Array, TY_String)
+#define CT_StringArray0        CT_p0(kctx, CT_Array, TY_String)
 
 /* ------------------------------------------------------------------------ */
 /* regexp module */
 //## @Immutable class RegExp Object;
-//## flag RegExp GlobalOption  1 - is set * *;
+//## flag RegExp Global      1 - is set * *;
+//## flag RegExp IgnoreCase  2 - is set * *; // it is used only for RegExp_p
+//## flag RegExp Multiline   3 - is set * *; // it is used only for RegExp_p
 
-#define RegExp_isGlobalOption(o)     (TFLAG_is(uintptr_t,(o)->h.magicflag,kObject_Local1))
-#define RegExp_setGlobalOption(o,b)  TFLAG_set(uintptr_t,(o)->h.magicflag,kObject_Local1,b)
+#define RegExp_isGlobal(o)        (TFLAG_is(uintptr_t,(o)->h.magicflag,kObject_Local1))
+#define RegExp_setGlobal(o,b)     TFLAG_set(uintptr_t,(o)->h.magicflag,kObject_Local1,b)
+#define RegExp_isIgnoreCase(o)    (TFLAG_is(uintptr_t,(o)->h.magicflag,kObject_Local2))
+#define RegExp_setIgnoreCase(o,b) TFLAG_set(uintptr_t,(o)->h.magicflag,kObject_Local2,b)
+#define RegExp_isMultiline(o)     (TFLAG_is(uintptr_t,(o)->h.magicflag,kObject_Local3))
+#define RegExp_setMultiline(o,b)  TFLAG_set(uintptr_t,(o)->h.magicflag,kObject_Local3,b)
+
 typedef void kregexp_t;
 
 /* REGEXP_SPI */
@@ -294,15 +301,22 @@ static void kregexpshare_free(KonohaContext *kctx, struct KonohaModule *baseh)
 }
 
 /* ------------------------------------------------------------------------ */
-static void knh_RegExp_setGlobalOption(kRegExp *re, const char *opt)
+static void knh_RegExp_setOptions(kRegExp *re, const char *option)
 {
-	const char *p = opt;
-	while(*p != 0) {
-		if(*p == 'g') {
-			RegExp_setGlobalOption(re, 1);
+	size_t i, optlen = strlen(option);
+	for(i = 0; i < optlen; i++) {
+		switch(option[i]) {
+		case 'g':
+			RegExp_setGlobal(re, 1);
+			break;
+		case 'i':
+			RegExp_setIgnoreCase(re, 1);
+			break;
+		case 'm':
+			RegExp_setMultiline(re, 1);
+		default:
 			break;
 		}
-		p++;
 	}
 }
 
@@ -362,14 +376,18 @@ static void RegExp_free(KonohaContext *kctx, kObject *o)
 
 static void RegExp_p(KonohaContext *kctx, KonohaStack *sfp, int pos, KUtilsWriteBuffer *wb, int level)
 {
-	KLIB Kwb_printf(kctx, wb, "/%s/", S_text(sfp[pos].re->pattern));
+	kRegExp *re = sfp[pos].re;
+	KLIB Kwb_printf(kctx, wb, "/%s/%s%s%s", S_text(re->pattern),
+			RegExp_isGlobal(re) ? "g" : "",
+			RegExp_isIgnoreCase(re) ? "i" : "",
+			RegExp_isMultiline(re) ? "m" : "");
 }
 
 static void RegExp_set(KonohaContext *kctx, kRegExp *re, kString *ptns, kString *opts)
 {
 	const char *ptn = S_text(ptns);
 	const char *opt = S_text(opts);
-	knh_RegExp_setGlobalOption(re, opt);
+	knh_RegExp_setOptions(re, opt);
 	KSETv(re, re->pattern, ptns);
 	re->reg = pcre_regmalloc(kctx, ptns);
 	pcre_regcomp(kctx, re->reg, ptn, pcre_parsecflags(kctx, opt));
@@ -425,7 +443,7 @@ static KMETHOD String_match(KonohaContext *kctx, KonohaStack *sfp)
 		const char *eos = base + S_size(s0);
 		size_t nmatch = pcre_nmatchsize(kctx, re->reg);
 		kregmatch_t *p, pmatch[nmatch+1];
-		int i, isGlobalOption = RegExp_isGlobalOption(re);
+		int i, isGlobalOption = RegExp_isGlobal(re);
 		a = (kArray*)KLIB new_kObject(kctx, CT_StringArray0, nmatch);
 		BEGIN_LOCAL(lsfp, 1);
 		KSETv_AND_WRITE_BARRIER(NULL, lsfp[0].asArray, a, GC_NO_WRITE_BARRIER);
