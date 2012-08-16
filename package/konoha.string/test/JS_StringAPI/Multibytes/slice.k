@@ -3,15 +3,15 @@
 K.import("konoha.string");
 
 void test() {
-	assert("Hello, world!".slice(1, 5) == "ello");
-	assert("Hello, world!".slice(1, -2) == "ello worl");
-	assert("Hello, world!".slice(1, -23) == "");
+	assert("こんにちは、世界!".slice(1, 5) == "んにちは");
+	assert("こんにちは、世界!".slice(1, -2) == "んいちは、世");
+	assert("こんにちは、世界!".slice(1, -23) == "");
 
-	assert("Hello, world!".slice(5) == ", world!");
-	assert("Hello, world!".slice(-5) == "orld!");
+	assert("こんにちは、世界!".slice(5) == "、世界!");
+	assert("こんにちは、世界!".slice(-5) == "は、世界!");
 	
-	assert("Hello, world!".slice(-3, -6) == "");
-	assert("Hello, world!".slice(-6, -3) == "wor");
+	assert("こんにちは、世界!".slice(-3, -6) == "");
+	assert("こんにちは、世界!".slice(-6, -3) == "ちは、");
 }
 
 test();

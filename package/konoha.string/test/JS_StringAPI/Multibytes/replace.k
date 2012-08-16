@@ -4,18 +4,19 @@ K.import("konoha.string");
 K.import("konoha.regexp");
 
 void test() {
-	RegExp patt = /world/gi;
-	assert("Hello World, hello world.".replace(patt, "Japan") == "Hello Japan, hello Japan.");
+	RegExp patt = /世界/gi;
+	assert("せかい、こんにちは、世界".replace(patt) == "せかい、こんにちは、undefined");
+	assert("せかい、こんにちは、世界".replace(patt, "日本") == "せかい、こんにちは、日本");
 
-	assert("Hello World, hello world.".replace(/world/gi, "Japan") == "Hello Japan, hello Japan.");
-	assert("Hello World, hello world.".replace(/world/g, "Japan") == "Hello World, hello Japan.");
-	assert("Hello World, hello world.".replace(/world/i, "Japan") == "Hello Japan, hello world.");
+	assert("せかい、こんにちは、世界".replace(/世界/gi, "日本") == "せかい、こんにちは、日本");
+	assert("せかい、こんにちは、世界".replace(/世界/g, "日本") == "せかい、こんにちは、日本");
+	assert("せかい、こんにちは、世界".replace(/世界/i, "日本") == "せかい、こんにちは、日本");
 
-	assert("Hello World, hello world.".replace("world", "Japan", "gi") == "Hello World, hello Japan.");
-	assert("Hello World, hello world.".replace("world", "Japan", "g") == "Hello World, hello Japan.");
-	assert("Hello World, hello world.".replace("world", "Japan", "i") == "Hello World, hello Japan.");
+	assert("せかい、こんにちは、世界".replace("世界", "日本", "gi") == "せかい、こんにちは、日本");
+	assert("せかい、こんにちは、世界".replace("世界", "日本", "g") == "せかい、こんにちは、日本");
+	assert("せかい、こんにちは、世界".replace("世界", "日本", "i") == "せかい、こんにちは、日本");
 
-	assert("Hello World!".replace(/(\w+)\s(\w+)/, "$2, $1") == "World, Hello!");
+	assert("Hello world! こんにちは 世界!".replace(/(\w+)\s(\w+)/, "$2, $1") == "world Hello! こんにちは 世界!");
 }
 
 test();
