@@ -358,6 +358,35 @@ static KMETHOD String_lastIndexOfwithStart(KonohaContext *kctx, KonohaStack *sfp
 }
 
 /* ------------------------------------------------------------------------ */
+//## @Const method Int String.localeCompare(String that);
+/* http://ecma-international.org/ecma-262/5.1/#sec-15.5.4.9 */
+
+static KMETHOD String_localeCompare(KonohaContext *kctx, KonohaStack *sfp)
+{
+	kString *s0 = sfp[0].asString;
+	kString *s1 = sfp[1].asString;
+	size_t length0 = S_length(s0);
+	size_t length1 = S_length(s1);
+	kint_t ret = 0;
+	if(length0 < length1) {
+		ret = -1;
+	}
+	else if(length0 > length1) {
+		ret = 1;
+	}
+	else {
+		int res = strncmp(S_text(s0), S_text(s1), length0);
+		if(res < 0) {
+			ret = -1;
+		}
+		else if(res > 0) {
+			ret = 1;
+		}
+	}
+	RETURNi_(ret);
+}
+
+/* ------------------------------------------------------------------------ */
 //## @Const method String String.replace(String searchvalue, String newvalue);
 
 static KMETHOD String_replace(KonohaContext *kctx, KonohaStack *sfp)
@@ -726,6 +755,7 @@ static kbool_t string_initPackage(KonohaContext *kctx, kNameSpace *ns, int argc,
 		/*JS*/_Public|_Const|_Im, _F(String_indexOfwithStart), TY_Int, TY_String, MN_("indexOf"), 2, TY_String, FN_("searchvalue"), TY_Int, FN_("start"),
 		/*JS*/_Public|_Const|_Im, _F(String_lastIndexOf), TY_Int, TY_String, MN_("lastIndexOf"), 1, TY_String, FN_("searchvalue"),
 		/*JS*/_Public|_Const|_Im, _F(String_lastIndexOfwithStart), TY_Int, TY_String, MN_("lastIndexOf"), 2, TY_String, FN_("searchvalue"), TY_Int, FN_("start"),
+		/*JS*/_Public|_Const|_Im, _F(String_localeCompare), TY_Int, TY_String, MN_("localeCompare"), 1, TY_String, FN_("that"),
 		/*JS*/_Public|_Const|_Im, _F(String_replace), TY_String, TY_String, MN_("replace"), 2, TY_String, FN_("searchvalue"), TY_String, FN_("newvalue"),
 		/*JS*/_Public|_Const|_Im, _F(String_indexOf), TY_Int, TY_String, MN_("search"), 1, TY_String, FN_("searchvalue"),
 		/*JS*/_Public|_Const|_Im, _F(String_substr), TY_String, TY_String, MN_("slice"), 1, TY_Int, FN_("start"),
