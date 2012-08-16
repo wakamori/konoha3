@@ -4,7 +4,7 @@ K.import("konoha.string");
 
 void test() {
 	assert("こんにちは、世界".charCodeAt(0) == 12371);
-	assert("こんにちは、世界".charCodeAt(999).isNull());
+	"こんにちは、世界".charCodeAt(999); // throws Exception
 }
 
 test();
