@@ -11,7 +11,7 @@ void test() {
 	//NOTE: The length of "Hello world." is 12
 	assert("Hello world.".indexOf("", 11) == 11);
 	assert("Hello world.".indexOf("", 12) == 12);
-	assert("Hello world.".indexOf("", 13) == 13);
+	assert("Hello world.".indexOf("", 13) == 12);
 	assert("Hello world.".indexOf("WORLD") == -1);
 	//Check if a specific string exists within the string.
 	assert(("Hello world.".indexOf("world") != -1) == true);

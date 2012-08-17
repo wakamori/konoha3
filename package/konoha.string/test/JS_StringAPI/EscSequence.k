@@ -3,6 +3,7 @@
 K.import("konoha.string");
 
 void test() {
+	assert("\0".charCodeAt(0) == 0);
 	assert("\b".charCodeAt(0) == 8);
 	assert("\t".charCodeAt(0) == 9);
 	assert("\n".charCodeAt(0) == 10);
@@ -12,8 +13,9 @@ void test() {
 	assert("\"".charCodeAt(0) == 34);
 	assert("\'".charCodeAt(0) == 39);
 	assert("\\".charCodeAt(0) == 92);
-	//assert("\x65".charCodeAt(0) == 101);
-	//assert("\uFF21".charCodeAt(0) == 65313);
+	assert("\x65".charCodeAt(0) == 101);
+	assert("\uFF21".charCodeAt(0) == 65313);
+	
 }
 
 test();
