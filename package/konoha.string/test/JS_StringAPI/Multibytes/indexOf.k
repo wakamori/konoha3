@@ -7,7 +7,7 @@ void test() {
 	assert("こんにちは、世界".indexOf("せかい") == -1);
 	assert("こんにちは、世界".indexOf("世界", 0) == 6);
 	assert("こんにちは、世界".indexOf("世界", 5) == 6);
-	assert("こんにちは、世界".indexOf("世界", 7) == 6);
+	assert("こんにちは、世界".indexOf("世界", 6) == 6);
 	assert("こんにちは、世界".indexOf("世界", 9) == -1);
 	//NOTE: The length of "Hello world." is 11
 	assert("こんにちは、世界".indexOf("", 7) == 7);

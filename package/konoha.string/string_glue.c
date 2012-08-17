@@ -303,21 +303,24 @@ static KMETHOD String_indexOfwithStart(KonohaContext *kctx, KonohaStack *sfp)
 	kString *s0 = sfp[0].asString, *s1 = sfp[1].asString;
 	kint_t start = sfp[2].intValue;
 	start = S_range(s0, start);
-	if(S_size(s1) > 0) {
-		long loc = -1;
-		const char *t0 = S_text(s0);
-		t0 += text_msize(t0, start);
-		const char *t1 = S_text(s1);
-		char *p = strstr(t0, t1);
-		if (p != NULL) {
-			loc = p - t0;
-			if (!S_isASCII(s0)) {
-				loc = text_mlen(t0, (size_t)loc);
-			}
+	if(S_size(s1) == 0) {
+		RETURNi_(start);
+	}
+	long loc = -1;
+	const char *t0 = S_text(s0);
+	if(start > 0) {
+		t0 += text_msize(t0, start - 1);
+	}
+	const char *t1 = S_text(s1);
+	char *p = strstr(t0, t1);
+	if (p != NULL) {
+		loc = p - t0;
+		if (!S_isASCII(s0)) {
+			loc = text_mlen(t0, (size_t)loc);
 		}
 		RETURNi_(loc + start);
 	}
-	RETURNi_(start);
+	RETURNi_(-1);
 }
 
 /* ------------------------------------------------------------------------ */
@@ -358,7 +361,12 @@ static KMETHOD String_lastIndexOfwithStart(KonohaContext *kctx, KonohaStack *sfp
 	if(S_size(s1) == 0) loc--;
 	for(; loc >= 0; loc--) {
 		if(t0[loc] == t1[0]) {
-			if(strncmp(t0 + loc, t1, len) == 0) break;
+			if(strncmp(t0 + loc, t1, len) == 0) {
+				/* found */
+				break;
+			}
+			else {
+			}
 		}
 	}
 	if (loc >= 0 && !S_isASCII(s0)) {
