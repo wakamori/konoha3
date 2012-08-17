@@ -62,6 +62,16 @@ static size_t text_mlen(const char *s_text, size_t s_size)
 #endif
 }
 
+static size_t text_msize(const char *text, size_t size)
+{
+	const unsigned char *start = (const unsigned char *)text;
+	size_t i, mindex = 0;
+	for(i = 0; i <= size; i++) {
+		mindex += utf8len(*(start + mindex));
+	}
+	return mindex;
+}
+
 static kString *S_mget(KonohaContext *kctx, kString *s, size_t n)
 {
 	DBG_ASSERT(!S_isASCII(s));
@@ -296,7 +306,7 @@ static KMETHOD String_indexOfwithStart(KonohaContext *kctx, KonohaStack *sfp)
 	if(S_size(s1) > 0) {
 		long loc = -1;
 		const char *t0 = S_text(s0);
-		t0 += text_mlen(t0, (size_t)start);
+		t0 += text_msize(t0, start);
 		const char *t1 = S_text(s1);
 		char *p = strstr(t0, t1);
 		if (p != NULL) {
@@ -343,7 +353,7 @@ static KMETHOD String_lastIndexOfwithStart(KonohaContext *kctx, KonohaStack *sfp
 	kint_t start = S_range(s0, sfp[2].intValue);
 	const char *t0 = S_text(s0);
 	const char *t1 = S_text(s1);
-	intptr_t loc = text_mlen(t0, (size_t)start) - S_size(s1);
+	intptr_t loc = text_msize(t0, start) - S_size(s1);
 	int len = S_size(s1);
 	if(S_size(s1) == 0) loc--;
 	for(; loc >= 0; loc--) {
