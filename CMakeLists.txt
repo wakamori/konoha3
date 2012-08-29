@@ -146,6 +146,7 @@ set(PACKAGES
 #	openssl
 	logpool
 	konoha.date
+	dscript.sh
 )
 
 find_library(HAVE_LIBDL NAMES dl)
