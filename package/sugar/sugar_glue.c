@@ -108,6 +108,15 @@ static KMETHOD kStmt_tyCheckByName(KonohaContext *kctx, KonohaStack *sfp)
 	RETURNb_(SUGAR kStmt_tyCheckByName(kctx, sfp[0].asStmt, ksymbolA(S_text(key), S_size(key), _NEWID), sfp[2].asGamma, (ktype_t)sfp[3].intValue, (int)sfp[4].intValue));
 }
 
+//## Expr Stmt.getExpr(String key, Expr def);
+static KMETHOD kStmt_getExpr(KonohaContext *kctx, KonohaStack *sfp)
+{
+	kString *key = sfp[1].asString;
+	RETURN_(SUGAR kStmt_getExpr(kctx, sfp[0].asStmt, ksymbolA(S_text(key), S_size(key), _NEWID), sfp[2].asExpr));
+}
+
+// --------------------------------------------------------------------------
+
 //## boolean Blook.tyCheckAll(Gamma gma);
 static KMETHOD kBlock_tyCheckAll(KonohaContext *kctx, KonohaStack *sfp)
 {
@@ -351,6 +360,7 @@ static kbool_t sugar_initPackage(KonohaContext *kctx, kNameSpace *ns, int argc, 
 		_Public, _F(Stmt_setBuild), TY_void, TY_Stmt, MN_("setBuild"), 1, TY_Int, FN_buildid,
 		_Public, _F(Stmt_getBlock), TY_Block, TY_Stmt, MN_("getBlock"), 2, TY_String, FN_key, TY_Object, FN_defval,
 		_Public, _F(kStmt_tyCheckByName), TY_Boolean, TY_Stmt, MN_("tyCheckExpr"), 4, TY_String, FN_key, TY_Gamma, FN_gma, TY_Int, FN_typeid, TY_Int, FN_pol,
+		_Public, _F(kStmt_getExpr), TY_Expr, TY_Stmt, MN_("getExpr"), 2, TY_String, FN_key, TY_Expr, FN_defval,
 		_Public, _F(kBlock_tyCheckAll), TY_Boolean, TY_Block, MN_("tyCheckAll"), 1, TY_Gamma, FN_gma,
 
 		_Public, _F(Expr_getTermToken), TY_Token, TY_Expr, MN_("getTermToken"), 0,
