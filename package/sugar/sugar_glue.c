@@ -108,6 +108,13 @@ static KMETHOD kStmt_tyCheckByName(KonohaContext *kctx, KonohaStack *sfp)
 	RETURNb_(SUGAR kStmt_tyCheckByName(kctx, sfp[0].asStmt, ksymbolA(S_text(key), S_size(key), _NEWID), sfp[2].asGamma, (ktype_t)sfp[3].intValue, (int)sfp[4].intValue));
 }
 
+//## Token Stmt.getToken(String key, Token def);//by Joseph
+//static KMETHOD kStmt_getToken(KonohaContext *kctx, KonohaStack *sfp)
+//{
+//	kString *key = sfp[1].asString;
+//	RETURN_(SUGAR kStmt_getToken(kctx, sfp[0].asStmt, ksymbolA(S_text(key), S_size(key), _NEWID), sfp[2].asExpr));
+//}
+
 //## Expr Stmt.getExpr(String key, Expr def);
 static KMETHOD kStmt_getExpr(KonohaContext *kctx, KonohaStack *sfp)
 {
@@ -133,6 +140,14 @@ static KMETHOD Expr_getTermToken(KonohaContext *kctx, KonohaStack *sfp)
 	RETURN_(expr->termToken);
 }
 
+//## Expr Expr.setConstValue(int cid, int value);//by Joseph
+//static KMETHOD Expr_setConstValue(KonohaContext *kctx, KonohaStack *sfp)
+//{
+//	kExpr *expr = sfp[0].asExpr;
+//	ktype_t tid = sfp[1].intValue;
+//	int value = sfp[2].intValue;
+//	RETURN_(SUGAR kExpr_setConstValue(kctx, expr, tid, value));
+//}
 
 //## Expr Expr.setUnboxConstValue(int cid, int value);
 static KMETHOD Expr_setUnboxConstValue(KonohaContext *kctx, KonohaStack *sfp)
@@ -142,6 +157,15 @@ static KMETHOD Expr_setUnboxConstValue(KonohaContext *kctx, KonohaStack *sfp)
 	int value = sfp[2].intValue;
 	RETURN_(SUGAR kExpr_setUnboxConstValue(kctx, expr, tid, value));
 }
+
+//## Expr Expr.setVariable(int cid, int value);//by Joseph
+//static KMETHOD Expr_setUnboxConstValue(KonohaContext *kctx, KonohaStack *sfp)
+//{
+//	kExpr *expr = sfp[0].asExpr;
+//	ktype_t tid = sfp[1].intValue;
+//	int value = sfp[2].intValue;
+//	RETURN_(SUGAR kExpr_setUnboxConstValue(kctx, expr, tid, value));
+//}
 // --------------------------------------------------------------------------
 
 //## void NameSpace.addTokenizeFunc(String keyword, Func f);
@@ -349,34 +373,36 @@ static kbool_t sugar_initPackage(KonohaContext *kctx, kNameSpace *ns, int argc, 
 	//DBG_P("func=%s", TY_t(TY_FuncExprTyCheck));
 
 	KDEFINE_METHOD MethodData[] = {
-		_Public, _F(Token_setUnresolvedTokenType),  TY_void, TY_Token, MN_("setUnresolvedTokenType"),  1, TY_String, FN_x,
-		_Public, _F(Token_setText),  TY_void, TY_Token, MN_("setText"),  1, TY_String, FN_x,
-		_Public, _F(Token_setSubArray), TY_void, TY_Token, MN_("setSubArray"), 1, TY_StringArray, FN_x,
+		_Public, _F(Token_setUnresolvedTokenType),  TY_void, TY_Token, MN_("setUnresolvedTokenType"),  1, TY_String, FN_x,//No sugar.h
+		_Public, _F(Token_setText),  TY_void, TY_Token, MN_("setText"),  1, TY_String, FN_x,//No sugar.h
+		_Public, _F(Token_setSubArray), TY_void, TY_Token, MN_("setSubArray"), 1, TY_StringArray, FN_x,//No sugar.h
 //		_Public, _F(Token_isTypeName), TY_Boolean, TY_Token, MN_("isTypeName"), 0,
 //		_Public, _F(Token_isParenthesis), TY_Boolean, TY_Token, MN_("isParenthesis"), 0,
-		_Public, _F(Token_getText), TY_String, TY_Token, MN_("getText"), 0,
+		_Public, _F(Token_getText), TY_String, TY_Token, MN_("getText"), 0,//No sugar.h
 
-		_Public, _F(Stmt_getBuild), TY_Int, TY_Stmt,  MN_("getBuild"), 0,
-		_Public, _F(Stmt_setBuild), TY_void, TY_Stmt, MN_("setBuild"), 1, TY_Int, FN_buildid,
-		_Public, _F(Stmt_getBlock), TY_Block, TY_Stmt, MN_("getBlock"), 2, TY_String, FN_key, TY_Object, FN_defval,
-		_Public, _F(kStmt_tyCheckByName), TY_Boolean, TY_Stmt, MN_("tyCheckExpr"), 4, TY_String, FN_key, TY_Gamma, FN_gma, TY_Int, FN_typeid, TY_Int, FN_pol,
-		_Public, _F(kStmt_getExpr), TY_Expr, TY_Stmt, MN_("getExpr"), 2, TY_String, FN_key, TY_Expr, FN_defval,
+		_Public, _F(Stmt_getBuild), TY_Int, TY_Stmt,  MN_("getBuild"), 0,//No sugar.h
+		_Public, _F(Stmt_setBuild), TY_void, TY_Stmt, MN_("setBuild"), 1, TY_Int, FN_buildid,//No sugar.h
+		_Public, _F(Stmt_getBlock), TY_Block, TY_Stmt, MN_("getBlock"), 2, TY_String, FN_key, TY_Object, FN_defval,//sugar.h
+		_Public, _F(kStmt_tyCheckByName), TY_Boolean, TY_Stmt, MN_("tyCheckExpr"), 4, TY_String, FN_key, TY_Gamma, FN_gma, TY_Int, FN_typeid, TY_Int, FN_pol,//sugar.h
+//		_Public, _F(kStmt_getToken), TY_Token, TY_Stmt, MN_("getToken"), 2, TY_String, FN_key, TY_Token, FN_defval,//by Joseph, sugar.h
+		_Public, _F(kStmt_getExpr), TY_Expr, TY_Stmt, MN_("getExpr"), 2, TY_String, FN_key, TY_Expr, FN_defval,//sugar.h
 		_Public, _F(kBlock_tyCheckAll), TY_Boolean, TY_Block, MN_("tyCheckAll"), 1, TY_Gamma, FN_gma,
+//sugar.h
+		_Public, _F(Expr_getTermToken), TY_Token, TY_Expr, MN_("getTermToken"), 0,//No sugar.h
+//		_Public, _F(Expr_setConstValue), TY_Expr, TY_Expr, MN_("setConstValue"), 2, TY_Int, FN_("type"), TY_Int, FN_("value"),//by Joseph, sugar.h
+		_Public, _F(Expr_setUnboxConstValue), TY_Expr, TY_Expr, MN_("setUnboxConstValue"), 2, TY_Int, FN_("type"), TY_Int, FN_("value"),//sugar.h
+		_Public, _F(NameSpace_compileAllDefinedMethods), TY_void, TY_NameSpace, MN_("compileAllDefinedMethods"), 0,//No sugar.h
+		_Public, _F(NameSpace_addTokenizeFunc), TY_void, TY_NameSpace, MN_("addTokenizeFunc"), 2, TY_String, FN_key, TY_FuncTokenize, FN_func,//No sugar.h
+		_Public, _F(NameSpace_addPatternMatch), TY_void, TY_NameSpace, MN_("addPatternMatch"), 2, TY_String, FN_key, TY_FuncPatternMatch, FN_func,//No sugar.h
+		_Public, _F(NameSpace_addParseExpr), TY_void, TY_NameSpace, MN_("addParseExpr"), 2, TY_String, FN_key, TY_FuncParseExpr, FN_func,//No sugar.h
+		_Public, _F(NameSpace_addTopStmtTyCheck), TY_void, TY_NameSpace, MN_("addTopStmtTyCheck"), 2, TY_String, FN_key, TY_FuncStmtTyCheck, FN_func,//No sugar.h
+		_Public, _F(NameSpace_addStmtTyCheck), TY_void, TY_NameSpace, MN_("addStmtTyCheck"), 2, TY_String, FN_key, TY_FuncStmtTyCheck, FN_func,//No sugar.h
+		_Public, _F(NameSpace_addExprTyCheck), TY_void, TY_NameSpace, MN_("addExprTyCheck"), 2, TY_String, FN_key, TY_FuncExprTyCheck, FN_func,//No sugar.h
 
-		_Public, _F(Expr_getTermToken), TY_Token, TY_Expr, MN_("getTermToken"), 0,
-		_Public, _F(Expr_setUnboxConstValue), TY_Expr, TY_Expr, MN_("setUnboxConstValue"), 2, TY_Int, FN_("type"), TY_Int, FN_("value"),
-		_Public, _F(NameSpace_compileAllDefinedMethods), TY_void, TY_NameSpace, MN_("compileAllDefinedMethods"), 0,
-		_Public, _F(NameSpace_addTokenizeFunc), TY_void, TY_NameSpace, MN_("addTokenizeFunc"), 2, TY_String, FN_key, TY_FuncTokenize, FN_func,
-		_Public, _F(NameSpace_addPatternMatch), TY_void, TY_NameSpace, MN_("addPatternMatch"), 2, TY_String, FN_key, TY_FuncPatternMatch, FN_func,
-		_Public, _F(NameSpace_addParseExpr), TY_void, TY_NameSpace, MN_("addParseExpr"), 2, TY_String, FN_key, TY_FuncParseExpr, FN_func,
-		_Public, _F(NameSpace_addTopStmtTyCheck), TY_void, TY_NameSpace, MN_("addTopStmtTyCheck"), 2, TY_String, FN_key, TY_FuncStmtTyCheck, FN_func,
-		_Public, _F(NameSpace_addStmtTyCheck), TY_void, TY_NameSpace, MN_("addStmtTyCheck"), 2, TY_String, FN_key, TY_FuncStmtTyCheck, FN_func,
-		_Public, _F(NameSpace_addExprTyCheck), TY_void, TY_NameSpace, MN_("addExprTyCheck"), 2, TY_String, FN_key, TY_FuncExprTyCheck, FN_func,
+		_Public, _F(kStmt_printMessagerintError), TY_Expr, TY_Stmt, MN_("printError"), 1, TY_String, FN_msg,//sugar.h
 
-		_Public, _F(kStmt_printMessagerintError), TY_Expr, TY_Stmt, MN_("printError"), 1, TY_String, FN_msg,
-
-		_Public, _F(Stmt_newExpr), TY_Expr, TY_Stmt, MN_("newExpr"), 1, TY_String, FN_key,
-		_Public, _F(Stmt_setType), TY_void, TY_Stmt, MN_("setType"), 1, TY_Int, FN_x,
+		_Public, _F(Stmt_newExpr), TY_Expr, TY_Stmt, MN_("newExpr"), 1, TY_String, FN_key,//No sugar.h
+		_Public, _F(Stmt_setType), TY_void, TY_Stmt, MN_("setType"), 1, TY_Int, FN_x,//No sugar.h
 //		_Public, _F(kStmt_printMessagearsedExpr), TY_Expr, TY_Stmt, MN_("parseExpr"), 3, TY_TokenArray, FN_tokenList, TY_Int, FN_s, TY_Int, FN_e,
 		DEND,
 	};

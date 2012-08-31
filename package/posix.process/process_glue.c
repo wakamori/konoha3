@@ -29,6 +29,7 @@
 #include <sys/types.h>
 #include <sys/resource.h>
 #include <sys/time.h>
+#include <sys/stat.h>
 #include <grp.h>
 //## @Static @Public Int System.getpid();
 
@@ -133,6 +134,15 @@ static KMETHOD System_setgroups(KonohaContext *kctx, KonohaStack *sfp)
 	RETURNi_(ret);
 }
 
+static KMETHOD System_mkdir(KonohaContext *kctx, KonohaStack *sfp)
+{
+	kString *s = sfp[1].asString;
+	int mode = sfp[2].intValue;
+	const char *dir = S_text(s);
+	int ret = mkdir(dir, (mode_t)mode);
+	RETURNi_(ret);
+}
+
 #define _Public   kMethod_Public
 #define _Const    kMethod_Const
 #define _Static   kMethod_Static
@@ -164,6 +174,7 @@ static	kbool_t process_initPackage(KonohaContext *kctx, kNameSpace *ns, int argc
 		_Public|_Static, _F(System_setpriority), TY_Int, TY_System, MN_("setpriority"), 3, TY_Int, FN_("which"), TY_Int, FN_("who"), TY_Int, FN_("priority"),
 		_Public|_Static, _F(System_getgroups), TY_Int, TY_System, MN_("getgroups"), 2, TY_Int, FN_("size"), TY_IntArray, FN_("list[]"),
 		_Public|_Static, _F(System_setgroups), TY_Int, TY_System, MN_("setgroups"), 2, TY_Int, FN_("size"), TY_IntArray, FN_("*list"),
+		_Public|_Static, _F(System_mkdir), TY_Int, TY_System, MN_("mkdir"), 2, TY_String, FN_("dir"), TY_Int, FN_("mode"),
 		DEND,
 	};
 	KLIB kNameSpace_loadMethodData(kctx, ns, MethodData);
