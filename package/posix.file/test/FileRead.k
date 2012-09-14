@@ -1,27 +1,16 @@
-// written by shinpei
-K.import("konoha.assign");
-K.import("konoha.while");
-K.import("konoha.string");
+//Written by Joseph
+K.import("konoha.new");
 K.import("konoha.bytes");
 K.import("posix.file");
 
-void f () {
-	FILE f = System.fopen("../../../package/posix.file/test/helloworld.txt", "r");
-	int bufieldsize = 32;
-	Bytes buf = Bytes.new(bufieldsize);
-	int ret = bufieldsize;
-	String str = "";
-	while(ret == bufieldsize) {
-		buf.setAll(0); // zero clear
-		ret = f.read(buf, 0, bufieldsize);
-		if (ret < bufieldsize) {
-			String tmp = buf.asString();
-			str = str + tmp.substring(0, ret);
-		} else {
-			str = str + buf.asString();
-		}
-	}
-	p(str);
+void test() {
+	FILE f = System.fopen("testfile.txt", "r");
+	//the data of this file is "1234567890abc\n" and the size is 14
+	int size = 32;
+	Bytes buf = new Bytes(size);
+	buf.setAll(0);
+	assert((f.read(buf, 0, size)) == 14);
+	f.close();
 }
-f();
 
+test();

@@ -1,17 +1,14 @@
-/* written by shinpei */
-K.import("konoha.assign");
-K.import("konoha.while");
-K.import("konoha.string");
+//Written by Joseph
 K.import("konoha.bytes");
+K.import("konoha.string");
 K.import("posix.file");
 
-void f () {
-	FILE f = System.fopen("../../../package/posix.file/test/Debug/newfile.txt", "w");
-	String contents = "hello world";
-	int len = contents.getSize();
-	f.write(contents.asBytes(), 0, len);
+void test() {
+	FILE f = System.fopen("filewrite.txt", "w");
+	String str = "1234567890abcde\n";	//the length of str is 16
+	int len = str.getSize();
+	assert(f.write(str.asBytes(), 0, len) == 16);
 	f.close();
 }
 
-f();
-		 
+test();
