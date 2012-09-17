@@ -144,7 +144,7 @@ set(PACKAGES
 	posix.process
 	posix.file
 	posix.fd
-##	posix.socket
+	posix.socket
 	posix.thread
 	dscript.dollar
 	dscript.subproc
@@ -155,7 +155,7 @@ set(PACKAGES
 	python
 	apache
 #	openssl
-	logpool
+#	logpool
 )
 
 find_library(HAVE_LIBDL NAMES dl)
