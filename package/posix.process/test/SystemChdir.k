@@ -1,10 +1,11 @@
 //Written by Joseph
 
+K.import("konoha.int");
 K.import("posix.process");
 
 void test() {
 // System.chdir
-	assert(System.chdir("../test") == 0);
+	assert(System.chdir("../") == 0);
 	assert(System.chdir("/") == 0);
 	assert(System.chdir("../notexist") == -1);
 	assert(System.chdir("~/") == -1);
@@ -24,7 +25,7 @@ void test() {
 	assert(System.fchdir(fd) == 0);
 	fd = System.open("../", O_APPEND|O_NONBLOCK);
 	assert(System.fchdir(fd) == 0);
-	fd = System.open("../", O_NOCTTY|O_NDELAY|O_WRONLY);
+	fd = System.open("../", O_NOCTTY|O_NDELAY|O_RDONLY);
 	assert(System.fchdir(fd) == 0);
 	fd = System.open("../", O_NOCTTY|O_WRONLY);
 	assert(System.fchdir(fd) == -1);
