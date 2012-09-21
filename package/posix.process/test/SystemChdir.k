@@ -1,7 +1,7 @@
 //Written by Joseph
 
-K.import("konoha.int");
-K.import("posix.process");
+import("konoha.int");
+import("posix.process");
 
 void test() {
 // System.chdir

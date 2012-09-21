@@ -774,10 +774,48 @@ static KMETHOD System_getdtablesize(KonohaContext *kctx, KonohaStack *sfp)
 	RETURNi_(ret);
 }
 
+//## int System.open(String pathname, int flags)
+static KMETHOD System_open(KonohaContext *kctx, KonohaStack *sfp)
+{
+	kString *s = sfp[1].asString;
+	const char *pathname = S_text(s);
+	int flags = sfp[2].intValue;
+	int ret = open(pathname, flags);
+	if(ret == -1) {
+		// TODO: throw
+	}
+	RETURNi_(ret);
+}
+
+//## int System.open(String pathname, int flags, int mode)
+static KMETHOD System_open_mode(KonohaContext *kctx, KonohaStack *sfp)
+{
+	kString *s = sfp[1].asString;
+	const char *pathname = S_text(s);
+	int flags = sfp[2].intValue;
+	mode_t mode = sfp[3].intValue;
+	int ret = open(pathname, flags, mode);
+	if(ret == -1) {
+		// TODO: throw
+	}
+	RETURNi_(ret);
+}
+
+//## int System.fchdir(int fd)
+static KMETHOD System_fchdir(KonohaContext *kctx, KonohaStack *sfp)
+{
+	int ch = fchdir(sfp[1].intValue);
+	if(ch == -1) {
+		// TODO: throw
+	}
+	RETURNi_(ch);
+}
+
 // --------------------------------------------------------------------------
 
 #define _Public   kMethod_Public
 #define _Const    kMethod_Const
+#define _Static   kMethod_Static
 #define _Coercion kMethod_Coercion
 #define _Im kMethod_Immutable
 #define _F(F)   (intptr_t)(F)
@@ -788,6 +826,8 @@ static KMETHOD System_getdtablesize(KonohaContext *kctx, KonohaStack *sfp)
 #define TY_DIR          cDIR->typeId
 #define CT_Dirent       cDirent
 #define TY_Dirent       cDirent->typeId
+
+#define _KVi(T) #T, TY_int, T
 
 static kbool_t fd_initPackage(KonohaContext *kctx, kNameSpace *ns, int argc, const char**args, kfileline_t pline)
 {
@@ -884,24 +924,38 @@ static kbool_t fd_initPackage(KonohaContext *kctx, kNameSpace *ns, int argc, con
 		_Public|_Const|_Im, _F(Dirent_getd_type), TY_int, TY_Dirent, MN_("getd_type"), 0,
 		_Public|_Const|_Im, _F(Dirent_getd_name), TY_String, TY_Dirent, MN_("getd_name"), 0,
 		_Public|_Const|_Im, _F(System_getdtablesize), TY_int, TY_System, MN_("getdtablesize"), 0,
+		_Public|_Static, _F(System_open), TY_int, TY_System, MN_("open"), 2, TY_String, FN_("pathname"), TY_int, FN_("flags"),
+		_Public|_Static, _F(System_open_mode), TY_int, TY_System, MN_("open"), 3, TY_String, FN_("pathname"), TY_int, FN_("flags"), TY_int, FN_("mode"),
+		_Public|_Static, _F(System_fchdir), TY_int, TY_System, MN_("fchdir"), 1, TY_int, FN_("fd"),
 		DEND,
 	};
 	KLIB kNameSpace_loadMethodData(kctx, ns, MethodData);
 	KDEFINE_INT_CONST intData[] = {
 		/*for System.access*/
-		{"R_OK", TY_int, R_OK},
-		{"W_OK", TY_int, W_OK},
-		{"X_OK", TY_int, X_OK},
-		{"F_OK", TY_int, F_OK},
+		{_KVi(R_OK)},
+		{_KVi(W_OK)},
+		{_KVi(X_OK)},
+		{_KVi(F_OK)},
 		/*for System.lseek*/
-		{"SEEK_SET", TY_int, SEEK_SET},
-		{"SEEK_CUR", TY_int, SEEK_CUR},
-		{"SEEK_END", TY_int, SEEK_END},
+		{_KVi(SEEK_SET)},
+		{_KVi(SEEK_CUR)},
+		{_KVi(SEEK_END)},
 		/*for System.flock*/
-		{"LOCK_SH", TY_int, LOCK_SH},
-		{"LOCK_EX", TY_int, LOCK_EX},
-		{"LOCK_UN", TY_int, LOCK_UN},
-		{"LOCK_NB", TY_int, LOCK_NB},
+		{_KVi(LOCK_SH)},
+		{_KVi(LOCK_EX)},
+		{_KVi(LOCK_UN)},
+		{_KVi(LOCK_NB)},
+		/*for System.open*/
+		{_KVi(O_RDONLY)},
+		{_KVi(O_WRONLY)},
+		{_KVi(O_RDWR)},
+		{_KVi(O_CREAT)},
+		{_KVi(O_EXCL)},
+		{_KVi(O_TRUNC)},
+		{_KVi(O_APPEND)},
+		{_KVi(O_NONBLOCK)},
+		{_KVi(O_NDELAY)},
+		{_KVi(O_NOCTTY)},
 		{}
 	};
 	KLIB kNameSpace_loadConstData(kctx, ns, KonohaConst_(intData), 0);
