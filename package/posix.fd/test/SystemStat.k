@@ -1,8 +1,8 @@
 //Written by Joseph
 
-K.import("posix.fd");
-K.import("konoha");
-K.import("konoha.new");
+import("posix.fd");
+import("konoha");
+import("konoha.new");
 
 void test() {
 	Stat s = System.stat("files/newfile.txt");

@@ -1,7 +1,7 @@
 //Written by Joseph
 
-K.import("konoha.bytes");
-K.import("posix.fd");
+import("konoha.bytes");
+import("posix.fd");
 
 void test() {
 	assert(System.readlink("files/symlinked.txt") == "files/newfile.txt");

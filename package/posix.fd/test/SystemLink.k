@@ -1,6 +1,6 @@
 //Written by Joseph
 
-K.import("posix.fd");
+import("posix.fd");
 
 void test() {
 	assert(System.link("files/newfile.txt", "files/linkafter.txt") == 0);

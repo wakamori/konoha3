@@ -1,6 +1,7 @@
 //Written by Joseph
-K.import("konoha.bytes");
-K.import("posix.file");
+
+import("konoha.bytes");
+import("posix.file");
 
 void test() {
 	assert(System.truncate("files/truncate.txt", 10) == 0);

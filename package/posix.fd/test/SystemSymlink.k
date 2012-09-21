@@ -1,6 +1,6 @@
 //Written by Joseph
 
-K.import("posix.fd");
+import("posix.fd");
 
 void test() {
 	if (System.access("files/symlinked.txt", F_OK) == 0) {

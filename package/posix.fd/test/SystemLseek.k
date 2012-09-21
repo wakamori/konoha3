@@ -1,7 +1,7 @@
 //Written by Joseph
 
-K.import("posix.fd");
-K.import("posix.process");
+import("posix.fd");
+import("posix.process");
 
 void test() {
 	int fd = System.open("files/newfile.txt", O_RDWR);

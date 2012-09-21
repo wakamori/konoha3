@@ -1,7 +1,8 @@
 //Written by Joseph
-K.import("posix.fd");
-K.import("konoha.bytes");
-K.import("posix.file");
+
+import("posix.fd");
+import("konoha.bytes");
+import("posix.file");
 
 void test() {
 	FILE f = System.fopen("files/opentest.txt", "r+");

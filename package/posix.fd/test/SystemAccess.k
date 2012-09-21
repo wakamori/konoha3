@@ -1,7 +1,7 @@
 //Written by Joseph
 
-K.import("konoha.int");
-K.import("posix.fd");
+import("konoha.int");
+import("posix.fd");
 
 void test() {
 	assert(System.access("files/newfile.txt", R_OK) == 0);
@@ -10,4 +10,5 @@ void test() {
 	assert(System.access("files/newfile.txt", R_OK|W_OK|F_OK) == 0);
 	assert(System.access("files/notexist.txt", F_OK) == -1);
 }
+
 test();

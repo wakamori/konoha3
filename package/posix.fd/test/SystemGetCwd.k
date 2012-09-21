@@ -1,7 +1,7 @@
 //Written by Joseph
 
-K.import("posix.fd");
-K.import("konoha.string");
+import("posix.fd");
+import("konoha.string");
 
 void test() {
 	String str = System.getCwd();
