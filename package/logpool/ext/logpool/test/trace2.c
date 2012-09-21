@@ -15,7 +15,7 @@ static struct logpool_param_stream TRACE_API_PARAM = {
 #define LOGAPI STREAM_API
 static int get_count(int argc, const char **argv)
 {
-    char *env = getenv("LOGPOOL_TESTCASE_SIZE");
+    char *env = PLATAPI getenv_i("LOGPOOL_TESTCASE_SIZE");
     if (!env && argc > 1) {
         env = (char *) argv[1];
     }
@@ -29,8 +29,8 @@ extern logapi_t LOGAPI;
 #define LOG_s   1
 #define LOG_u   2
 
-#define KEYVALUE_u(K,V)    LOG_u, (K), ((uintptr_t)V)
-#define KEYVALUE_s(K,V)    LOG_s, (K), (V)
+#define KeyValue_u(K,V)    LOG_u, (K), ((uintptr_t)V)
+#define KeyValue_s(K,V)    LOG_s, (K), (V)
 
 int n = 0;
 static void logpool_test_write(logpool_t *logpool)
@@ -39,8 +39,8 @@ static void logpool_test_write(logpool_t *logpool)
     const char *s = "Good Bye";
     void *args;
     logpool_record(logpool, &args, LOG_NOTICE, "check",
-            KEYVALUE_s("string", s),
-            KEYVALUE_u("tid",   i%10),
+            KeyValue_s("string", s),
+            KeyValue_u("tid",   i%10),
             LOG_END
             );
     n++;

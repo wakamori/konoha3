@@ -1,6 +1,6 @@
 // written by kimio kuramitsu
 
-K.import("konoha");
+import("konoha.class");
 
 @Private class Point {  // @Test 
 	int x;

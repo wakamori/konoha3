@@ -34,17 +34,6 @@
 extern "C" {
 #endif
 
-//#define kgcmod        ((kgcmod_t*)kctx->mod[MOD_GC])
-//#define kgcshare      ((kgcshare_t*)kctx->modshare[MOD_GC])
-//
-//typedef struct {
-//	KonohaModule h;
-//} kgcshare_t;
-//
-//typedef struct {
-//	KonohaContextModule h;
-//} kgcmod_t;
-
 extern void MODGC_init(KonohaContext *kctx, KonohaContextVar *ctx);
 extern void MODGCSHARE_free(KonohaContext *kctx, KonohaContextVar *ctx);
 extern void MODGC_destoryAllObjects(KonohaContext *kctx, KonohaContextVar *ctx);
@@ -54,10 +43,9 @@ extern void MODGC_free(KonohaContext *kctx, KonohaContextVar *ctx);
 extern kObject *MODGC_omalloc(KonohaContext *kctx, size_t size);
 
 /* root reftrace */
-extern void KRUNTIME_reftraceAll(KonohaContext *kctx);
+extern void KonohaContext_reftraceAll(KonohaContext *kctx);
 
-extern void MODGC_gc_invoke(KonohaContext *kctx, KonohaStack *esp);
-extern void MODGC_check_malloced_size(void);
+extern void MODGC_check_malloced_size(KonohaContext *kctx);
 extern kbool_t MODGC_kObject_isManaged(KonohaContext *kctx, void *ptr);
 
 #ifdef __cplusplus

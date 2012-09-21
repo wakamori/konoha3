@@ -26,6 +26,8 @@
 #include <minikonoha/sugar.h>
 #include "minikonoha/gc.h"
 #include <minikonoha/klib.h>
+#define USE_BUILTINTEST 1
+#include "testkonoha.h"
 #include <getopt.h>
 
 #ifdef __cplusplus
@@ -46,7 +48,7 @@ extern int verbose_code;
 extern int verbose_sugar;
 extern int verbose_gc;
 
-#include <minikonoha/platform_posix.h>
+#include <minikonoha/platform.h>
 
 // -------------------------------------------------------------------------
 // minishell
@@ -158,7 +160,7 @@ static kstatus_t readstmt(KonohaContext *kctx, KUtilsWriteBuffer *wb, kfileline_
 
 static void dumpEval(KonohaContext *kctx, KUtilsWriteBuffer *wb)
 {
-	KonohaContextRuntimeVar *base = kctx->stack;
+	KonohaStackRuntimeVar *base = kctx->stack;
 	ktype_t ty = base->evalty;
 	if(ty != TY_void) {
 		KonohaStack *lsfp = base->stack + base->evalidx;
@@ -176,6 +178,7 @@ static void shell(KonohaContext *kctx)
 	while(1) {
 		kfileline_t inc = 0;
 		kstatus_t status = readstmt(kctx, &wb, &inc);
+		if(status == K_BREAK) break;
 		if(status == K_CONTINUE && Kwb_bytesize(&wb) > 0) {
 			status = konoha_eval((KonohaContext*)kctx, KLIB Kwb_top(kctx, &wb, 1), uline);
 			uline += inc;
@@ -184,9 +187,6 @@ static void shell(KonohaContext *kctx)
 				dumpEval(kctx, &wb);
 				KLIB Kwb_free(&wb);
 			}
-		}
-		if(status == K_BREAK) {
-			break;
 		}
 	}
 	KLIB Kwb_free(&wb);
@@ -200,7 +200,7 @@ static void show_version(KonohaContext *kctx)
 	fprintf(stdout, K_PROGNAME " " K_VERSION " (%s) (%x, %s)\n", K_CODENAME, K_REVISION, __DATE__);
 	fprintf(stdout, "[gcc %s]\n", __VERSION__);
 	fprintf(stdout, "options:");
-	for(i = 0; i < MOD_MAX; i++) {
+	for(i = 0; i < KonohaModule_MAXSIZE; i++) {
 		if(kctx->modshare[i] != NULL) {
 			fprintf(stdout, " %s", kctx->modshare[i]->name);
 		}
@@ -210,11 +210,19 @@ static void show_version(KonohaContext *kctx)
 
 static kbool_t konoha_shell(KonohaContext* konoha)
 {
+#ifdef __MINGW32__
+	void *handler = (void *)LoadLibraryA((LPCTSTR)"libreadline" K_OSDLLEXT);
+	void *f = (handler != NULL) ? (void *)GetProcAddress(handler, "readline") : NULL;
+	kreadline = (f != NULL) ? (char* (*)(const char*))f : readline;
+	f = (handler != NULL) ? (void *)GetProcAddress(handler, "add_history") : NULL;	
+	kadd_history = (f != NULL) ? (int (*)(const char*))f : add_history;
+#else
 	void *handler = dlopen("libreadline" K_OSDLLEXT, RTLD_LAZY);
 	void *f = (handler != NULL) ? dlsym(handler, "readline") : NULL;
 	kreadline = (f != NULL) ? (char* (*)(const char*))f : readline;
 	f = (handler != NULL) ? dlsym(handler, "add_history") : NULL;
 	kadd_history = (f != NULL) ? (int (*)(const char*))f : add_history;
+#endif
 	show_version(konoha);
 	shell(konoha);
 	return true;
@@ -237,6 +245,11 @@ static const char* TEST_end(kinfotag_t t)
 	return "";
 }
 
+static const char* TEST_shortText(const char *msg)
+{
+	return "(omitted..)";
+}
+
 static int TEST_vprintf(const char *fmt, va_list ap)
 {
 	stdlog_count++;
@@ -252,28 +265,38 @@ static int TEST_printf(const char *fmt, ...)
 	return res;
 }
 
-static int check_result2(FILE *fp0, FILE *fp1)
+static void TEST_reportCaughtException(const char *exceptionName, const char *scriptName, int line, const char *optionalMessage)
 {
-	char buf0[128];
-	char buf1[128];
-	while (true) {
-		size_t len0, len1;
-		len0 = fread(buf0, 1, sizeof(buf0), fp0);
-		len1 = fread(buf1, 1, sizeof(buf1), fp1);
-		if (len0 != len1) {
-			return 1;//FAILED
-		}
-		if (len0 == 0) {
-			break;
-		}
-		if (memcmp(buf0, buf1, len0) != 0) {
-			return 1;//FAILED
-		}
+	if(line != 0) {
+		fprintf(stdlog, " ** %s (%s:%d)\n", exceptionName, scriptName, line);
 	}
-	return 0; //OK
+	else {
+		fprintf(stdlog, " ** %s\n", exceptionName);
+	}
 }
 
-static int check_result0(FILE *fp0, FILE *fp1)
+//static int check_result2(FILE *fp0, FILE *fp1)
+//{
+//	char buf0[128];
+//	char buf1[128];
+//	while (true) {
+//		size_t len0, len1;
+//		len0 = fread(buf0, 1, sizeof(buf0), fp0);
+//		len1 = fread(buf1, 1, sizeof(buf1), fp1);
+//		if (len0 != len1) {
+//			return 1;//FAILED
+//		}
+//		if (len0 == 0) {
+//			break;
+//		}
+//		if (memcmp(buf0, buf1, len0) != 0) {
+//			return 1;//FAILED
+//		}
+//	}
+//	return 0; //OK
+//}
+
+static int check_result2(FILE *fp0, FILE *fp1)
 {
 	char buf0[4096];
 	char buf1[4096];
@@ -299,34 +322,37 @@ static int check_result0(FILE *fp0, FILE *fp1)
 
 static void make_report(const char *testname)
 {
-	char report_file[256];
-	char script_file[256];
-	char correct_file[256];
-	char result_file[256];
-	snprintf(report_file, 256,  "REPORT_%s.txt", shortfilename(testname));
-	snprintf(script_file, 256,  "%s", testname);
-	snprintf(correct_file, 256, "%s.proof", script_file);
-	snprintf(result_file, 256,  "%s.tested", script_file);
-	FILE *fp = fopen(report_file, "w");
-	FILE *fp2 = fopen(script_file, "r");
-	int ch;
-	while((ch = fgetc(fp2)) != EOF) {
-		fputc(ch, fp);
+	char *path = getenv("KONOHA_REPORT");
+	if(path != NULL) {
+		char report_file[256];
+		char script_file[256];
+		char correct_file[256];
+		char result_file[256];
+		snprintf(report_file, 256,  "%s/REPORT_%s.txt", path, shortFilePath(testname));
+		snprintf(script_file, 256,  "%s", testname);
+		snprintf(correct_file, 256, "%s.proof", script_file);
+		snprintf(result_file, 256,  "%s.tested", script_file);
+		FILE *fp = fopen(report_file, "w");
+		FILE *fp2 = fopen(script_file, "r");
+		int ch;
+		while((ch = fgetc(fp2)) != EOF) {
+			fputc(ch, fp);
+		}
+		fclose(fp2);
+		fprintf(fp, "Expected Result (in %s)\n=====\n", result_file);
+		fp2 = fopen(correct_file, "r");
+		while((ch = fgetc(fp2)) != EOF) {
+			fputc(ch, fp);
+		}
+		fclose(fp2);
+		fprintf(fp, "Result (in %s)\n=====\n", result_file);
+		fp2 = fopen(result_file, "r");
+		while((ch = fgetc(fp2)) != EOF) {
+			fputc(ch, fp);
+		}
+		fclose(fp2);
+		fclose(fp);
 	}
-	fclose(fp2);
-	fprintf(fp, "Expected Result (in %s)\n=====\n", shortfilename(result_file));
-	fp2 = fopen(correct_file, "r");
-	while((ch = fgetc(fp2)) != EOF) {
-		fputc(ch, fp);
-	}
-	fclose(fp2);
-	fprintf(fp, "Result (in %s)\n=====\n", shortfilename(result_file));
-	fp2 = fopen(result_file, "r");
-	while((ch = fgetc(fp2)) != EOF) {
-		fputc(ch, fp);
-	}
-	fclose(fp2);
-	fclose(fp);
 }
 
 extern int konoha_detectFailedAssert;
@@ -363,12 +389,16 @@ static int KonohaContext_test(KonohaContext *kctx, const char *testname)
 	else {
 		//fprintf(stdout, "stdlog_count: %d\n", stdlog_count);
 		if(stdlog_count == 0) {
-			fprintf(stdout, "[PASS]: %s\n", testname);
-			return 0; // OK
+			if(konoha_detectFailedAssert == 0) {
+				fprintf(stdout, "[PASS]: %s\n", testname);
+				return 0; // OK
+			}
 		}
-		fprintf(stdout, "no proof file: %s\n", testname);
+		else {
+			fprintf(stdout, "no proof file: %s\n", testname);
+			konoha_detectFailedAssert = 1;
+		}
 		fprintf(stdout, "[FAIL]: %s\n", testname);
-		konoha_detectFailedAssert = 1;
 		return 1;
 	}
 	return ret;
@@ -388,7 +418,7 @@ static BuiltInTestFunc lookupTestFunc(DEFINE_TESTFUNC *d, const char *name)
 }
 #endif
 
-static int konoha_builtintest(KonohaContext* konoha, const char* name)
+static int CommandLine_doBuiltInTest(KonohaContext* konoha, const char* name)
 {
 #ifdef USE_BUILTINTEST
 	BuiltInTestFunc f = lookupTestFunc(KonohaTestSet, name);
@@ -402,26 +432,32 @@ static int konoha_builtintest(KonohaContext* konoha, const char* name)
 	return 1;
 }
 
-static void konoha_define(KonohaContext *kctx, char *keyvalue)
+static void CommandLine_define(KonohaContext *kctx, char *keyvalue)
 {
 	char *p = strchr(keyvalue, '=');
 	if(p != NULL) {
+		size_t len = p-keyvalue;
+		char namebuf[len+1];
+		memcpy(namebuf, keyvalue, len); namebuf[len] = 0;
+		DBG_P("name='%s'", namebuf);
+		ksymbol_t key = KLIB Ksymbol(kctx, namebuf, len, 0, SYM_NEWID);
+		uintptr_t unboxValue;
+		ktype_t ty;
 		if(isdigit(p[1])) {
-			long n = strtol(p+1, NULL, 0);
-			KDEFINE_INT_CONST IntData[] = {
-				{keyvalue, TY_Int, n}, {}
-			};
-			KLIB kNameSpace_loadConstData(kctx, KNULL(NameSpace), KonohaConst_(IntData), 0);
+			ty = TY_int;
+			unboxValue = (uintptr_t)strtol(p+1, NULL, 0);
 		}
 		else {
-			KDEFINE_TEXT_CONST TextData[] = {
-				{keyvalue, TY_TEXT, p+1}, {}
-			};
-			KLIB kNameSpace_loadConstData(kctx, KNULL(NameSpace), KonohaConst_(TextData), 0);
+			ty = TY_TEXT;
+			unboxValue = (uintptr_t)(p+1);
+		}
+		if(!KLIB kNameSpace_setConstData(kctx, KNULL(NameSpace), key, ty, unboxValue, 0)) {
+			PLATAPI exit_i(EXIT_FAILURE);
 		}
 	}
 	else {
 		fprintf(stdout, "invalid define option: use -D<key>=<value>\n");
+		PLATAPI exit_i(EXIT_FAILURE);
 	}
 }
 
@@ -434,27 +470,26 @@ static void konoha_enforce(KonohaContext *kctx, char *role)
 	KLIB kNameSpace_loadConstData(kctx, ns, KonohaConst_(TextData), 0);
 }
 
-static void konoha_import(KonohaContext *kctx, char *packagename)
+static void CommandLine_import(KonohaContext *kctx, char *packageName)
 {
-	size_t len = strlen(packagename)+1;
+	size_t len = strlen(packageName)+1;
 	char bufname[len];
-	memcpy(bufname, packagename, len);
-	if(!KREQUIRE_PACKAGE(bufname, 0)) {
+	memcpy(bufname, packageName, len);
+	if(!(KLIB kNameSpace_importPackage(kctx, KNULL(NameSpace), bufname, 0))) {
 		PLATAPI exit_i(EXIT_FAILURE);
 	}
-	KEXPORT_PACKAGE(bufname, KNULL(NameSpace), 0);
 }
 
 static void konoha_startup(KonohaContext *kctx, const char *startup_script)
 {
 	char buf[256];
-	char *path = getenv("KONOHA_SCRIPTPATH"), *local = "";
+	const char *path = PLATAPI getenv_i("KONOHA_SCRIPTPATH"), *local = "";
 	if(path == NULL) {
-		path = getenv("KONOHA_HOME");
+		path = PLATAPI getenv_i("KONOHA_HOME");
 		local = "/script";
 	}
 	if(path == NULL) {
-		path = getenv("HOME");
+		path = PLATAPI getenv_i("HOME");
 		local = "/.minikonoha/script";
 	}
 	snprintf(buf, sizeof(buf), "%s%s/%s.k", path, local, startup_script);
@@ -463,7 +498,7 @@ static void konoha_startup(KonohaContext *kctx, const char *startup_script)
 	}
 }
 
-static void konoha_commandline(KonohaContext *kctx, int argc, char** argv)
+static void CommandLine_setARGV(KonohaContext *kctx, int argc, char** argv)
 {
 	KonohaClass *CT_StringArray0 = CT_p0(kctx, CT_Array, TY_String);
 	kArray *a = (kArray*)KLIB new_kObject(kctx, CT_StringArray0, 0);
@@ -499,7 +534,8 @@ static struct option long_options2[] = {
 
 static int konoha_parseopt(KonohaContext* konoha, PlatformApiVar *plat, int argc, char **argv)
 {
-	int ret = true, scriptidx = 0;
+	kbool_t ret = true;
+	int scriptidx = 0;
 	while (1) {
 		int option_index = 0;
 		int c = getopt_long (argc, argv, "B:cD:E:iI:S:T:", long_options2, &option_index);
@@ -528,10 +564,10 @@ static int konoha_parseopt(KonohaContext* konoha, PlatformApiVar *plat, int argc
 		break;
 
 		case 'B':
-			return konoha_builtintest(konoha, optarg);
+			return CommandLine_doBuiltInTest(konoha, optarg);
 
 		case 'D':
-			konoha_define(konoha, optarg);
+			CommandLine_define(konoha, optarg);
 			break;
 
 		case 'E':
@@ -540,7 +576,7 @@ static int konoha_parseopt(KonohaContext* konoha, PlatformApiVar *plat, int argc
 			break;
 
 		case 'I':
-			konoha_import(konoha, optarg);
+			CommandLine_import(konoha, optarg);
 			break;
 
 		case 'S':
@@ -558,6 +594,8 @@ static int konoha_parseopt(KonohaContext* konoha, PlatformApiVar *plat, int argc
 			plat->vprintf_i = TEST_vprintf;
 			plat->beginTag  = TEST_begin;
 			plat->endTag    = TEST_end;
+			plat->shortText = TEST_shortText;
+			plat->reportCaughtException = TEST_reportCaughtException;
 			return KonohaContext_test(konoha, optarg);
 
 		case '?':
@@ -569,7 +607,7 @@ static int konoha_parseopt(KonohaContext* konoha, PlatformApiVar *plat, int argc
 		}
 	}
 	scriptidx = optind;
-	konoha_commandline(konoha, argc - scriptidx, argv + scriptidx);
+	CommandLine_setARGV(konoha, argc - scriptidx, argv + scriptidx);
 	if(scriptidx < argc) {
 		ret = konoha_load(konoha, argv[scriptidx]);
 	}
@@ -578,7 +616,7 @@ static int konoha_parseopt(KonohaContext* konoha, PlatformApiVar *plat, int argc
 		KonohaContext_setInteractive(konoha);
 	}
 	if(ret && interactive_flag) {
-		konoha_import(konoha, "konoha.i");
+		CommandLine_import(konoha, "konoha.i");
 		ret = konoha_shell(konoha);
 	}
 	return (ret == true) ? 0 : 1;
@@ -600,7 +638,6 @@ int main(int argc, char *argv[])
 	KonohaContext* konoha = konoha_open(plat);
 	ret = konoha_parseopt(konoha, (PlatformApiVar*)plat, argc, argv);
 	konoha_close(konoha);
-	MODGC_check_malloced_size();
 	return ret ? konoha_detectFailedAssert: 0;
 }
 

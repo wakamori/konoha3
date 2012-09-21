@@ -19,13 +19,13 @@ extern int verbose_debug;
 //
 //static const char* l_packagepath(char *buf, size_t bufsiz, const char *fname)
 //{
-//	char *path = getenv("KONOHA_PACKAGEPATH"), *local = "";
+//	char *path = PLATAPI getenv_i("KONOHA_PACKAGEPATH"), *local = "";
 //	if(path == NULL) {
-//		path = getenv("KONOHA_HOME");
+//		path = PLATAPI getenv_i("KONOHA_HOME");
 //		local = "/package";
 //	}
 //	if(path == NULL) {
-//		path = getenv("HOME");
+//		path = PLATAPI getenv_i("HOME");
 //		local = "/.konoha2/package";
 //	}
 //	snprintf(buf, bufsiz, "%s%s/%s/%s_glue.k", path, local, fname, l_packname(fname));
@@ -103,8 +103,8 @@ void konoha_plugin_init(KonohaContextVar **konohap, memcached_st **mcp)
     *mcp = memcached_create(NULL);
     KonohaContext *kctx = *konohap;
     kNameSpace *ns = KNULL(NameSpace);
-    KEXPORT_PACKAGE("sugar", ns, 0);
-    KEXPORT_PACKAGE("logpool", ns, 0);
+    KImportPackage("sugar", ns, 0);
+    KImportPackage("logpool", ns, 0);
     memcached_server_list_st servers;
     memcached_return_t rc;
     servers = memcached_server_list_append(NULL, "127.0.0.1", 11211, &rc);
@@ -124,11 +124,11 @@ struct pool_plugin *konoha_plugin_get(KonohaContext *kctx, memcached_st *mc, cha
     kObject *ev = KLIB new_kObject(kctx, CT_Int/*Dummy*/, (uintptr_t)req);
     MODSUGAR_eval(kctx, script, 0);
     kNameSpace *ns = KNULL(NameSpace);
-    kMethod *mtd = KLIB kNameSpace_getMethodNULL(kctx, ns, TY_System, MN_("initPlugin"), 1, MPOL_PARAMSIZE|MPOL_FIRST);
+    kMethod *mtd = KLIB kNameSpace_getMethodByParamSizeNULL(kctx, ns, TY_System, MN_("initPlugin"), 1, MPOL_PARAMSIZE|MPOL_FIRST);
     if (mtd) {
         BEGIN_LOCAL(lsfp, K_CALLDELTA + 2);
-        KSETv(lsfp[K_CALLDELTA+0].o, K_NULL);
-        KSETv(lsfp[K_CALLDELTA+1].o, ev);
+        KSETv_AND_WRITE_BARRIER(0, lsfp[K_CALLDELTA+0].o, K_NULL, GC_NO_WRITE_BARRIER);
+        KSETv_AND_WRITE_BARRIER(0, lsfp[K_CALLDELTA+1].o, ev, GC_NO_WRITE_BARRIER);
         KCALL(lsfp, 0, mtd, 2, K_NULL);
         END_LOCAL();
         kObject *ret = lsfp[0].o;

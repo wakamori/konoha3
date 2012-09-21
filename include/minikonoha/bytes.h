@@ -30,11 +30,13 @@
 #endif
 
 #include <string.h>
+#ifndef __MINGW32__
 #include <langinfo.h>
-#include <locale.h>
-#ifdef K_USING_ICONV
-#include <iconv.h>
 #endif
+#include <locale.h>
+#ifdef HAVE_ICONV_H
+#include <iconv.h>
+#endif /* HAVE_ICONV_H */
 
 #ifdef __cplusplus
 extern "C" {
@@ -51,29 +53,22 @@ extern "C" {
 
 #define IS_Bytes(O)      ((O)->h.ct == CT_Bytes)
 
-#ifdef K_USING_ICONV
+#ifdef HAVE_ICONV_H
 typedef iconv_t kiconv_t;
 #else
 typedef long    kiconv_t;
-#endif
-
-typedef kiconv_t (*ficonv_open)(const char *, const char *);
-typedef size_t (*ficonv)(kiconv_t, const char **, size_t *, char **, size_t *);
-typedef int    (*ficonv_close)(kiconv_t);
+#endif /* HAVE_ICONV_H */
 
 typedef struct {
-    KonohaModule h;
-    KonohaClass     *cBytes;
-    kbool_t      (*encode)(const char* from, const char* to, const char* text, size_t len, KUtilsWriteBuffer* wb);
-    const char*  fmt;
-    const char*  locale;
-    kiconv_t     (*ficonv_open)(const char *, const char*);
-    size_t       (*ficonv)(kiconv_t, const char **, size_t *, char**, size_t *);
-    int          (*ficonv_close)(kiconv_t);
+	KonohaModule h;
+	KonohaClass     *cBytes;
+	//kbool_t      (*encode)(const char* from, const char* to, const char* text, size_t len, KUtilsWriteBuffer* wb);
+	//const char*  fmt;
+	//const char*  locale;
 } kmodiconv_t;
 
 typedef struct {
-    KonohaContextModule h;
+	KonohaModuleContext h;
 } ctxiconv_t;
 
 #ifdef __cplusplus
