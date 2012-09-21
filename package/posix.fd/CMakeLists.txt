@@ -29,4 +29,6 @@ add_custom_target(copy_fd_test_files ALL DEPENDS
 		${CMAKE_CURRENT_BINARY_DIR}/files/ftruncate.txt
 		${CMAKE_CURRENT_BINARY_DIR}/files/newfile.txt)
 include_directories(${CMAKE_CURRENT_BINARY_DIR})
-add_konoha_package(posix.fd)
+if(NOT MINGW AND NOT MSVC)
+	add_konoha_package(posix.fd)
+endif()

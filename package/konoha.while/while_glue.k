@@ -1,5 +1,5 @@
-// K.import("sugar");
-// K.import("konoha.null");
+// import("sugar");
+// import("konoha.null");
 
 // sugar "while" "(" $Expr ")" $Block
 
@@ -14,7 +14,7 @@
 // }
 
 // NameSpace.compileAllDefinedMethods();
-// K.addTopStmtTyCheck("while", tyCheckWhile);
-// K.addStmtTyCheck("while", tyCheckWhile);
-// K.addTermParseExpr("while");
+// addTopStmtTyCheck("while", tyCheckWhile);
+// addStmtTyCheck("while", tyCheckWhile);
+// addTermParseExpr("while");
 

@@ -1,4 +1,5 @@
 cmake_minimum_required(VERSION 2.6)
+if(NOT MINGW AND NOT MSVC)
 set(PACKAGE_SOURCE_CODE file_glue.c)
 add_custom_command(OUTPUT
 		${CMAKE_CURRENT_BINARY_DIR}/files/writetest.txt
@@ -27,3 +28,4 @@ add_custom_target(copy_file_test_files ALL DEPENDS
 		${CMAKE_CURRENT_BINARY_DIR}/files/opentest.txt)
 include_directories(${CMAKE_CURRENT_BINARY_DIR})
 add_konoha_package(posix.file)
+endif()

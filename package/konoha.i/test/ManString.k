@@ -1,5 +1,5 @@
 // written by kimio kuramitsu
 
-K.import("konoha.i");
-K.man(int);
+import("konoha.i");
+man(int);
 

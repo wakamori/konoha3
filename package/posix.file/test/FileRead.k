@@ -1,7 +1,7 @@
 //Written by Joseph
-K.import("konoha.new");
-K.import("konoha.bytes");
-K.import("posix.file");
+import("konoha.new");
+import("konoha.bytes");
+import("posix.file");
 
 void test() {
 	FILE f = System.fopen("files/testfile.txt", "r");

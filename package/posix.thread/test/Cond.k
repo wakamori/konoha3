@@ -1,8 +1,8 @@
 // written by wakamatsu
-K.import("konoha");
-K.import("konoha.global");
-K.import("posix.thread");
-K.setTransparentGlobalVariable(true);
+import("konoha");
+import("konoha.global");
+import("posix.thread");
+setTransparentGlobalVariable(true);
 
 Mutex m = new Mutex();
 Cond c = new Cond();

@@ -1,7 +1,7 @@
-// K.import("sugar");
-// K.import("konoha.while");
-// K.import("konoha.string");
-// K.import("konoha.assign");
+// import("sugar");
+// import("konoha.while");
+// import("konoha.string");
+// import("konoha.assign");
 
 // int floatToken(Token tk, String source) {
 //     int i = 0;
@@ -59,14 +59,14 @@
 
 // NameSpace.compileAllDefinedMethods();
 
-// K.addTokenizeFunc("-", floatToken);
-// K.addTokenizeFunc("0", floatToken);
-// K.addTokenizeFunc("1", floatToken);
-// K.addTokenizeFunc("2", floatToken);
-// K.addTokenizeFunc("3", floatToken);
-// K.addTokenizeFunc("4", floatToken);
-// K.addTokenizeFunc("5", floatToken);
-// K.addTokenizeFunc("6", floatToken);
-// K.addTokenizeFunc("7", floatToken);
-// K.addTokenizeFunc("8", floatToken);
-// K.addTokenizeFunc("9", floatToken);
+// addTokenizeFunc("-", floatToken);
+// addTokenizeFunc("0", floatToken);
+// addTokenizeFunc("1", floatToken);
+// addTokenizeFunc("2", floatToken);
+// addTokenizeFunc("3", floatToken);
+// addTokenizeFunc("4", floatToken);
+// addTokenizeFunc("5", floatToken);
+// addTokenizeFunc("6", floatToken);
+// addTokenizeFunc("7", floatToken);
+// addTokenizeFunc("8", floatToken);
+// addTokenizeFunc("9", floatToken);

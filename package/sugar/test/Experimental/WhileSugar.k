@@ -1,7 +1,7 @@
 // written by kimio kuramitsu
 
-K.import("sugar");
-K.import("konoha.null");
+import("sugar");
+import("konoha.null");
 
 sugar "while" "(" $Expr ")" $Block
 
@@ -12,8 +12,8 @@ boolean tyCheckWhile(Stmt stmt, Gamma gma) {
 	return false;
 }
 
-K.addTopStmtTyCheck("while", tyCheckWhile);
-K.addStmtTyCheck("while", tyCheckWhile);
+addTopStmtTyCheck("while", tyCheckWhile);
+addStmtTyCheck("while", tyCheckWhile);
 
 // b = a while (a<10);
 

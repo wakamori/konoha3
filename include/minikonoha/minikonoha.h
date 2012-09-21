@@ -38,6 +38,8 @@ extern "C" {
 #define K_OSDLLEXT        ".dylib"
 #elif defined(__linux__)
 #define K_OSDLLEXT        ".so"
+#elif defined(__MINGW32__)
+#define K_OSDLLEXT        ".dll"
 #endif
 #endif
 
@@ -114,7 +116,11 @@ typedef KonohaPackageHandler* (*PackageLoadFunc)(void);
 #ifndef jmpbuf_i
 #include <setjmp.h>
 #define jmpbuf_i jmp_buf
+#if __MINGW32__ || __MSVC__
+#define ksetjmp  _setjmp
+#else
 #define ksetjmp  setjmp
+#endif
 #define klongjmp longjmp
 #endif /*jmpbuf_i*/
 
@@ -419,10 +425,10 @@ typedef const struct kMethodVar         kMethod;
 typedef struct kMethodVar               kMethodVar;
 typedef const struct kFuncVar           kFunc;
 typedef struct kFuncVar                 kFuncVar;
-
-/* sugar.h */
 typedef const struct kNameSpaceVar      kNameSpace;
 typedef struct kNameSpaceVar            kNameSpaceVar;
+
+/* sugar.h */
 typedef const struct kTokenVar          kToken;
 typedef struct kTokenVar                kTokenVar;
 typedef const struct kExprVar           kExpr;
@@ -549,8 +555,10 @@ struct KonohaRuntimeVar {
 	kmutex_t          *filepackMutex;
 	kArray                   *fileidList;    // file, http://
 	KUtilsHashMap            *fileidMapNN;   //
-	kArray                   *packList;
-	KUtilsHashMap            *packMapNN;
+	kArray                   *packageIdList;
+	KUtilsHashMap            *packageIdMapNN;
+	KUtilsHashMap            *packageMapNO;
+
 
 	kmutex_t          *symbolMutex;
 	kArray                   *symbolList;  // NAME, Name, INT_MAX Int_MAX
@@ -774,8 +782,9 @@ struct KonohaClassField {
 #define TY_Param             ((ktype_t)7)
 #define TY_Method            ((ktype_t)8)
 #define TY_Func              ((ktype_t)9)
-#define TY_System            ((ktype_t)10)
-#define TY_0                ((ktype_t)11)    /* Parameter Type*/
+#define TY_NameSpace         ((ktype_t)10)
+#define TY_System            ((ktype_t)11)
+#define TY_0                 ((ktype_t)12)    /* Parameter Type*/
 
 #define CT_void                 CT_(TY_void)
 #define CT_Object               CT_(TY_Object)
@@ -786,6 +795,7 @@ struct KonohaClassField {
 #define CT_Param                CT_(TY_Param)
 #define CT_Method               CT_(TY_Method)
 #define CT_Func                 CT_(TY_Func)
+#define CT_NameSpace            CT_(TY_NameSpace)
 #define CT_System               CT_(TY_System)
 
 #define CT_StringArray          CT_Array
@@ -816,8 +826,9 @@ struct KonohaClassField {
 #define CFLAG_Param             kClass_Final
 #define CFLAG_Method            kClass_Final
 #define CFLAG_Func              kClass_Final
+#define CFLAG_NameSpace         kClass_Final
 #define CFLAG_System            kClass_Singleton|kClass_Final
-#define CFLAG_0                kClass_TypeVar|kClass_UnboxType|kClass_Singleton|kClass_Final
+#define CFLAG_0                 kClass_TypeVar|kClass_UnboxType|kClass_Singleton|kClass_Final
 
 
 #define CT_isPrivate(ct)      (TFLAG_is(kshortflag_t,(ct)->cflag, kClass_Private))
@@ -1143,8 +1154,8 @@ struct kMethodVar {
 typedef struct MethodMatch {
 	kNameSpace   *ns;
 	ksymbol_t     mn;
-	size_t        paramsize;
-	size_t        paramdom;
+	int           paramsize;
+	int           paramdom;
 	kparamtype_t *param;
 	kbool_t       isBreak;
 	kMethod      *foundMethodNULL;
@@ -1186,6 +1197,27 @@ struct kFuncVar {
 	kObject *self;
 	kMethod *mtd;
 };
+
+/* ------------------------------------------------------------------------ */
+/* NameSpace */
+
+#define kNameSpace_sizeConstTable(ns)    (ns->constTable.bytesize / sizeof(KUtilsKeyValue))
+
+struct kNameSpaceVar {
+	KonohaObjectHeader h;
+	kpackage_t packageId;  	kpackage_t packageDomain;
+	kNameSpace                        *parentNULL;
+	KUtilsGrowingArray                 constTable;        // const variable
+	size_t                             sortedConstTable;
+	kObject                           *globalObjectNULL;
+	kArray                            *methodList;   // default K_EMPTYARRAY
+	size_t                             sortedMethodList;
+	// the below references are defined in sugar
+	uintptr_t          syntaxOption;
+	void                              *tokenMatrix;
+	KUtilsHashMap                     *syntaxMapNN;
+};
+
 
 /* ------------------------------------------------------------------------ */
 /* System */
@@ -1250,6 +1282,42 @@ struct _kSystem {
 		(MTD)->invokeMethodFunc(kctx, tsfp);\
 		tsfp[K_MTDIDX].mtdNC = NULL;\
 	} \
+
+/* ----------------------------------------------------------------------- */
+/* Package */
+
+#define K_CHECKSUM 1
+
+#define KPACKNAME(N, V) \
+	.name = N, .version = V, .konoha_checksum = K_CHECKSUM, .konoha_revision = K_REVISION
+
+#define KPACKLIB(N, V) \
+	.libname = N, .libversion = V
+
+typedef enum {  Nope, FirstTime } isFirstTime_t;
+
+struct KonohaPackageHandlerVar {
+	int konoha_checksum;
+	const char *name;
+	const char *version;
+	const char *libname;
+	const char *libversion;
+	const char *note;
+	kbool_t (*initPackage)   (KonohaContext *kctx, kNameSpace *, int, const char**, kfileline_t);
+	kbool_t (*setupPackage)  (KonohaContext *kctx, kNameSpace *, isFirstTime_t, kfileline_t);
+	kbool_t (*initNameSpace) (KonohaContext *kctx, kNameSpace *, kNameSpace *, kfileline_t);
+	kbool_t (*setupNameSpace)(KonohaContext *kctx, kNameSpace *, kNameSpace *, kfileline_t);
+	int konoha_revision;
+};
+
+typedef struct KonohaPackageVar KonohaPackage;
+
+struct KonohaPackageVar {
+	kpackage_t                   packageId;
+	kNameSpace                  *packageNameSpace;
+	KonohaPackageHandler        *packageHandler;
+	kfileline_t                  exportScriptUri;
+};
 
 /* ----------------------------------------------------------------------- */
 // kklib
@@ -1325,7 +1393,10 @@ struct KonohaLibVar {
 
 	kbool_t         (*KonohaRuntime_setModule)(KonohaContext*, int, struct KonohaModule *, kfileline_t);
 
-	struct KonohaPackageVar*   (*kNameSpace_requirePackage)(KonohaContext*, const char *, kfileline_t);
+	void (*kNameSpace_reftraceSugarExtension)(KonohaContext *, kNameSpace *);
+	void (*kNameSpace_freeSugarExtension)(KonohaContext *, kNameSpaceVar *);
+
+	KonohaPackage*   (*kNameSpace_requirePackage)(KonohaContext*, const char *, kfileline_t);
 	kbool_t          (*kNameSpace_importPackage)(KonohaContext*, kNameSpace*, const char *, kfileline_t);
 	KonohaClass*     (*kNameSpace_getClass)(KonohaContext*, kNameSpace *, const char *, size_t, KonohaClass *);
 	KonohaClass*     (*kNameSpace_defineClass)(KonohaContext*, kNameSpace *, kString *, KDEFINE_CLASS *, kfileline_t);

@@ -465,6 +465,48 @@ static intptr_t STUB_Method_indexOfField(kMethod *mtd)
 }
 
 // ---------------
+// NameSpace
+
+static void NameSpace_init(KonohaContext *kctx, kObject *o, void *conf)
+{
+	kNameSpaceVar *ns = (kNameSpaceVar*)o;
+	bzero(&ns->parentNULL, sizeof(kNameSpace) - sizeof(KonohaObjectHeader));
+	if(conf != NULL) {
+		KINITv(ns->parentNULL, (kNameSpace*)conf);
+		ns->packageId     = ns->parentNULL->packageId;
+		ns->packageDomain = ns->parentNULL->packageDomain;
+		ns->syntaxOption  = ns->parentNULL->syntaxOption;
+	}
+	KINITv(ns->methodList, K_EMPTYARRAY);
+}
+
+static void NameSpace_reftrace(KonohaContext *kctx, kObject *o)
+{
+	kNameSpace *ns = (kNameSpace*)o;
+	KLIB kNameSpace_reftraceSugarExtension(kctx, ns);
+	size_t i, size = kNameSpace_sizeConstTable(ns);
+	BEGIN_REFTRACE(size+3);
+	for(i = 0; i < size; i++) {
+		if(SYMKEY_isBOXED(ns->constTable.keyvalueItems[i].key)) {
+			KREFTRACEv(ns->constTable.keyvalueItems[i].objectValue);
+		}
+	}
+	KREFTRACEn(ns->parentNULL);
+	KREFTRACEn(ns->globalObjectNULL);
+	KREFTRACEv(ns->methodList);
+	END_REFTRACE();
+}
+
+static void NameSpace_free(KonohaContext *kctx, kObject *o)
+{
+	kNameSpaceVar *ns = (kNameSpaceVar*)o;
+	KLIB kNameSpace_freeSugarExtension(kctx, ns);
+	KLIB Karray_free(kctx, &ns->constTable);
+}
+
+
+
+// ---------------
 // System
 
 static void Func_init(KonohaContext *kctx, kObject *o, void *conf)
@@ -485,8 +527,6 @@ static void Func_reftrace(KonohaContext *kctx, kObject *o)
 
 // ---------------
 // System
-
-//#define CT_System               CT_(TY_System)
 
 // ---------------
 
@@ -853,6 +893,12 @@ static void loadInitStructData(KonohaContext *kctx)
 		.init = Func_init,
 		.reftrace = Func_reftrace,
 	};
+	KDEFINE_CLASS defNameSpace = {
+		TYNAME(NameSpace),
+		.init = NameSpace_init,
+		.reftrace = NameSpace_reftrace,
+		.free = NameSpace_free,
+	};
 	KDEFINE_CLASS defSystem = {
 		TYNAME(System),
 		.init = DEFAULT_init,
@@ -873,6 +919,7 @@ static void loadInitStructData(KonohaContext *kctx)
 		&defParam,
 		&defMethod,
 		&defFunc,
+		&defNameSpace,
 		&defSystem,
 		&defT0,
 		NULL,
@@ -916,6 +963,7 @@ static void initStructData(KonohaContext *kctx)
 		ct->classNameSymbol = ksymbolSPOL(name, strlen(name), SPOL_ASCII|SPOL_POOL|SPOL_TEXT, _NEWID);
 		KonohaClass_setName(kctx, ct, 0);
 	}
+	KLIB Knull(kctx, CT_NameSpace);
 }
 
 static void initKonohaLib(KonohaLibVar *l)
@@ -955,11 +1003,12 @@ static void KonohaRuntime_init(KonohaContext *kctx, KonohaContextVar *ctx)
 	share->longClassNameMapNN = KLIB Kmap_init(kctx, 0);
 	KINITv(share->fileidList, new_(StringArray, 8));
 	share->fileidMapNN = KLIB Kmap_init(kctx, 0);
-	KINITv(share->packList, new_(StringArray, 8));
-	share->packMapNN = KLIB Kmap_init(kctx, 0);
+	KINITv(share->packageIdList, new_(StringArray, 8));
+	share->packageIdMapNN = KLIB Kmap_init(kctx, 0);
+	share->packageMapNO = KLIB Kmap_init(kctx, 0);
+
 	KINITv(share->symbolList, new_(StringArray, 32));
 	share->symbolMapNN = KLIB Kmap_init(kctx, 0);
-
 	share->paramMapNN = KLIB Kmap_init(kctx, 0);
 	KINITv(share->paramList, new_(Array, 32));
 	share->paramdomMapNN = KLIB Kmap_init(kctx, 0);
@@ -990,6 +1039,14 @@ static void constPoolMap_reftrace(KonohaContext *kctx, KUtilsHashMapEntry *p, vo
 	END_REFTRACE();
 }
 
+static void packageMap_reftrace(KonohaContext *kctx, KUtilsHashMapEntry *p, void *thunk)
+{
+	KonohaPackage *pack = (KonohaPackage*)p->unboxValue;
+	BEGIN_REFTRACE(1);
+	KREFTRACEn(pack->packageNameSpace);
+	END_REFTRACE();
+}
+
 static void KonohaRuntime_reftrace(KonohaContext *kctx, KonohaContextVar *ctx)
 {
 	KonohaRuntime *share = ctx->share;
@@ -1008,6 +1065,7 @@ static void KonohaRuntime_reftrace(KonohaContext *kctx, KonohaContextVar *ctx)
 			KLIB Kmap_each(kctx, ct->constPoolMapNO, NULL, constPoolMap_reftrace);
 		}
 	}
+	KLIB Kmap_each(kctx, share->packageMapNO, NULL, packageMap_reftrace);
 	BEGIN_REFTRACE(10);
 	KREFTRACEv(share->constNull);
 	KREFTRACEv(share->constTrue);
@@ -1015,7 +1073,7 @@ static void KonohaRuntime_reftrace(KonohaContext *kctx, KonohaContextVar *ctx)
 	KREFTRACEv(share->emptyString);
 	KREFTRACEv(share->emptyArray);
 	KREFTRACEv(share->fileidList);
-	KREFTRACEv(share->packList);
+	KREFTRACEv(share->packageIdList);
 	KREFTRACEv(share->symbolList);
 	KREFTRACEv(share->paramList);
 	KREFTRACEv(share->paramdomList);
@@ -1034,15 +1092,22 @@ static void KonohaRuntime_freeClassTable(KonohaContext *kctx)
 	}
 }
 
+static void packageMap_free(KonohaContext *kctx, void *p)
+{
+	KFREE(p, sizeof(KonohaPackage));
+}
+
 static void KonohaRuntime_free(KonohaContext *kctx, KonohaContextVar *ctx)
 {
 	KonohaRuntimeVar *share = (KonohaRuntimeVar*)ctx->share;
 	KLIB Kmap_free(kctx, share->longClassNameMapNN, NULL);
 	KLIB Kmap_free(kctx, share->fileidMapNN, NULL);
-	KLIB Kmap_free(kctx, share->packMapNN, NULL);
+	KLIB Kmap_free(kctx, share->packageIdMapNN, NULL);
+	KLIB Kmap_free(kctx, share->packageMapNO, packageMap_free);
 	KLIB Kmap_free(kctx, share->symbolMapNN, NULL);
 	KLIB Kmap_free(kctx, share->paramMapNN, NULL);
 	KLIB Kmap_free(kctx, share->paramdomMapNN, NULL);
+
 	KonohaRuntime_freeClassTable(kctx);
 	KLIB Karray_free(kctx, &share->classTable);
 

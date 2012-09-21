@@ -1,12 +1,17 @@
-K.import("jansson");
-K.import("konoha.float");
-K.import("konoha");
+import("konoha.class");
+import("konoha.while");
+import("konoha.int");
+import("konoha.float");
+import("konoha.string");
+import("konoha.array");
+import("konoha.assign");
+
+import("jansson");
 
 void main() {
 	String sample = "{}"
 
-	Json j = new Json();
-	Json parsed = j.parse(sample);
+	Json parsed = Json.parse(sample);
 
 	// Set Json
 
@@ -26,7 +31,7 @@ void main() {
 	Json json = new Json();
 	json.setString("foo", "bar");
 	json.setString("hoge", "fuga");
-	parsed.set("json", json);
+	parsed.setJson("json", json);
 
 	// Json[] -> json
 	Json[] ja = new Json[0];
@@ -39,16 +44,16 @@ void main() {
 	parsed.setArray("array", ja);
 
 	// Get Json
-	p(parsed.getInt("int"));
-	p(parsed.getFloat("float"));
-	p(parsed.getString("string"));
-	p(parsed.getBool("bool"));
-	p(parsed.get("json"));
+	System.p(parsed.getInt("int"));
+	System.p(parsed.getFloat("float"));
+	System.p(parsed.getString("string"));
+	System.p(parsed.getBool("bool"));
+	System.p(parsed.getJson("json"));
 	Json[] a = parsed.getArray("array");
 	int i = 0;
-	p(a.getSize());
+	System.p(a.getSize());
 	while (i < a.getSize()) {
-		p(a[i].dump());
+		System.p(a[i]);
 		i += 1;
 	}
 }
