@@ -4,19 +4,18 @@ import("konoha.int");
 import("posix.fd");
 
 void test() {
-	assert(System.open("files/newfile.txt", O_RDONLY) > 0);
-	assert(System.open("files/newfile.txt", O_WRONLY) > 0);
-	assert(System.open("files/newfile.txt", O_RDWR) > 0);
-//	assert(System.open("files/newfile.txt", O_CREAT) == -1);//TODO
-//	assert(System.open("files/newfile.txt", O_CREAT, 0666) > 0);
-//	assert(System.open("files/newfile.txt", O_CREAT|O_CREAT, 0777) > 0);
-//	assert(System.open("files/newfile.txt", O_CREAT|O_CREAT|O_TRUNC, 0750) > 0);
-	assert(System.open("files/newfile.txt", O_EXCL) == -1);
-	assert(System.open("files/newfile.txt", O_TRUNC) == -1);
-	assert(System.open("files/newfile.txt", O_APPEND) == -1);
-	assert(System.open("files/newfile.txt", O_NONBLOCK|O_RDONLY) > 0);
-	assert(System.open("files/newfile.txt", O_NDELAY|O_WRONLY) > 0);
-	assert(System.open("files/newfile.txt", O_NOCTTY|O_RDWR) > 0);
+	assert(System.open("files/openfile.txt", O_RDONLY) > 0);
+	assert(System.open("files/openfile.txt", O_WRONLY) > 0);
+	assert(System.open("files/openfile.txt", O_RDWR) > 0);
+	assert(System.open("files/openfile.txt", O_CREAT|O_EXCL) == -1);
+	assert(System.open("files/openfile.txt", O_CREAT, 0644) > 0);
+	assert(System.open("files/openfile.txt", O_CREAT|O_EXCL, 0644) == -1);
+	assert(System.open("files/openfile.txt", O_CREAT|O_TRUNC, 0644) > 0);
+	assert(System.open("files/openfile.txt", O_TRUNC) > 0);
+	assert(System.open("files/openfile.txt", O_APPEND) > 0);
+	assert(System.open("files/openfile.txt", O_NONBLOCK|O_RDONLY) > 0);
+	assert(System.open("files/openfile.txt", O_NDELAY|O_WRONLY) > 0);
+	assert(System.open("files/openfile.txt", O_NOCTTY|O_RDWR) > 0);
 }
 
 test();

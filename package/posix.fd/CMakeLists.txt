@@ -26,6 +26,11 @@ add_custom_command(OUTPUT
 		${CMAKE_CURRENT_SOURCE_DIR}/test/files/newfile.txt
 		${CMAKE_CURRENT_BINARY_DIR}/files/newfile.txt)
 add_custom_command(OUTPUT
+		${CMAKE_CURRENT_BINARY_DIR}/files/openfile.txt
+		COMMAND ${CMAKE_COMMAND} -E copy_if_different
+		${CMAKE_CURRENT_SOURCE_DIR}/test/files/openfile.txt
+		${CMAKE_CURRENT_BINARY_DIR}/files/openfile.txt)
+add_custom_command(OUTPUT
 		${CMAKE_CURRENT_BINARY_DIR}/files/readlink.txt
 		COMMAND ${CMAKE_COMMAND} -E create_symlink
 		newfile.txt
@@ -34,6 +39,7 @@ add_custom_target(copy_fd_test_files ALL DEPENDS
 		${CMAKE_CURRENT_BINARY_DIR}/files/another.txt
 		${CMAKE_CURRENT_BINARY_DIR}/files/ftruncate.txt
 		${CMAKE_CURRENT_BINARY_DIR}/files/newfile.txt
+		${CMAKE_CURRENT_BINARY_DIR}/files/openfile.txt
 		${CMAKE_CURRENT_BINARY_DIR}/files/readlink.txt)
 include_directories(${CMAKE_CURRENT_BINARY_DIR})
 add_konoha_package(posix.fd)

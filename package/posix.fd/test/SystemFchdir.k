@@ -10,12 +10,10 @@ void test() {
 	assert(System.fchdir(fd) == -1);
 	fd = System.open("../", O_RDWR);//fd == -1
 	assert(System.fchdir(fd) == -1);
-	fd = System.open("../", O_CREAT);//fd == -1
+	fd = System.open("../", O_CREAT|O_EXCL);//fd == -1
 	assert(System.fchdir(fd) == -1);
 	fd = System.open("../", O_TRUNC);//fd == -1
 	assert(System.fchdir(fd) == -1);
-	fd = System.open("../", O_EXCL);
-	assert(System.fchdir(fd) == 0);
 	fd = System.open("../", O_APPEND|O_NONBLOCK);
 	assert(System.fchdir(fd) == 0);
 	fd = System.open("../", O_NOCTTY|O_NDELAY|O_RDONLY);
