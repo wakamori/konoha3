@@ -1,6 +1,6 @@
 // written by kimio kuramitsu
 
-K.import("konoha.class");
+import("konoha.object");
 
-System.p(("").getTypeId());
+assert(("").getTypeId() == 5/*TY_String*/);
 

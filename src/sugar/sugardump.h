@@ -22,38 +22,10 @@
  * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  ***************************************************************************/
 
-#define T_statement(kw)  StatementName(kctx, kw), StatementType(kw)
-
-static const char* StatementName(KonohaContext *kctx, ksymbol_t keyword)
-{
-	const char *statement = SYM_t(keyword);
-	if(keyword == KW_ExprPattern) statement = "expression";
-	else if(keyword == KW_StmtTypeDecl) statement = "variable";
-	else if(keyword == KW_StmtMethodDecl) statement =  "function";
-	return statement;
-}
-
-static const char* StatementType(ksymbol_t keyword)
-{
-	const char *postfix = " statement";
-	if(keyword == KW_ExprPattern) postfix = "";
-	else if(keyword == KW_StmtTypeDecl || keyword == KW_StmtMethodDecl) postfix = " declaration";
-	return postfix;
-}
-
-#ifdef USE_SMALLBUILD
-#define KdumpTokenArray(CTX, TLS, S, E)
-#define KdumpStmt(CTX, STMT)
-#define KdumpExpr(CTX, EXPR)
-
-#else
-#define KdumpTokenArray(CTX, TLS, S, E) 	DBG_P("@"); dumpTokenArray(CTX, 1, TLS, S, E)
-#define KdumpTokenRange(CTX, MSG, R) 	    DBG_P(MSG); dumpTokenArray(CTX, 1, R->tokenList, R->beginIdx, R->endIdx)
-#define KdumpStmt(CTX, STMT) 		        dumpStmt(CTX, STMT)
-#define KdumpExpr(CTX, EXPR)                dumpExpr(CTX, 0, 0, EXPR)
-
 /* --------------- */
 /* Token */
+
+#ifndef USE_SMALLBUILD
 
 static void dumpToken(KonohaContext *kctx, kToken *tk, int n)
 {
@@ -67,9 +39,9 @@ static void dumpToken(KonohaContext *kctx, kToken *tk, int n)
 				DUMP_P("Token[%d] '%s' TokenType=``%s%s''\n", n, Token_text(tk), PSYM_t(tk->unresolvedTokenType));
 			}
 		}
-		else if(Token_isRule(tk)) {
-			DUMP_P("RuleToken(%d) '%s' resolvedSymbol=%s%s nameid=%s%s\n", n, Token_text(tk), PSYM_t(tk->resolvedSymbol), PSYM_t(tk->indent));
-		}
+//		else if(Token_isRule(tk)) {
+//			DUMP_P("RuleToken(%d) '%s' resolvedSymbol=%s%s classNameSymbol=%s%s\n", n, Token_text(tk), PSYM_t(tk->resolvedSymbol), PSYM_t(tk->indent));
+//		}
 		else if(tk->resolvedSyntaxInfo->keyword == KW_TypePattern) {
 			DUMP_P("Token(%d) '%s' type=%s\n", n, Token_text(tk), TY_t(tk->resolvedTypeId));
 		}
@@ -148,7 +120,7 @@ static void dumpExpr(KonohaContext *kctx, int n, int nest, kExpr *expr)
 				DBG_ASSERT(IS_Array(expr->cons));
 			}
 			else {
-				DUMP_P("[%d] Expr: kw='%s%s', size=%ld", n, KW_t(expr->syn->keyword), kArray_size(expr->cons));
+				DUMP_P("[%d] Expr: kw='%s%s', syn=%p, size=%ld", n, PSYM_t(expr->syn->keyword), expr->syn, kArray_size(expr->cons));
 				DUMP_P("\n");
 				for(i=0; i < kArray_size(expr->cons); i++) {
 					kObject *o = expr->cons->objectItems[i];
@@ -179,7 +151,7 @@ static void dumpEntry(KonohaContext *kctx, void *arg, KUtilsKeyValue *d)
 {
 	if((d->key & SYMKEY_BOXED) == SYMKEY_BOXED) {
 		ksymbol_t key = ~SYMKEY_BOXED & d->key;
-		DUMP_P("key='%s%s': ", KW_t(key));
+		DUMP_P("key='%s%s': ", PSYM_t(key));
 		if(IS_Token(d->objectValue)) {
 			dumpToken(kctx, (kToken*)d->objectValue, -1);
 		} else if (IS_Expr(d->objectValue)) {

@@ -66,6 +66,8 @@ SET(CMAKE_CXX_FLAGS_COMPRESSED "${CMAKE_C_FLAGS_COMPRESSED}")
 
 if(${CMAKE_BUILD_TYPE} STREQUAL "Compressed")
 	set(K_NODEBUG 1)
+	add_definitions(-DNDEBUG)
+	add_definitions(-DUSE_SMALLBUILD)
 endif()
 
 set(RUNTIME
@@ -96,49 +98,60 @@ set(PARSER
 
 set(KONOHA_VM_MODULE "" CACHE STRING "konoha vm module")
 if(KONOHA_VM_MODULE)
-	set(VM module/${KONOHA_VM_MODULE}vm/${KONOHA_VM_MODULE}asm.c)
+	set(VM module/${KONOHA_VM_MODULE}vm/${KONOHA_VM_MODULE}compiler.c)
 else(KONOHA_VM_MODULE)
-	set(VM src/vm/asm.c)
+	set(VM src/vm/compiler.c)
 endif(KONOHA_VM_MODULE)
 
 set(PACKAGES
+## add konoha.xx package in an alphabetical order 
 	konoha
 	konoha.array
 	konoha.assign
+	konoha.break
 	konoha.bytes
 	konoha.class
+	konoha.const
+	konoha.continue
+	konoha.date
 	konoha.defined
+	konoha.dynamic
+	konoha.field
 	konoha.float
+	konoha.foreach
 	konoha.global
-	konoha.hashmap
 	konoha.i
 	konoha.io
 	konoha.import
 	konoha.int
 	konoha.iterator
 	konoha.math
+	konoha.map
+	konoha.mpi
 	konoha.namespace
 	konoha.new
 	konoha.null
-	konoha.rope
+	konoha.object
+	konoha.regexp
 	konoha.string
 	konoha.subtype
+##	konoha.sql
+	konoha.untyped
 	konoha.var
 	konoha.while
 	sugar
 	llvm
-	konoha.regexp
 	posix.process
 	posix.file
 	posix.fd
 ##	posix.socket
-##	konoha.sql
-##	konoha.subproc
-	konoha.mpi
-##	curl
+	posix.thread
+	dscript.dollar
+	dscript.subproc
+	curl
 ##	ijit
 ##	jansson
-##	mecab
+	mecab
 	python
 	apache
 #	openssl
@@ -156,8 +169,13 @@ check_type_size(int      SIZEOF_INT)
 check_type_size(float    SIZEOF_FLOAT)
 check_type_size(double   SIZEOF_DOUBLE)
 
+SET(CMAKE_EXTRA_INCLUDE_FILES pthread.h)
+CHECK_TYPE_SIZE(pthread_mutex_t SIZEOF_PTHREAD_MUTEX_T)
+SET(CMAKE_EXTRA_INCLUDE_FILES)
+
 check_include_files(dlfcn.h HAVE_DLFCN_H)
 check_include_files(iconv.h HAVE_ICONV_H)
+check_include_files(syslog.h HAVE_SYSLOG_H)
 
 set(_HEADERS stdio.h stdlib.h string.h ctype.h)
 if(UNIX)
@@ -242,6 +260,7 @@ macro(add_test_with_property test_name)
 		"KONOHA_PACKAGEPATH=${PARENT_BINARY_DIR}/package")
 endmacro(add_test_with_property test_name)
 
+option(TEST_STRESS "Use Stress Test" OFF)
 macro(add_konoha_test test_name test_file)
 	if(test_name MATCHES "Stress")
 		if(TEST_STRESS)
@@ -316,7 +335,6 @@ macro(create_package_project _PKGNAME)
 	if(${LEN} GREATER 0)
 		add_library(${LIB} SHARED ${PACKAGE_SOURCE_CODE})
 		set_target_properties(${LIB} PROPERTIES PREFIX "")
-		target_link_libraries(${LIB} minikonoha)
 		if(PACKAGE_EXTRA_LIBRARY)
 		target_link_libraries(${LIB} ${PACKAGE_EXTRA_LIBRARY})
 		endif(PACKAGE_EXTRA_LIBRARY)
@@ -359,15 +377,15 @@ macro(add_clib_test test_name)
 	set_tests_properties(Clib/Release/${test_name} PROPERTIES TIMEOUT 5)
 endmacro(add_clib_test sources)
 
-add_clib_test(test_sizeof  ./test/src/test_sizeof.c)
-add_clib_test(test_Kmalloc ./test/src/test_Kmalloc.c)
-add_clib_test(test_Karray  ./test/src/test_Karray.c)
-add_clib_test(test_gc      ./test/src/test_gc.c)
-add_clib_test(test_Kwb     ./test/src/test_Kwb.c)
-add_clib_test(test_map     ./test/src/test_map.c)
-add_clib_test(test_string  ./test/src/test_string.c)
-add_clib_test(test_cpp     ./test/src/test_cpp.cpp)
-add_clib_test(test_proto   ./test/src/test_proto.c)
+add_clib_test(test_sizeof  ./test/Clib/test_sizeof.c)
+add_clib_test(test_Kmalloc ./test/Clib/test_Kmalloc.c)
+add_clib_test(test_Karray  ./test/Clib/test_Karray.c)
+add_clib_test(test_gc      ./test/Clib/test_gc.c)
+add_clib_test(test_Kwb     ./test/Clib/test_Kwb.c)
+add_clib_test(test_map     ./test/Clib/test_map.c)
+add_clib_test(test_string  ./test/Clib/test_string.c)
+add_clib_test(test_cpp     ./test/Clib/test_cpp.cpp)
+add_clib_test(test_proto   ./test/Clib/test_proto.c)
 
 macro(add_builtin_test test_name)
 	add_test_with_property(Builtin/${test_name} ${ARGN})
@@ -398,6 +416,17 @@ foreach(f ${test_files})
 	set_tests_properties(${test_name} PROPERTIES ENVIRONMENT
 		"KONOHA_PACKAGEPATH=${PARENT_BINARY_DIR}/package")
 endforeach(f ${test_files})
+
+add_subdirectory(platform/dse)
+add_subdirectory(platform/apache)
+
+# for konoha command
+configure_file(${CMAKE_CURRENT_SOURCE_DIR}/platform/shell/konoha.sh.cmake
+		${CMAKE_CURRENT_BINARY_DIR}/konoha.sh)
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/konoha.sh
+	DESTINATION bin
+	RENAME konoha
+	PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE)
 
 install(TARGETS minikonoha minikonoha_bin
 		RUNTIME DESTINATION bin

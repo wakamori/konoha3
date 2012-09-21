@@ -24,9 +24,9 @@
 
 /* ************************************************************************ */
 
+#define USE_STRINGLIB 1
 #include <minikonoha/minikonoha.h>
 #include <minikonoha/sugar.h>
-#define USE_STRINGLIB
 #include <minikonoha/klib.h>
 #include <minikonoha/iterator.h>
 
@@ -135,27 +135,6 @@ static KMETHOD Array_toIterator(KonohaContext *kctx, KonohaStack *sfp)
 	RETURN_(itr);
 }
 
-#define utf8len(c)    _utf8len[(int)c]
-
-static const char _utf8len[] = {
-		1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-		1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-		1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-		1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-		1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-		1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-		1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-		1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-		0, 0, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
-		2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
-		3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3,
-		4, 4, 4, 4, 4, 4, 4, 4, 5, 5, 5, 5, 6, 6, 0, 0,
-};
-
 static kbool_t String_hasNext(KonohaContext *kctx, KonohaStack* sfp)
 {
 	kIterator *itr = sfp[0].itr;
@@ -189,9 +168,6 @@ static void kmoditerator_reftrace(KonohaContext *kctx, struct KonohaModule *base
 static void kmoditerator_free(KonohaContext *kctx, struct KonohaModule *baseh) { KFREE(baseh, sizeof(KonohaIteratorModule)); }
 
 #define _Public   kMethod_Public
-#define _Const    kMethod_Const
-#define _Im       kMethod_Immutable
-#define _Coercion kMethod_Coercion
 #define _F(F)   (intptr_t)(F)
 
 static kbool_t iterator_initPackage(KonohaContext *kctx, kNameSpace *ns, int argc, const char**args, kfileline_t pline)
@@ -201,7 +177,7 @@ static kbool_t iterator_initPackage(KonohaContext *kctx, kNameSpace *ns, int arg
 	base->h.setup    = kmoditerator_setup;
 	base->h.reftrace = kmoditerator_reftrace;
 	base->h.free     = kmoditerator_free;
-	KLIB Konoha_setModule(kctx, MOD_iterator, &base->h, pline);
+	KLIB KonohaRuntime_setModule(kctx, MOD_iterator, &base->h, pline);
 
 	kparamtype_t IteratorParam = {
 		.ty = TY_Object,
@@ -214,11 +190,11 @@ static kbool_t iterator_initPackage(KonohaContext *kctx, kNameSpace *ns, int arg
 		.cparamsize  = 1,
 		.cparamItems = &IteratorParam,
 	};
-	base->cIterator = KLIB Konoha_defineClass(kctx, ns->packageId, PN_konoha, NULL, &defIterator, pline);
+	base->cIterator = KLIB kNameSpace_defineClass(kctx, ns, NULL, &defIterator, pline);
 	base->cStringIterator = CT_p0(kctx, base->cIterator, TY_String);
 	base->cGenericIterator = CT_p0(kctx, base->cIterator, TY_0);
 	KDEFINE_METHOD MethodData[] = {
-		_Public, _F(Iterator_hasNext), TY_Boolean, TY_Iterator, MN_("hasNext"), 0,
+		_Public, _F(Iterator_hasNext), TY_boolean, TY_Iterator, MN_("hasNext"), 0,
 		_Public, _F(Iterator_next), TY_0, TY_Iterator, MN_("next"), 0,
 		_Public, _F(Array_toIterator),  base->cGenericIterator->typeId, TY_Array, MN_("toIterator"), 0,
 		_Public, _F(String_toIterator), TY_StringIterator, TY_String, MN_("toIterator"), 0,
@@ -233,86 +209,12 @@ static kbool_t iterator_setupPackage(KonohaContext *kctx, kNameSpace *ns, isFirs
 	return true;
 }
 
-//static kStmt* new_TypedWhileStmt(KonohaContext *kctx, kStmt *stmt, kGamma *gma, )
-//{
-////	kExpr *iteratorExpr = SUGAR new_UntypedTermExpr(kctx, itToken);
-////	kMethod *mtd = kNameSpace_getMethodNULL(kctx, Stmt_nameSpace(stmt), TY_Iterator, MN_("hasNext"), 0, MPOL_PARAMSIZE);
-////	kExpr *hasNextExpr = SUGAR new_TypedCallExpr(kctx, ns, gma, TY_Boolean, mtd, 1, iteratorExpr);
-////
-////	kStmt *whileStmt = SUGAR new_kStmt(kctx, ns, KW_StmtTypeDecl/*dummy*/, KW_ExprPattern, hasNextExpr, KW_BlockPattern, loopBlock, 0);;
-////
-////	//	if(SUGAR kStmt_tyCheckByName(kctx, stmt, KW_ExprPattern, gma, TY_Boolean, 0)) {
-////	//		kBlock *bk = SUGAR kStmt_getBlock(kctx, stmt, NULL/*DefaultNameSpace*/, KW_BlockPattern, K_NULLBLOCK);
-////	//		ret = SUGAR kBlock_tyCheckAll(kctx, bk, gma);
-////	//		kStmt_typed(stmt, LOOP);
-////	//	}
-//}
-
-#define TY_isIterator(T)     (CT_(T)->baseTypeId == TY_Iterator)
-
-static KMETHOD StmtTyCheck_for(KonohaContext *kctx, KonohaStack *sfp)
+static kbool_t iterator_initNameSpace(KonohaContext *kctx, kNameSpace *packageNameSpace, kNameSpace *ns, kfileline_t pline)
 {
-	VAR_StmtTyCheck(stmt, gma);
-	DBG_P("for statement .. ");
-	kToken *typeToken = SUGAR kStmt_getToken(kctx, stmt, KW_TypePattern, NULL);
-	kToken *varToken  = SUGAR kStmt_getToken(kctx, stmt, KW_SymbolPattern, NULL);
-	DBG_P("typeToken=%p, varToken=%p", typeToken, varToken);
-	//kNameSpace *ns = Stmt_nameSpace(stmt);
-//	if(!SUGAR kStmt_tyCheckByName(kctx, stmt, KW_ExprPattern, gma, TY_var, 0)) {
-//		RETURNb_(false);
-//	}
-//	kExpr *iteratorExpr = SUGAR kStmt_getExpr(kctx, stmt, KW_ExprPattern, NULL);
-//	if(!TY_isIterator(iteratorExpr->ty)) {
-//		kMethod *mtd = kNameSpace_getMethodNULL(kctx, ns, iteratorExpr->ty, MN_to(TY_Iterator), 0, MPOL_PARAMSIZE);
-//		if(mtd == NULL) {
-//
-//		}
-//		iteratorExpr = SUGAR new_TypedCallExpr(kctx, ns, gma, TY_var, mtd, 1, iteratorExpr);
-//	}
-//	if(typeToken != NULL) {
-//		KonohaClass *cIterator = CT_p0(kctx, CT_Iterator, typeToken->resolvedTypeId);
-//		if(!SUGAR kStmt_tyCheckByName(kctx, stmt, KW_ExprPattern, gma, cIterator->typeId, 0)) {
-//			RETURNb_(false);
-//		}
-//	}
-//	else {
-//
-//	}
-//	TokenRange empty = {Stmt_nameSpace(stmt)};
-//	kBlock *block = SUGAR new_kBlock(kctx, stmt, &empty, NULL);
-//	if(typeToken != NULL) {   // declare local variable
-//		kExpr *termExpr = SUGAR new_UntypedTermExpr(kctx, varToken);
-//		kStmt *declStmt = SUGAR new_kStmt(kctx, ns, KW_StmtTypeDecl, KW_TypePattern, typeToken, KW_ExprPattern, termExpr, 0);
-//		SUGAR kBlock_insertAfter(kctx, block, /*lastStmt*/NULL, declStmt);
-//	}
-//	{
-//		kTokenVar *itToken = GCSAFE_new(TokenVar, 0);
-//		itToken->resolvedSyntaxInfo = varToken->resolvedSyntaxInfo; // KW_SymbolPattern
-//		// _ = A;
-//		kExpr *termExpr = SUGAR new_UntypedTermExpr(kctx, itToken);
-//		kExpr *letExpr = SUGAR new_kStmt(kctx, ns, KW_LET, KW_);
-//		kExpr new_UntypedExpr
-//	}
-//	kStmt *whileStmt = new_TypedWhileStmt(kctx, stmt, varToken, itToken);
-//	SUGAR kBlock_insertAfter(kctx, block, NULL, whileStmt);
-//	kStmt_setObject(kctx, stmt, KW_BlockPattern, block);
-	RETURNb_(true);
-}
-
-#define _LOOP .flag = (SYNFLAG_StmtJumpAhead|SYNFLAG_StmtJumpSkip)
-
-static kbool_t iterator_initNameSpace(KonohaContext *kctx,  kNameSpace *ns, kfileline_t pline)
-{
-	KDEFINE_SYNTAX SYNTAX[] = {
-		{ .keyword = SYM_("for"), _LOOP, StmtTyCheck_(for),
-			.rule = "\"for\" \"(\" [$Type] $Symbol \"in\" $Expr  \")\" [$Block] ", },
-		{ .keyword = KW_END, },
-	};
-	SUGAR kNameSpace_defineSyntax(kctx, ns, SYNTAX);
 	return true;
 }
 
-static kbool_t iterator_setupNameSpace(KonohaContext *kctx, kNameSpace *ns, kfileline_t pline)
+static kbool_t iterator_setupNameSpace(KonohaContext *kctx, kNameSpace *packageNameSpace, kNameSpace *ns, kfileline_t pline)
 {
 	return true;
 }

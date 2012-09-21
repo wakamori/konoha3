@@ -1,7 +1,7 @@
 // writte by kimio kuramitsu
 
-K.import("konoha.class");
-K.import("konoha.assign");
+import("konoha.class");
+import("konoha.assign");
 
 class Person {
 	String name;
@@ -18,8 +18,8 @@ class Person {
 
 void f() {
 	Person p = new Person("naruto", 17);
-	p.setChild(true);
-	assert(p.getChild());
+	p.setchild(true);
+	assert(p.getchild());
 	assert(p.isChild());
 }
 

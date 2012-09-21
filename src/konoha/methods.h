@@ -78,7 +78,7 @@ static KMETHOD Int_opDIV(KonohaContext *kctx, KonohaStack *sfp)
 {
 	kint_t n = sfp[1].intValue;
 	if(unlikely(n == 0)) {
-		KLIB Kraise(kctx, EXPT_("ZeroDivided"), sfp, sfp[K_RTNIDX].uline);
+		KLIB KonohaRuntime_raise(kctx, EXPT_("ZeroDivided"), sfp, sfp[K_RTNIDX].uline, NULL);
 	}
 	RETURNi_(sfp[0].intValue / n);
 }
@@ -88,7 +88,7 @@ static KMETHOD Int_opMOD(KonohaContext *kctx, KonohaStack *sfp)
 {
 	kint_t n = sfp[1].intValue;
 	if(unlikely(n == 0)) {
-		KLIB Kraise(kctx, EXPT_("ZeroDivided"), sfp, sfp[K_RTNIDX].uline);
+		KLIB KonohaRuntime_raise(kctx, EXPT_("ZeroDivided"), sfp, sfp[K_RTNIDX].uline, NULL);
 	}
 	RETURNi_(sfp[0].intValue % n);
 }
@@ -222,7 +222,7 @@ static KMETHOD System_assert(KonohaContext *kctx, KonohaStack *sfp)
 //	konoha_detectFailedAssert = false;
 	if (cond == false) {
 		konoha_detectFailedAssert = true;
-		KLIB Kraise(kctx, EXPT_("Assertion"), sfp, sfp[K_RTNIDX].uline);
+		KLIB KonohaRuntime_raise(kctx, EXPT_("Assertion"), sfp, sfp[K_RTNIDX].uline, NULL);
 	}
 }
 
@@ -237,7 +237,55 @@ static KMETHOD System_p(KonohaContext *kctx, KonohaStack *sfp)
 //## method void System.gc();
 static KMETHOD System_gc(KonohaContext *kctx, KonohaStack *sfp)
 {
-	MODGC_gc_invoke(kctx, NULL);
+	KLIB Kgc_invoke(kctx, NULL);
+}
+
+// --------------------------------------------------------------------------
+#define _Public    kMethod_Public
+#define _Const     kMethod_Const
+#define _Static    kMethod_Static
+#define _Immutable kMethod_Immutable
+#define _Coercion  kMethod_Coercion
+#define _Hidden    kMethod_Hidden
+#define _Override  kMethod_Override
+#define _F(F)      (intptr_t)(F)
+
+static void Konoha_loadDefaultMethod(KonohaContext *kctx)
+{
+	int FN_x = FN_("x");
+	KDEFINE_METHOD MethodData[] = {
+		_Public|_Immutable|_Const, _F(Object_toString), TY_String, TY_Object, MN_to(TY_String), 0,
+		_Public|_Immutable|_Const, _F(Boolean_opNOT), TY_boolean, TY_boolean, MN_("!"), 0,
+		_Public|_Immutable|_Const, _F(Boolean_opEQ), TY_boolean, TY_boolean, MN_("=="), 1, TY_boolean, FN_x,
+		_Public|_Immutable|_Const, _F(Int_opNEQ), TY_boolean, TY_boolean, MN_("!="), 1, TY_boolean, FN_x,
+		_Public|_Immutable|_Const, _F(Int_opMINUS), TY_int, TY_int, MN_("-"), 0,
+		_Public|_Immutable|_Const, _F(Int_opADD), TY_int, TY_int, MN_("+"), 1, TY_int, FN_x,
+		_Public|_Immutable|_Const, _F(Int_opSUB), TY_int, TY_int, MN_("-"), 1, TY_int, FN_x,
+		_Public|_Immutable|_Const, _F(Int_opMUL), TY_int, TY_int, MN_("*"), 1, TY_int, FN_x,
+		/* opDIV and opMOD raise zero divided exception. Don't set _Const */
+		_Public|_Immutable, _F(Int_opDIV), TY_int, TY_int, MN_("/"), 1, TY_int, FN_x,
+		_Public|_Immutable, _F(Int_opMOD), TY_int, TY_int, MN_("%"), 1, TY_int, FN_x,
+		_Public|_Immutable|_Const, _F(Int_opEQ),  TY_boolean, TY_int, MN_("=="),  1, TY_int, FN_x,
+		_Public|_Immutable|_Const, _F(Int_opNEQ), TY_boolean, TY_int, MN_("!="), 1, TY_int, FN_x,
+		_Public|_Immutable|_Const, _F(Int_opLT),  TY_boolean, TY_int, MN_("<"),  1, TY_int, FN_x,
+		_Public|_Immutable|_Const, _F(Int_opLTE), TY_boolean, TY_int, MN_("<="), 1, TY_int, FN_x,
+		_Public|_Immutable|_Const, _F(Int_opGT),  TY_boolean, TY_int, MN_(">"),  1, TY_int, FN_x,
+		_Public|_Immutable|_Const, _F(Int_opGTE), TY_boolean, TY_int, MN_(">="), 1, TY_int, FN_x,
+		_Public|_Immutable|_Const,  _F(Int_toString), TY_String, TY_int, MN_to(TY_String), 0,
+		_Public|_Immutable|_Const|kMethod_SmartReturn|kMethod_Hidden, _F(Boolean_box), TY_Object, TY_boolean, MN_box, 0,
+		_Public|_Immutable|_Const|kMethod_SmartReturn|kMethod_Hidden, _F(Int_box), TY_Object, TY_int, MN_box, 0,
+		_Public|_Immutable|_Const, _F(String_opEQ),  TY_boolean, TY_String, MN_("=="),  1, TY_String, FN_x ,
+		_Public|_Immutable|_Const, _F(String_opNEQ), TY_boolean, TY_String, MN_("!="), 1, TY_String, FN_x ,
+		_Public|_Immutable|_Const, _F(String_toInt), TY_int, TY_String, MN_to(TY_int), 0,
+		_Public|_Immutable|_Const, _F(String_opADD), TY_String, TY_String, MN_("+"), 1, TY_String, FN_x | FN_COERCION,
+		_Public|_Const|_Hidden, _F(Func_new), TY_Func, TY_Func, MN_new, 2, TY_Object, FN_x, TY_Method, FN_x,
+		_Public|kMethod_SmartReturn|_Hidden, _F(Func_invoke), TY_Object, TY_Func, MN_("invoke"), 0,
+		_Static|_Public|_Immutable, _F(System_assert), TY_void, TY_NameSpace, MN_("assert"), 1, TY_boolean, FN_x,
+		_Static|_Public|_Immutable, _F(System_p), TY_void, TY_System, MN_("p"), 1, TY_String, FN_("s") | FN_COERCION,
+		_Static|_Public|_Immutable, _F(System_gc), TY_void, TY_System, MN_("gc"), 0,
+		DEND,
+	};
+	KLIB kNameSpace_loadMethodData(kctx, NULL, MethodData);
 }
 
 #ifdef __cplusplus

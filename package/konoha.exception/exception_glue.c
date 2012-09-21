@@ -22,11 +22,9 @@
  * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  ***************************************************************************/
 
-#include<minikonoha/minikonoha.h>
-#include<minikonoha/sugar.h>
-#include<minikonoha/float.h>
-
-kObjectVar** KONOHA_reftail(KonohaContext *kctx, size_t size);
+#include <minikonoha/minikonoha.h>
+#include <minikonoha/sugar.h>
+#include <minikonoha/float.h>
 
 typedef kushort_t kfault_t;
 typedef const struct kExceptionVar kException;
@@ -129,7 +127,7 @@ static void Kthrow(KonohaContext *kctx, KonohaStack *sfp)
 			p--;
 		}
 	}
-	//KLIB Kraise(kctx, 1);
+	//KLIB KonohaRuntime_raise(kctx, 1);
 }
 
 /* ------------------------------------------------------------------------ */
@@ -147,6 +145,11 @@ static KMETHOD System_getThrownException(KonohaContext *kctx, KonohaStack *sfp)
 {
 	KonohaExceptionContext *ctx = KonohaContext_getExceptionContext(kctx);
 	RETURN_(ctx->thrownException);
+}
+
+static KMETHOD Exception_new(KonohaContext *kctx, KonohaStack *sfp)
+{
+	RETURN_(sfp[0].o);
 }
 
 // --------------------------------------------------------------------------
@@ -198,14 +201,14 @@ static void kModuleException_free(KonohaContext *kctx, KonohaModule *baseh)
 	KFREE(baseh, sizeof(KonohaExceptionModule));
 }
 
-static	kbool_t exception_initPackage(KonohaContext *kctx, kNameSpace *ns, int argc, const char**args, kfileline_t pline)
+static kbool_t exception_initPackage(KonohaContext *kctx, kNameSpace *ns, int argc, const char**args, kfileline_t pline)
 {
 	KonohaExceptionModule *mod = (KonohaExceptionModule*)KCALLOC(sizeof(KonohaExceptionModule), 1);
 	mod->h.name     = "exception";
 	mod->h.setup    = kModuleException_setup;
 	mod->h.reftrace = kModuleException_reftrace;
 	mod->h.free     = kModuleException_free;
-	KLIB Konoha_setModule(kctx, MOD_exception, &mod->h, pline);
+	KLIB KonohaRuntime_setModule(kctx, MOD_exception, &mod->h, pline);
 	KDEFINE_CLASS defException = {
 		STRUCTNAME(Exception),
 		.cflag = CFLAG_Exception,
@@ -213,10 +216,10 @@ static	kbool_t exception_initPackage(KonohaContext *kctx, kNameSpace *ns, int ar
 		.reftrace = Exception_reftrace,
 		.p     = Exception_p,
 	};
-	mod->cException = KLIB Konoha_defineClass(kctx, ns->packageId, PN_konoha, NULL, &defException, pline);
+	mod->cException = KLIB kNameSpace_defineClass(kctx, ns, NULL, &defException, pline);
 
 	KDEFINE_METHOD MethodData[] = {
-		_Public|_Hidden, _F(System_throw), TY_void,  TY_System, MN_("throw"), 1, TY_Exception, FN_("e"),
+		_Public, _F(Exception_new), TY_Exception,  TY_Exception, MN_("new"), 0, _Public|_Hidden, _F(System_throw), TY_void,  TY_System, MN_("throw"), 1, TY_Exception, FN_("e"),
 		_Public|_Hidden, _F(System_getThrownException), TY_Exception, TY_System, MN_("getThrownException"), 0,
 		DEND,
 	};
@@ -261,22 +264,49 @@ static kbool_t exception_setupPackage(KonohaContext *kctx, kNameSpace *ns, isFir
 //	}
 //}
 
-static kbool_t exception_initNameSpace(KonohaContext *kctx, kNameSpace *ns, kfileline_t pline)
+static KMETHOD StmtTyCheck_try(KonohaContext *kctx, KonohaStack *sfp)
 {
-//	KDEFINE_SYNTAX SYNTAX[] = {
+	VAR_StmtTyCheck(stmt, gma);
+	DBG_P("try statement .. \n");
+	int ret = false;
+	kBlock *tryBlock, *catchBlock, *finallyBlock;
+	tryBlock     = SUGAR kStmt_getBlock(kctx, stmt, NULL, KW_BlockPattern, K_NULLBLOCK);
+	if (SUGAR kStmt_tyCheckByName(kctx, stmt, KW_ExprPattern, gma, TY_Exception, 0)) {
+		catchBlock   = SUGAR kStmt_getBlock(kctx, stmt, NULL, SYM_("catch"),   K_NULLBLOCK);
+		finallyBlock = SUGAR kStmt_getBlock(kctx, stmt, NULL, SYM_("finally"), K_NULLBLOCK);
+		ret = SUGAR kBlock_tyCheckAll(kctx, tryBlock,   gma);
+		if (ret == false) {
+			RETURNb_(ret);
+		}
+		ret = SUGAR kBlock_tyCheckAll(kctx, catchBlock, gma);
+		if (ret == false) {
+			RETURNb_(ret);
+		}
+		if (finallyBlock) {
+			ret = SUGAR kBlock_tyCheckAll(kctx, finallyBlock, gma);
+		}
+	}
+	if(ret) {
+		kStmt_typed(stmt, TRY);
+	}
+	RETURNb_(ret);
+}
+
+static kbool_t exception_initNameSpace(KonohaContext *kctx, kNameSpace *packageNameSpace, kNameSpace *ns, kfileline_t pline)
+{
+	KDEFINE_SYNTAX SYNTAX[] = {
+		{ .keyword = SYM_("try"), TopStmtTyCheck_(try), StmtTyCheck_(try), .rule = "\"try\" $Block [ \"catch\" \"(\" $Expr \")\" catch: $Block ] [ \"finally\" finally: $Block ]",},
 //		{ .keyword = SYM_("[]"), .flag = SYNFLAG_ExprPostfixOp2, ParseExpr_(BRACKET), .precedence_op2 = 16, },  //KW_BracketGroup
-//		{ .keyword = KW_END, },
-//	};
-//	SUGAR kNameSpace_defineSyntax(kctx, ns, SYNTAX);
+		{ .keyword = KW_END, },
+	};
+	SUGAR kNameSpace_defineSyntax(kctx, ns, SYNTAX, packageNameSpace);
 	return true;
 }
 
-static kbool_t exception_setupNameSpace(KonohaContext *kctx, kNameSpace *ns, kfileline_t pline)
+static kbool_t exception_setupNameSpace(KonohaContext *kctx, kNameSpace *packageNameSpace, kNameSpace *ns, kfileline_t pline)
 {
 	return true;
 }
-
-
 
 KDEFINE_PACKAGE* exception_init(void)
 {

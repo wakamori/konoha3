@@ -28,15 +28,6 @@
 /* --------------- */
 /* NameSpace */
 
-static void NameSpace_init(KonohaContext *kctx, kObject *o, void *conf)
-{
-	kNameSpaceVar *ns = (kNameSpaceVar*)o;
-	bzero(&ns->parentNULL, sizeof(kNameSpace) - sizeof(KonohaObjectHeader));
-	ns->parentNULL = conf;
-	KINITv(ns->methodList, K_EMPTYARRAY);
-	KINITv(ns->scriptObject, KLIB Knull(kctx, CT_System));
-}
-
 static void syntaxMap_reftrace(KonohaContext *kctx, KUtilsHashMapEntry *p, void *thunk)
 {
 	SugarSyntax *syn = (SugarSyntax*)p->unboxValue;
@@ -49,23 +40,20 @@ static void syntaxMap_reftrace(KonohaContext *kctx, KUtilsHashMapEntry *p, void 
 	END_REFTRACE();
 }
 
-static void NameSpace_reftrace(KonohaContext *kctx, kObject *o)
+static void kNameSpace_reftraceSugarExtension(KonohaContext *kctx, kNameSpace *ns)
 {
-	kNameSpace *ns = (kNameSpace*)o;
 	if(ns->syntaxMapNN != NULL) {
 		KLIB Kmap_each(kctx, ns->syntaxMapNN, NULL, syntaxMap_reftrace);
 	}
-	size_t i, size = ns->constTable.bytesize / sizeof(KUtilsKeyValue);
-	BEGIN_REFTRACE(size+3);
-	for(i = 0; i < size; i++) {
-		if(SYMKEY_isBOXED(ns->constTable.keyvalueItems[i].key)) {
-			KREFTRACEv(ns->constTable.keyvalueItems[i].objectValue);
+	if(ns->tokenMatrix != NULL) {
+		BEGIN_REFTRACE(KCHAR_MAX);
+		size_t i;
+		kFunc** items = ((kFunc**)ns->tokenMatrix) + KCHAR_MAX;
+		for(i = 0; i < KCHAR_MAX; i++) {
+			KREFTRACEn(items[i]);
 		}
+		END_REFTRACE();
 	}
-	KREFTRACEn(ns->parentNULL);
-	KREFTRACEv(ns->scriptObject);
-	KREFTRACEv(ns->methodList);
-	END_REFTRACE();
 }
 
 static void syntaxMap_free(KonohaContext *kctx, void *p)
@@ -73,16 +61,14 @@ static void syntaxMap_free(KonohaContext *kctx, void *p)
 	KFREE(p, sizeof(SugarSyntax));
 }
 
-static void NameSpace_free(KonohaContext *kctx, kObject *o)
+static void kNameSpace_freeSugarExtension(KonohaContext *kctx, kNameSpaceVar *ns)
 {
-	kNameSpaceVar *ns = (kNameSpaceVar*)o;
 	if(ns->syntaxMapNN != NULL) {
 		KLIB Kmap_free(kctx, ns->syntaxMapNN, syntaxMap_free);
 	}
 	if(ns->tokenMatrix != NULL) {
 		KFREE((void*)ns->tokenMatrix, SIZEOF_TOKENMATRIX);
 	}
-	KLIB Karray_free(kctx, &ns->constTable);
 }
 
 /* --------------- */
@@ -233,7 +219,7 @@ static kExpr* SUGAR kExpr_setUnboxConstValue(KonohaContext *kctx, kExpr *expr, k
 	return (kExpr*)Wexpr;
 }
 
-static kExpr* SUGAR kExpr_setVariable(KonohaContext *kctx, kExpr *expr, kGamma *gma, int build, ktype_t ty, intptr_t index)
+static kExpr* SUGAR kExpr_setVariable(KonohaContext *kctx, kExpr *expr, kGamma *gma, kexpr_t build, ktype_t ty, intptr_t index)
 {
 	kExprVar *Wexpr = (expr == NULL) ? GCSAFE_new(ExprVar, 0) : (kExprVar*)expr;
 	Wexpr->build = build;
@@ -279,7 +265,7 @@ static kStmt* new_kStmt(KonohaContext *kctx, kNameSpace *ns, ksymbol_t keyword, 
 		kObject *v = va_arg(ap, kObject*);
 		if(v == NULL) break;
 		kStmt_setObject(kctx, stmt, kw, v);
-		kw = va_arg(ap, ksymbol_t);
+		kw = (ksymbol_t) va_arg(ap, int);
 	}
 	va_end(ap);
 	return stmt;

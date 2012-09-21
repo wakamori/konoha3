@@ -26,6 +26,13 @@
 #include <minikonoha/sugar.h>
 #include <stdio.h>
 #include <unistd.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <dirent.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 struct kio_t {
 	union {
@@ -120,7 +127,6 @@ struct kInputStreamVar {
 	uintptr_t iconv;
 	KUtilsGrowingArray buffer;
 	size_t top; size_t tail;
-
 };
 
 typedef struct kOutputStreamVar kOutputStream;
@@ -132,6 +138,22 @@ struct kOutputStreamVar {
 	uintptr_t iconv;
 	KUtilsGrowingArray buffer;
 };
+
+typedef struct kFileVar kFile;
+
+struct kFileVar {
+	KonohaObjectHeader h;
+	kString *path;
+};
+
+#define kioshare ((kioshare_t *)kctx->modshare[MOD_IO])
+
+typedef struct {
+	KonohaModule h;
+	kInputStream  *kstdin;
+	kOutputStream *kstdout;
+	kOutputStream *kstderr;
+} kioshare_t;
 
 #define OutputStream_isAutoFlush(o)      (TFLAG_is(uintptr_t,(o)->h.magicflag,kObject_Local1))
 #define OutputStream_setAutoFlush(o,B)   TFLAG_set(uintptr_t,(o)->h.magicflag,kObject_Local1,B)
@@ -251,6 +273,25 @@ static void kOutputStream_writeUTF8(KonohaContext *kctx, kOutputStream *out, con
 	kOutputStream_write(kctx, out, buf, bufsiz);
 }
 
+static void kFile_init(KonohaContext *kctx, kObject *o, void *conf)
+{
+	kFile *out = (kFile*)o;
+	KINITv(out->path, K_NULL);
+}
+
+static void kFile_free(KonohaContext *kctx, kObject *o)
+{
+
+}
+
+static void kFile_reftrace(KonohaContext *kctx, kObject *o)
+{
+	kFile *file = (kFile *)o;
+	BEGIN_REFTRACE(1);
+	KREFTRACEv(file->path);
+	END_REFTRACE();
+}
+
 /* ------------------------------------------------------------------------ */
 /* Method */
 
@@ -261,7 +302,7 @@ static KMETHOD InputStream_new(KonohaContext *kctx, KonohaStack *sfp)
 	kString *path = sfp[1].asString;
 	FILE *fp = fopen(S_text(path), "r");
 	if(fp == NULL) {
-		KLIB Kraise(kctx, EXPT_("IO"), sfp, sfp[K_RTNIDX].uline);
+		KLIB KonohaRuntime_raise(kctx, EXPT_("IO"), sfp, sfp[K_RTNIDX].uline, NULL);
 	}
 	in->fp = (FILE_i*)fp;
 	in->streamApi = &FileStreamApi;
@@ -356,7 +397,7 @@ static KMETHOD OutputStream_new(KonohaContext *kctx, KonohaStack *sfp)
 	const char *mode = IS_NULL(sfp[2].s) ? "w" : S_text(sfp[2].s);
 	FILE *fp = fopen(S_text(path), mode);
 	if(fp == NULL) {
-		KLIB Kraise(kctx, EXPT_("IO"), sfp, sfp[K_RTNIDX].uline);
+		KLIB KonohaRuntime_raise(kctx, EXPT_("IO"), sfp, sfp[K_RTNIDX].uline, NULL);
 	}
 	out->fp = (FILE_i*)fp;
 	out->streamApi = &FileStreamApi;
@@ -423,33 +464,163 @@ static KMETHOD OutputStream_isClosed(KonohaContext *kctx, KonohaStack *sfp)
 }
 
 // --------------------------------------------------------------------------
+//## method @public @static InputStream System.getIn()
+static KMETHOD System_getIn(KonohaContext *kctx, KonohaStack *sfp)
+{
+	RETURN_(kioshare->kstdin);
+}
 
-//static void kioshare_setup(KonohaContext *kctx, struct KonohaModule *def)
-//{
-//}
-//
-//static void kioshare_reftrace(KonohaContext *kctx, struct KonohaModule *baseh)
-//{
-//}
-//
-//static void kioshare_free(KonohaContext *kctx, struct KonohaModule *baseh)
-//{
-//	KFREE(baseh, sizeof(kioshare_t));
-//}
+//## method @public @static OutputStream System.getOut()
+static KMETHOD System_getOut(KonohaContext *kctx, KonohaStack *sfp)
+{
+	RETURN_(kioshare->kstdout);
+}
+
+//## method @public @static OutputStream System.getErr()
+static KMETHOD System_getErr(KonohaContext *kctx, KonohaStack *sfp)
+{
+	RETURN_(kioshare->kstderr);
+}
+
+//## method @public @static boolean System.isDir(String x)
+static KMETHOD System_isDir(KonohaContext *kctx, KonohaStack *sfp)
+{
+	const char *filename = S_text(sfp[1].asString);
+	struct stat st;
+	RETURNb_(stat(filename, &st) == 0 && S_ISDIR(st.st_mode));
+}
+
+//## method @public @static boolean System.isFile(String x)
+static KMETHOD System_isFile(KonohaContext *kctx, KonohaStack *sfp)
+{
+	const char *filename = S_text(sfp[1].asString);
+	struct stat st;
+	RETURNb_(stat(filename, &st) == 0 && S_ISREG(st.st_mode));
+}
+
+// --------------------------------------------------------------------------
+//## method @public File File.new(String x)
+static KMETHOD File_new(KonohaContext *kctx, KonohaStack *sfp)
+{
+	kFile *f = (kFile*)sfp[0].o;
+	KSETv(f, f->path, sfp[1].asString);
+	RETURN_(f);
+}
+
+//## method @public boolean File.getPath()
+static KMETHOD File_getPath(KonohaContext *kctx, KonohaStack *sfp)
+{
+	kFile *f = (kFile*)sfp[0].o;
+	RETURN_(f->path);
+}
+
+//## method @public boolean File.exists()
+static KMETHOD File_exists(KonohaContext *kctx, KonohaStack *sfp)
+{
+	kFile *f = (kFile*)sfp[0].o;
+	const char *filename = S_text(f->path);
+	struct stat st;
+	RETURNb_(stat(filename, &st) == 0);
+}
+
+//## method @public boolean File.getSize()
+static KMETHOD File_getSize(KonohaContext *kctx, KonohaStack *sfp)
+{
+	kFile *f = (kFile*)sfp[0].o;
+	const char *filename = S_text(f->path);
+	struct stat st;
+	RETURNi_(stat(filename, &st) == 0 ? st.st_size : 0);
+}
+
+//## method @public boolean File.isDir()
+static KMETHOD File_isDir(KonohaContext *kctx, KonohaStack *sfp)
+{
+	kFile *f = (kFile*)sfp[0].o;
+	const char *filename = S_text(f->path);
+	struct stat st;
+	RETURNb_(stat(filename, &st) == 0 && S_ISDIR(st.st_mode));
+}
+
+//## method @public boolean File.isFile()
+static KMETHOD File_isFile(KonohaContext *kctx, KonohaStack *sfp)
+{
+	kFile *f = (kFile*)sfp[0].o;
+	const char *filename = S_text(f->path);
+	struct stat st;
+	RETURNb_(stat(filename, &st) == 0 && S_ISREG(st.st_mode));
+}
+
+//## method @public boolean File.rename(String newName)
+static KMETHOD File_rename(KonohaContext *kctx, KonohaStack *sfp)
+{
+	kFile *f = (kFile*)sfp[0].o;
+	const char *oldName = S_text(f->path);
+	const char *newName = S_text(sfp[1].asString);
+	RETURNb_(rename(oldName, newName) == 0); // success: true
+}
+
+//## method @public boolean File.remove()
+static KMETHOD File_remove(KonohaContext *kctx, KonohaStack *sfp)
+{
+	kFile *f = (kFile*)sfp[0].o;
+	const char *filename = S_text(f->path);
+	RETURNb_(remove(filename) == 0); // success: true
+}
+
+//## method @public Array[String] File.list()
+static KMETHOD File_list(KonohaContext *kctx, KonohaStack *sfp)
+{
+	kFile *f = (kFile*)sfp[0].o;
+	const char *dirname = S_text(f->path);
+	kArray *a = new_(Array, 0);
+	DIR *dir = opendir(dirname);
+	if(dir != NULL) {
+		struct dirent *e;
+		while((e = readdir(dir)) != NULL) {
+			const char *fname = e->d_name;
+			if(strcmp(fname, ".") != 0 && strcmp(fname, "..") != 0) {
+				KLIB kArray_add(kctx, a, KLIB new_kString(kctx, fname, strlen(fname), 0));
+			}
+		}
+		closedir(dir);
+	}
+	RETURN_(a);
+}
+
+// --------------------------------------------------------------------------
+
+static void kioshare_setup(KonohaContext *kctx, struct KonohaModule *def, int newctx)
+{
+}
+
+static void kioshare_reftrace(KonohaContext *kctx, struct KonohaModule *baseh)
+{
+	kioshare_t *base = (kioshare_t *)baseh;
+	BEGIN_REFTRACE(3);
+	KREFTRACEv(base->kstdin);
+	KREFTRACEv(base->kstdout);
+	KREFTRACEv(base->kstderr);
+	END_REFTRACE();
+}
+
+static void kioshare_free(KonohaContext *kctx, struct KonohaModule *baseh)
+{
+	KFREE(baseh, sizeof(kioshare_t));
+}
 
 #define _Public   kMethod_Public
-#define _Const    kMethod_Const
+#define _Static   kMethod_Static
 #define _Coercion kMethod_Coercion
 #define _F(F)   (intptr_t)(F)
 
 static kbool_t io_initPackage(KonohaContext *kctx, kNameSpace *ns, int argc, const char**args, kfileline_t pline)
 {
-//	kioshare_t *base = (kioshare_t*)KCALLOC(sizeof(kioshare_t));
-//	base->h.name     = "io";
-//	base->h.setup    = kioshare_setup;
-//	base->h.reftrace = kioshare_reftrace;
-//	base->h.free     = kioshare_free;
-//	Konoha_setModule(MOD_IO, &base->h, pline);
+	kioshare_t *base = (kioshare_t*)KCALLOC(sizeof(kioshare_t), 1);
+	base->h.name     = "io";
+	base->h.setup    = kioshare_setup;
+	base->h.reftrace = kioshare_reftrace;
+	base->h.free     = kioshare_free;
+	KLIB KonohaRuntime_setModule(kctx, MOD_IO, &base->h, pline);
 
 	KDEFINE_CLASS defInputStream = {
 		STRUCTNAME(InputStream),
@@ -463,27 +634,77 @@ static kbool_t io_initPackage(KonohaContext *kctx, kNameSpace *ns, int argc, con
 		.init  = kOutputStream_init,
 		.free  = kOutputStream_free,
 	};
-	KonohaClass *cInputStream =  KLIB Konoha_defineClass(kctx, ns->packageId, PN_konoha, NULL, &defInputStream, pline);
-	KonohaClass *cOutputStream = KLIB Konoha_defineClass(kctx, ns->packageId, PN_konoha, NULL, &defOutputStream, pline);
+	KDEFINE_CLASS defFile = {
+		STRUCTNAME(File),
+		.cflag    = kClass_Final,
+		.init     = kFile_init,
+		.reftrace = kFile_reftrace,
+		.free     = kFile_free,
+	};
+
+	KonohaClass *cInputStream  = KLIB kNameSpace_defineClass(kctx, ns, NULL, &defInputStream, pline);
+	KonohaClass *cOutputStream = KLIB kNameSpace_defineClass(kctx, ns, NULL, &defOutputStream, pline);
+	KonohaClass *cFile         = KLIB kNameSpace_defineClass(kctx, ns, NULL, &defFile, pline);
 	int TY_InputStream = cInputStream->typeId;
 	int TY_OutputStream = cOutputStream->typeId;
+	int TY_File = cFile->typeId;
+
+#define CT_OutputStream CT_(TY_OutputStream)
+#define CT_InputStream  CT_(TY_InputStream)
+	// system.in
+	base->kstdin = new_(InputStream, NULL);
+	kInputStream_init(kctx, (kObject *)base->kstdin, NULL);
+	base->kstdin->fp = (FILE_i*)stdin;
+	base->kstdin->streamApi = &FileStreamApi;
+	// system.out
+	base->kstdout = new_(OutputStream, NULL);
+	kOutputStream_init(kctx, (kObject *)base->kstdout, NULL);
+	base->kstdout->fp = (FILE_i*)stdout;
+	base->kstdout->streamApi = &FileStreamApi;
+	// system.err
+	base->kstderr = new_(OutputStream, NULL);
+	kOutputStream_init(kctx, (kObject *)base->kstderr, NULL);
+	base->kstderr->fp = (FILE_i*)stderr;
+	base->kstderr->streamApi = &FileStreamApi;
+
+	kparamtype_t p = { .ty = TY_String,  };
+	KonohaClass *cStrArray = KLIB KonohaClass_Generics(kctx, CT_(TY_Array), TY_void, 1, &p);
+#define TY_StrArray (cStrArray->typeId)
+
 	int FN_path = FN_("path");
 	int FN_mode = FN_("mode");
 	int FN_value = FN_("value");
 	int FN_x = FN_("x");
 	KDEFINE_METHOD MethodData[] = {
-		_Public, _F(InputStream_getByte),  TY_Int,         TY_InputStream,  MN_("getByte"), 0,
-		_Public, _F(InputStream_isClosed), TY_Boolean,     TY_InputStream,  MN_("isClosed"), 0,
+		_Public, _F(InputStream_getByte),  TY_int,         TY_InputStream,  MN_("getByte"), 0,
+		_Public, _F(InputStream_isClosed), TY_boolean,     TY_InputStream,  MN_("isClosed"), 0,
 		_Public, _F(InputStream_new),      TY_InputStream, TY_InputStream,  MN_("new"), 1, TY_String, FN_path,
 		_Public, _F(InputStream_close),    TY_void,        TY_InputStream,  MN_("close"), 0,
 		_Public, _F(InputStream_readLine), TY_String,      TY_InputStream,  MN_("readLine"), 0,
-		_Public, _F(OutputStream_putByte),  TY_void,         TY_OutputStream, MN_("putByte"), 1, TY_Int, FN_x,
-		_Public, _F(OutputStream_isClosed), TY_Boolean,      TY_OutputStream, MN_("isClosed"), 0,
+		_Public, _F(OutputStream_putByte),  TY_void,         TY_OutputStream, MN_("putByte"), 1, TY_int, FN_x,
+		_Public, _F(OutputStream_isClosed), TY_boolean,      TY_OutputStream, MN_("isClosed"), 0,
 		_Public, _F(OutputStream_new),      TY_OutputStream, TY_OutputStream, MN_("new"), 2, TY_String, FN_path, TY_String, FN_mode,
 		_Public, _F(OutputStream_print),    TY_void,         TY_OutputStream, MN_("print"), 1,   TY_String, FN_value|_Coercion,
 		_Public, _F(OutputStream_println),  TY_void,         TY_OutputStream, MN_("println"), 1, TY_String, FN_value|_Coercion,
 		_Public, _F(OutputStream_flush),    TY_void,         TY_OutputStream, MN_("flush"), 0,
 		_Public, _F(OutputStream_close),    TY_void,         TY_OutputStream, MN_("close"), 0,
+
+		_Public, _F(File_new),     TY_File,        TY_File, MN_("new"), 1, TY_String, FN_x,
+		_Public, _F(File_getPath), TY_String,      TY_File, MN_("getPath"), 0,
+		_Public, _F(File_exists),  TY_boolean,     TY_File, MN_("exists"), 0,
+		_Public, _F(File_isDir),   TY_boolean,     TY_File, MN_("isDir"), 0,
+		_Public, _F(File_isFile),  TY_boolean,     TY_File, MN_("isFile"), 0,
+		_Public, _F(File_getSize), TY_int,         TY_File, MN_("getSize"), 0,
+		_Public, _F(File_getSize), TY_int,         TY_File, MN_("length"), 0,
+		_Public, _F(File_rename),  TY_boolean,     TY_File, MN_("rename"), 1, TY_String, FN_x,
+		_Public, _F(File_remove),  TY_boolean,     TY_File, MN_("remove"), 0,
+		_Public, _F(File_list),    TY_StrArray,    TY_File, MN_("list"), 0,
+
+		_Public|_Static, _F(System_isDir),  TY_boolean,      TY_System, MN_("isDir"), 1, TY_String, FN_x,
+		_Public|_Static, _F(System_isFile), TY_boolean,      TY_System, MN_("isFile"), 1, TY_String, FN_x,
+		_Public|_Static, _F(System_getIn ), TY_InputStream,  TY_System, MN_("getIn"), 0,
+		_Public|_Static, _F(System_getOut), TY_OutputStream, TY_System, MN_("getOut"), 0,
+		_Public|_Static, _F(System_getErr), TY_OutputStream, TY_System, MN_("getErr"), 0,
 		DEND,
 	};
 	KLIB kNameSpace_loadMethodData(kctx, NULL, MethodData);
@@ -495,12 +716,12 @@ static kbool_t io_setupPackage(KonohaContext *kctx, kNameSpace *ns, isFirstTime_
 	return true;
 }
 
-static kbool_t io_initNameSpace(KonohaContext *kctx, kNameSpace *ns, kfileline_t pline)
+static kbool_t io_initNameSpace(KonohaContext *kctx, kNameSpace *packageNameSpace, kNameSpace *ns, kfileline_t pline)
 {
 	return true;
 }
 
-static kbool_t io_setNameSpace(KonohaContext *kctx, kNameSpace *ns, kfileline_t pline)
+static kbool_t io_setNameSpace(KonohaContext *kctx, kNameSpace *packageNameSpace, kNameSpace *ns, kfileline_t pline)
 {
 	return true;
 }

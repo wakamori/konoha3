@@ -27,9 +27,11 @@
 #include <minikonoha/minikonoha.h>
 #include <minikonoha/logger.h>
 #include <minikonoha/local.h>
-#ifndef PLATAPIFORM_KERNEL
+#ifdef HAVE_SYSLOG_H
 #include <syslog.h>
-#endif /* PLATAPIFORM_KERNEL */
+#else
+#define	LOG_INFO	6
+#endif /* HAVE_SYSLOG_H */
 /* ------------------------------------------------------------------------ */
 /* [logger] */
 
@@ -191,7 +193,7 @@ void MODLOGGER_init(KonohaContext *kctx, KonohaContextVar *ctx)
 	base->h.setup    = kmodlogger_setup;
 	base->h.reftrace = kmodlogger_reftrace;
 	//base->h.free     = kmodlogger_free;
-	KLIB Konoha_setModule(kctx, MOD_logger, (KonohaModule*)base, 0);
+	KLIB KonohaRuntime_setModule(kctx, MOD_logger, (KonohaModule*)base, 0);
 	KSET_KLIB(Ktrace, 0);
 }
 

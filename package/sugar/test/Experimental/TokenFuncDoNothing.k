@@ -1,13 +1,13 @@
 // written by kimio kuramitsu
 
-K.import("sugar");
+import("sugar");
 
 int TokenFunc(Token tk, String source) {
 	System.p("source="+source);
 	return 0;
 }
 
-K.addTokenizeFunc("'", TokenFunc);
+addTokenizeFunc("'", TokenFunc);
 
 ''
 

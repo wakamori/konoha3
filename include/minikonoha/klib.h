@@ -66,8 +66,8 @@ static kinline kString* FileId_s_(KonohaContext *kctx, kfileline_t fileid)
 #define PackageId_t(X)    S_text(PackageId_s_(kctx, X))
 static kinline kString* PackageId_s_(KonohaContext *kctx, kpackage_t packageId)
 {
-	DBG_ASSERT(packageId < kArray_size(kctx->share->packList));
-	return kctx->share->packList->stringItems[packageId];
+	DBG_ASSERT(packageId < kArray_size(kctx->share->packageIdList));
+	return kctx->share->packageIdList->stringItems[packageId];
 }
 
 #define CT_s(X)   CT_s_(kctx, X)
@@ -128,7 +128,6 @@ static kinline kbool_t sym_equals(KonohaContext *kctx, ksymbol_t s1, ksymbol_t s
 	return false;
 }
 
-
 static kinline uintptr_t longid(kushort_t packageDomain, kushort_t un)
 {
 	uintptr_t hcode = packageDomain;
@@ -177,7 +176,7 @@ static kinline size_t check_index(KonohaContext *kctx, kint_t n, size_t max, kfi
 {
 	size_t n1 = (size_t)n;
 	if(unlikely(!(n1 < max))) {
-		KLIB Kraise(kctx, EXPT_("OutOfArrayBoundary"), NULL, pline);
+		KLIB KonohaRuntime_raise(kctx, EXPT_("OutOfArrayBoundary"), NULL, pline, NULL);
 	}
 	return n1;
 }

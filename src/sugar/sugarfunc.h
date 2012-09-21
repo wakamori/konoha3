@@ -56,18 +56,6 @@ static KMETHOD PatternMatch_Type(KonohaContext *kctx, KonohaStack *sfp)
 	RETURNi_(returnIdx);
 }
 
-static KMETHOD PatternMatch_ConstName(KonohaContext *kctx, KonohaStack *sfp)
-{
-	VAR_PatternMatch(stmt, name, tokenList, beginIdx, endIdx);
-	int returnIdx = -1;
-	kToken *tk = tokenList->tokenItems[beginIdx];
-	if(tk->resolvedSyntaxInfo->keyword == KW_SymbolPattern && isUpperCaseSymbol(S_text(tk->text))) {
-		KLIB kObject_setObject(kctx, stmt, name, O_typeId(tk), tk);
-		returnIdx = beginIdx + 1;
-	}
-	RETURNi_(returnIdx);
-}
-
 static KMETHOD PatternMatch_MethodName(KonohaContext *kctx, KonohaStack *sfp)
 {
 	VAR_PatternMatch(stmt, name, tokenList, beginIdx, endIdx);
@@ -131,6 +119,16 @@ static KMETHOD PatternMatch_Toks(KonohaContext *kctx, KonohaStack *sfp)
 
 /* ------------------------------------------------------------------------ */
 
+static KMETHOD ParseExpr_Expr(KonohaContext *kctx, KonohaStack *sfp)
+{
+	VAR_ParseExpr(stmt, tokenList, beginIdx, operatorIdx, endIdx);
+	if(beginIdx == operatorIdx) {
+		kToken *tk = tokenList->tokenItems[operatorIdx];
+		DBG_ASSERT(IS_Expr(tk->parsedExpr));
+		RETURN_(tk->parsedExpr);
+	}
+}
+
 static KMETHOD ParseExpr_Term(KonohaContext *kctx, KonohaStack *sfp)
 {
 	VAR_ParseExpr(stmt, tokenList, beginIdx, operatorIdx, endIdx);
@@ -151,13 +149,13 @@ static KMETHOD ParseExpr_Term(KonohaContext *kctx, KonohaStack *sfp)
 static KMETHOD ParseExpr_Op(KonohaContext *kctx, KonohaStack *sfp)
 {
 	VAR_ParseExpr(stmt, tokenList, beginIdx, operatorIdx, endIdx);
+	if(/*syn->keyword != KW_LET && */syn->sugarFuncTable[SUGARFUNC_ExprTyCheck] == NULL) {
+		DBG_P("switching type checker of %s%s to MethodCall ..", PSYM_t(syn->keyword));
+		syn = SYN_(Stmt_nameSpace(stmt), KW_ExprMethodCall);  // switch type checker
+	}
 	kTokenVar *tk = tokenList->tokenVarItems[operatorIdx];
 	kExpr *expr, *rexpr = kStmt_parseExpr(kctx, stmt, tokenList, operatorIdx + 1, endIdx);
 	PUSH_GCSTACK(rexpr);
-//	if(syn->keyword != KW_LET && syn->sugarFuncTable[SUGARFUNC_ExprTyCheck] == NULL) {
-//		DBG_P("switching type checker ..");
-//		syn = SYN_(Stmt_nameSpace(stmt), KW_ExprMethodCall);  // switch type checker
-//	}
 	if(beginIdx == operatorIdx) { // unary operator
 		expr = new_UntypedCallStyleExpr(kctx, syn, 2, tk, rexpr);
 	}
@@ -274,7 +272,6 @@ static kString *resolveEscapeSequence(KonohaContext *kctx, kString *s, size_t st
 	return s;
 }
 
-
 static KMETHOD ExprTyCheck_Text(KonohaContext *kctx, KonohaStack *sfp)
 {
 	VAR_ExprTyCheck(stmt, expr, gma, reqty);
@@ -301,13 +298,13 @@ static KMETHOD ExprTyCheck_Type(KonohaContext *kctx, KonohaStack *sfp)
 static KMETHOD ExprTyCheck_true(KonohaContext *kctx, KonohaStack *sfp)
 {
 	VAR_ExprTyCheck(stmt, expr, gma, reqty);
-	RETURN_(SUGAR kExpr_setUnboxConstValue(kctx, expr, TY_Boolean, (uintptr_t)1));
+	RETURN_(SUGAR kExpr_setUnboxConstValue(kctx, expr, TY_boolean, (uintptr_t)1));
 }
 
 static KMETHOD ExprTyCheck_false(KonohaContext *kctx, KonohaStack *sfp)
 {
 	VAR_ExprTyCheck(stmt, expr, gma, reqty);
-	RETURN_(SUGAR kExpr_setUnboxConstValue(kctx, expr, TY_Boolean, (uintptr_t)0));
+	RETURN_(SUGAR kExpr_setUnboxConstValue(kctx, expr, TY_boolean, (uintptr_t)0));
 }
 
 static KMETHOD ExprTyCheck_Int(KonohaContext *kctx, KonohaStack *sfp)
@@ -315,15 +312,15 @@ static KMETHOD ExprTyCheck_Int(KonohaContext *kctx, KonohaStack *sfp)
 	VAR_ExprTyCheck(stmt, expr, gma, reqty);
 	kToken *tk = expr->termToken;
 	long long n = strtoll(S_text(tk->text), NULL, 0);
-	RETURN_(SUGAR kExpr_setUnboxConstValue(kctx, expr, TY_Int, (uintptr_t)n));
+	RETURN_(SUGAR kExpr_setUnboxConstValue(kctx, expr, TY_int, (uintptr_t)n));
 }
 
 static KMETHOD ExprTyCheck_AND(KonohaContext *kctx, KonohaStack *sfp)
 {
 	VAR_ExprTyCheck(stmt, expr, gma, reqty);
-	if(SUGAR kStmt_tyCheckExprAt(kctx, stmt, expr, 1, gma, TY_Boolean, 0) != K_NULLEXPR) {
-		if(SUGAR kStmt_tyCheckExprAt(kctx, stmt, expr, 2, gma, TY_Boolean, 0) != K_NULLEXPR) {
-			RETURN_(kExpr_typed(expr, AND, TY_Boolean));
+	if(SUGAR kStmt_tyCheckExprAt(kctx, stmt, expr, 1, gma, TY_boolean, 0) != K_NULLEXPR) {
+		if(SUGAR kStmt_tyCheckExprAt(kctx, stmt, expr, 2, gma, TY_boolean, 0) != K_NULLEXPR) {
+			RETURN_(kExpr_typed(expr, AND, TY_boolean));
 		}
 	}
 }
@@ -331,9 +328,9 @@ static KMETHOD ExprTyCheck_AND(KonohaContext *kctx, KonohaStack *sfp)
 static KMETHOD ExprTyCheck_OR(KonohaContext *kctx, KonohaStack *sfp)
 {
 	VAR_ExprTyCheck(stmt, expr, gma, reqty);
-	if(SUGAR kStmt_tyCheckExprAt(kctx, stmt, expr, 1, gma, TY_Boolean, 0) != K_NULLEXPR) {
-		if(SUGAR kStmt_tyCheckExprAt(kctx, stmt, expr, 2, gma, TY_Boolean, 0) != K_NULLEXPR) {
-			RETURN_(kExpr_typed(expr, OR, TY_Boolean));
+	if(SUGAR kStmt_tyCheckExprAt(kctx, stmt, expr, 1, gma, TY_boolean, 0) != K_NULLEXPR) {
+		if(SUGAR kStmt_tyCheckExprAt(kctx, stmt, expr, 2, gma, TY_boolean, 0) != K_NULLEXPR) {
+			RETURN_(kExpr_typed(expr, OR, TY_boolean));
 		}
 	}
 }
@@ -357,23 +354,35 @@ static KMETHOD ExprTyCheck_assign(KonohaContext *kctx, KonohaStack *sfp)
 			DBG_ASSERT(IS_Method(mtd));
 			if(MN_isGETTER(mtd->mn)) {
 				ktype_t cid = leftHandExpr->cons->exprItems[1]->ty;
-				ktype_t paramType = leftHandExpr->ty; //CT_(cid)->realtype(kctx, CT_(cid), CT_(leftHandExpr->ty));
-				mtd = KLIB kNameSpace_getMethodNULL(kctx, ns, cid, MN_toSETTER(mtd->mn), paramType, MPOL_SETTER|MPOL_CANONICAL);
-				DBG_P("cid=%s, mtd=%p", TY_t(cid), mtd);
-				if(mtd != NULL) {
-					KSETv(leftHandExpr->cons, leftHandExpr->cons->methodItems[0], mtd);
+				ktype_t paramType = leftHandExpr->ty;
+				ksymbol_t sym = SYM_UNMASK(mtd->mn);
+				kMethod *foundMethod = KLIB kNameSpace_getSetterMethodNULL(kctx, ns, cid, sym, paramType);  // FIXME
+				if(foundMethod != NULL) {
+					KSETv(leftHandExpr->cons, leftHandExpr->cons->methodItems[0], foundMethod);
 					KLIB kArray_add(kctx, leftHandExpr->cons, rightHandExpr);
-					RETURN_(SUGAR kStmt_tyCheckCallParamExpr(kctx, stmt, leftHandExpr, mtd, gma, reqty));
+					RETURN_(SUGAR kStmt_tyCheckCallParamExpr(kctx, stmt, leftHandExpr, foundMethod, gma, reqty));
+				}
+				kParam *pa = Method_param(mtd);
+				if (pa->psize == 1) { /* transform "T1 A.get(T2)" to "void A.set(T2, T1)" */
+					kparamtype_t p[2] = {{pa->paramtypeItems[0].ty}, {pa->rtype}};
+					kparamid_t paramdom = KLIB Kparamdom(kctx, 2, p);
+					foundMethod = kNameSpace_getMethodBySignatureNULL(kctx, ns, cid, MN_toSETTER(sym), paramdom, 2, p);
+					if(foundMethod != NULL) {
+						KSETv(leftHandExpr->cons, leftHandExpr->cons->methodItems[0], foundMethod);
+						KLIB kArray_add(kctx, leftHandExpr->cons, rightHandExpr);
+						RETURN_(SUGAR kStmt_tyCheckCallParamExpr(kctx, stmt, leftHandExpr, foundMethod, gma, reqty));
+					}
 				}
 			}
 		}
-		SUGAR kStmt_printMessage(kctx, stmt, (kToken*)expr, ErrTag, "variable name is expected");
+		SUGAR kStmt_printMessage2(kctx, stmt, (kToken*)expr, ErrTag, "variable name is expected");
 	}
 	RETURN_(K_NULLEXPR);
 }
 
-static int addGammaStack(KonohaContext *kctx, GammaStack *s, ktype_t ty, ksymbol_t fn)
+static int kGamma_declareLocalVariable(KonohaContext *kctx, kGamma *gma, ktype_t ty, ksymbol_t fn)
 {
+	GammaStack *s = &gma->genv->localScope;
 	int index = s->varsize;
 	if(!(s->varsize < s->capacity)) {
 		s->capacity *= 2;
@@ -386,7 +395,6 @@ static int addGammaStack(KonohaContext *kctx, GammaStack *s, ktype_t ty, ksymbol
 		s->varItems = v;
 		s->allocsize = asize;
 	}
-	DBG_P("index=%d, ty=%s fn=%s", index, TY_t(ty), SYM_t(fn));
 	s->varItems[index].ty = ty;
 	s->varItems[index].fn = fn;
 	s->varsize += 1;
@@ -397,7 +405,7 @@ static KMETHOD ExprTyCheck_Block(KonohaContext *kctx, KonohaStack *sfp)
 {
 	VAR_ExprTyCheck(stmt, expr, gma, reqty);
 	kBlock *bk = expr->block;
-	if(IS_Block(bk)) {
+	if(IS_Block(bk)) {  // this is special case of ${} by set internally
 		kExpr *texpr = K_NULLEXPR;
 		kStmt *lastExpr = NULL;
 		kfileline_t uline = stmt->uline;
@@ -415,7 +423,7 @@ static KMETHOD ExprTyCheck_Block(KonohaContext *kctx, KonohaStack *sfp)
 			if(!kBlock_tyCheckAll(kctx, bk, gma)) {
 				RETURN_(texpr);
 			}
-			kExpr *lvar = new_VariableExpr(kctx, gma, TEXPR_LOCAL, TY_var, addGammaStack(kctx, &gma->genv->localScope, TY_var, 0/*FN_*/));
+			kExpr *lvar = new_VariableExpr(kctx, gma, TEXPR_LOCAL, TY_var, kGamma_declareLocalVariable(kctx, gma, TY_var, 0/*FN_*/));
 			kExpr *rexpr = SUGAR kStmt_getExpr(kctx, lastExpr, KW_ExprPattern, NULL);
 			DBG_ASSERT(rexpr != NULL);
 			ktype_t ty = rexpr->ty;
@@ -431,16 +439,11 @@ static KMETHOD ExprTyCheck_Block(KonohaContext *kctx, KonohaStack *sfp)
 		}
 		if(texpr == K_NULLEXPR) {
 			kStmt_errline(stmt, uline);
-			kkStmt_printMessage(stmt, ErrTag, "block has no value");
+			kStmt_printMessage(kctx, stmt, ErrTag, "block has no value");
 		}
 		RETURN_(texpr);
 	}
-}
-
-static kMethod* NameSpace_getGetterMethodNULL(KonohaContext *kctx, kNameSpace *ns, ktype_t cid, ksymbol_t fn)
-{
-	if(fn == SYM_NONAME) return NULL;
-	return KLIB kNameSpace_getMethodNULL(kctx, ns, cid, MN_toGETTER(fn), 0, MPOL_GETTER);
+	kStmtExpr_printMessage(kctx, stmt, expr, ErrTag, "undefined expression: %s", Token_text(expr->termToken));
 }
 
 static kExpr* new_GetterExpr(KonohaContext *kctx, kToken *tkU, kMethod *mtd, kExpr *expr)
@@ -450,56 +453,50 @@ static kExpr* new_GetterExpr(KonohaContext *kctx, kToken *tkU, kMethod *mtd, kEx
 	return (kExpr*)expr1;
 }
 
-static kObject *NameSpace_getSymbolValueNULL(KonohaContext *kctx, kNameSpace *ns, const char *key, size_t klen)
-{
-	if(key[0] == 'K' && (key[1] == 0 || strcmp("Konoha", key) == 0)) {
-		return (kObject*)ns;
-	}
-	return NULL;
-}
-
-static kExpr* Expr_tyCheckVariable2(KonohaContext *kctx, kStmt *stmt, kExpr *expr, kGamma *gma, ktype_t reqty)
+static kExpr* kStmt_tyCheckVariableNULL(KonohaContext *kctx, kStmt *stmt, kExpr *expr, kGamma *gma, ktype_t reqty)
 {
 	DBG_ASSERT(expr->ty == TY_var);
 	kToken *tk = expr->termToken;
 	ksymbol_t symbol = tk->resolvedSymbol;
 	kNameSpace *ns = Stmt_nameSpace(stmt);
-	{
-		int i;
-		GammaAllocaData *genv = gma->genv;
-		for(i = genv->localScope.varsize - 1; i >= 0; i--) {
-			if(genv->localScope.varItems[i].fn == symbol) {
-				return SUGAR kExpr_setVariable(kctx, expr, gma, TEXPR_LOCAL, genv->localScope.varItems[i].ty, i);
-			}
+	int i;
+	GammaAllocaData *genv = gma->genv;
+	for(i = genv->localScope.varsize - 1; i >= 0; i--) {
+		if(genv->localScope.varItems[i].fn == symbol) {
+			return SUGAR kExpr_setVariable(kctx, expr, gma, TEXPR_LOCAL, genv->localScope.varItems[i].ty, i);
 		}
+	}
+	if(kNameSpace_allowedImplicitFieldAccess(ns)) {
 		if(genv->localScope.varItems[0].ty != TY_void) {
 			DBG_ASSERT(genv->this_cid == genv->localScope.varItems[0].ty);
 			KonohaClass *ct = CT_(genv->this_cid);
-			for(i = ct->fieldsize; i >= 0; i--) {
-				if(ct->fieldItems[i].fn == symbol && ct->fieldItems[i].ty != TY_void) {
-					return SUGAR kExpr_setVariable(kctx, expr, gma, TEXPR_FIELD, ct->fieldItems[i].ty, longid((kshort_t)i, 0));
+			if (ct->fieldsize > 0) {
+				for(i = ct->fieldsize; i >= 0; i--) {
+					if(ct->fieldItems[i].fn == symbol && ct->fieldItems[i].ty != TY_void) {
+						return SUGAR kExpr_setVariable(kctx, expr, gma, TEXPR_FIELD, ct->fieldItems[i].ty, longid((kshort_t)i, 0));
+					}
 				}
 			}
-			kMethod *mtd = NameSpace_getGetterMethodNULL(kctx, ns, genv->this_cid, symbol);
+			kMethod *mtd = kNameSpace_getGetterMethodNULL(kctx, ns, genv->this_cid, symbol, TY_var);
 			if(mtd != NULL) {
 				return new_GetterExpr(kctx, tk, mtd, new_VariableExpr(kctx, gma, TEXPR_LOCAL, genv->this_cid, 0));
 			}
 		}
 	}
-	{
-		ktype_t cid = O_typeId(ns->scriptObject);
-		kMethod *mtd = NameSpace_getGetterMethodNULL(kctx, ns, cid, symbol);
-		if(mtd != NULL && cid != TY_System) {
-			return new_GetterExpr(kctx, tk, mtd, new_ConstValueExpr(kctx, cid, ns->scriptObject));
-		}
-		mtd = KLIB kNameSpace_getMethodNULL(kctx, ns, cid, symbol, 0, MPOL_FIRST);  // finding function
+	if((Gamma_isTopLevel(gma) || kNameSpace_allowedTransparentGlobalVariable(ns)) && ns->globalObjectNULL != NULL) {
+		ktype_t cid = O_typeId(ns->globalObjectNULL);
+		kMethod *mtd = kNameSpace_getGetterMethodNULL(kctx, ns, cid, symbol, TY_var);
 		if(mtd != NULL) {
-			kParam *pa = Method_param(mtd);
-			KonohaClass *ct = KLIB KonohaClass_Generics(kctx, CT_Func, pa->rtype, pa->psize, (kparamtype_t*)pa->paramtypeItems);
-			kFuncVar *fo = (kFuncVar*)KLIB new_kObjectOnGCSTACK(kctx, ct, (uintptr_t)mtd);
-			KSETv(fo, fo->self, ns->scriptObject);
-			return new_ConstValueExpr(kctx, ct->typeId, UPCAST(fo));
+			return new_GetterExpr(kctx, tk, mtd, new_ConstValueExpr(kctx, cid, ns->globalObjectNULL));
 		}
+	}
+	kMethod *mtd = kNameSpace_getNameSpaceFuncNULL(kctx, ns, symbol, reqty);  // finding function
+	if(mtd != NULL) {
+		kParam *pa = Method_param(mtd);
+		KonohaClass *ct = KLIB KonohaClass_Generics(kctx, CT_Func, pa->rtype, pa->psize, (kparamtype_t*)pa->paramtypeItems);
+		kFuncVar *fo = (kFuncVar*)KLIB new_kObjectOnGCSTACK(kctx, ct, (uintptr_t)mtd);
+		KSETv(fo, fo->self, UPCAST(ns));
+		return new_ConstValueExpr(kctx, ct->typeId, UPCAST(fo));
 	}
 	if(symbol != SYM_NONAME) {
 		KUtilsKeyValue *kv = kNameSpace_getConstNULL(kctx, ns, symbol);
@@ -513,57 +510,18 @@ static kExpr* Expr_tyCheckVariable2(KonohaContext *kctx, kStmt *stmt, kExpr *exp
 			return expr;
 		}
 	}
-	kObject *v = NameSpace_getSymbolValueNULL(kctx, ns, S_text(tk->text), S_size(tk->text));
-	kExpr *texpr = (v == NULL) ? kToken_p(stmt, tk, ErrTag, "undefined name: %s", Token_text(tk)) : SUGAR kExpr_setConstValue(kctx, expr, O_typeId(v), v);
-	return texpr;
+	return NULL;
 }
 
 static KMETHOD ExprTyCheck_Symbol(KonohaContext *kctx, KonohaStack *sfp)
 {
 	VAR_ExprTyCheck(stmt, expr, gma, reqty);
-	RETURN_(Expr_tyCheckVariable2(kctx, stmt, expr, gma, reqty));
-}
-
-static KMETHOD StmtTyCheck_ConstDecl(KonohaContext *kctx, KonohaStack *sfp)
-{
-	VAR_StmtTyCheck(stmt, gma);
-	kbool_t r = false;
-	kNameSpace *ns = Stmt_nameSpace(stmt);
-	kToken *tk = SUGAR kStmt_getToken(kctx, stmt, KW_ConstPattern, NULL);
-	ksymbol_t unboxKey = tk->resolvedSymbol;
-	KUtilsKeyValue *kv = kNameSpace_getLocalConstNULL(kctx, ns, unboxKey);
-	if(kv != NULL) {
-		kkStmt_printMessage(stmt, ErrTag, "already defined name: %s", Token_text(tk));
+	kExpr *texpr = kStmt_tyCheckVariableNULL(kctx, stmt, expr, gma, reqty);
+	if(texpr == NULL) {
+		kToken *tk = expr->termToken;
+		texpr = kStmtToken_printMessage(kctx, stmt, tk, ErrTag, "undefined name: %s", Token_text(tk));
 	}
-	else {
-		r = kStmt_tyCheckByName(kctx, stmt, KW_ExprPattern, gma, TY_var, TPOL_CONST);
-		if(r) {
-			kExpr *expr = SUGAR kStmt_getExpr(kctx, stmt, KW_ExprPattern, NULL);
-			KUtilsKeyValue kv = { unboxKey, expr->ty};
-			if(expr->build == TEXPR_NULL) {
-				kv.ty = TY_TYPE;
-				kv.unboxValue = (uintptr_t)(CT_(expr->ty));
-				expr = NULL;
-			}
-			else if(expr->build == TEXPR_CONST) {
-				kv.key = unboxKey | SYMKEY_BOXED;
-				kv.objectValue = expr->objectConstValue;
-				expr = NULL;
-			}
-			else if(expr->build == TEXPR_NCONST) {
-				kv.unboxValue = expr->unboxConstValue;
-				expr = NULL;
-			}
-			if(expr == NULL) {
-				kNameSpace_mergeConstData(kctx, (kNameSpaceVar*)ns, &kv, 1, stmt->uline);
-			}
-			else {
-				kkStmt_printMessage(stmt, ErrTag, "constant value is expected");
-			}
-			kStmt_done(stmt);
-		}
-	}
-	RETURNb_(r);
+	RETURN_(texpr);
 }
 
 static ktype_t ktype_var(KonohaContext *kctx, ktype_t ty, KonohaClass *this_ct)
@@ -597,25 +555,9 @@ static kMethod *lookupOverloadedMethod(KonohaContext *kctx, kStmt *stmt, kExpr *
 		}
 		p[i].ty = expr->cons->exprItems[i+2]->ty;
 	}
-	kNameSpace *ns = Stmt_nameSpace(stmt);
 	kparamid_t paramdom = KLIB Kparamdom(kctx, psize, p);
-	kMethod *foundMethod = kNameSpace_getMethodNULL(kctx, ns, thisClass->typeId, mtd->mn, paramdom, MPOL_SIGNATURE|MPOL_LATEST);
+	kMethod *foundMethod = kNameSpace_getMethodBySignatureNULL(kctx, Stmt_nameSpace(stmt), thisClass->typeId, mtd->mn, paramdom, psize, p);
 	DBG_P("paradom=%d, foundMethod=%p", paramdom, foundMethod);
-	if(foundMethod == NULL) {
-		kArray *abuf = kctx->stack->gcstack;
-		size_t atop = kArray_size(abuf);
-		kNameSpace_findMethodList(kctx, ns, thisClass->typeId, mtd->mn, abuf, atop);
-		for(i = atop; i < kArray_size(abuf); i++) {
-			foundMethod = abuf->methodItems[i];
-			kParam *pa = Method_param(foundMethod);
-			if(pa->psize != psize) continue;
-			// TODO; check parameter;
-		}
-		KLIB kArray_clear(kctx, abuf, atop);
-		if(foundMethod == NULL) {
-			foundMethod = mtd;
-		}
-	}
 	return foundMethod;
 }
 
@@ -639,8 +581,8 @@ static kExpr* boxThisExpr(KonohaContext *kctx, kStmt *stmt, kGamma *gma, kExpr *
 	DBG_ASSERT(IS_Method(mtd));
 	DBG_ASSERT(thisClass->typeId != TY_var);
 	if(!TY_isUnbox(mtd->typeId) && CT_isUnbox(thisClass)) {
-		ktype_t unboxType = thisClass->typeId == TY_Boolean ? TY_Boolean : TY_Int;
-		kMethod *boxMethod = kNameSpace_getMethodNULL(kctx, Stmt_nameSpace(stmt), unboxType, MN_box, 0, MPOL_PARAMSIZE);
+		ktype_t unboxType = thisClass->typeId == TY_boolean ? TY_boolean : TY_int;
+		kMethod *boxMethod = kNameSpace_getMethodByParamSizeNULL(kctx, Stmt_nameSpace(stmt), unboxType, MN_box, 0);
 		thisExpr = new_TypedCallExpr(kctx, stmt, gma, thisClass->typeId, boxMethod, 1, expr->cons->exprItems[1]);
 		KSETv(expr->cons, expr->cons->exprItems[1], thisExpr);
 	}
@@ -661,14 +603,14 @@ static kExpr *kStmt_tyCheckCallParamExpr(KonohaContext *kctx, kStmt *stmt, kExpr
 		int tycheckPolicy = param_policy(pa->paramtypeItems[i].fn);
 		kExpr *texpr = SUGAR kStmt_tyCheckExprAt(kctx, stmt, expr, n, gma, paramType, tycheckPolicy);
 		if(texpr == K_NULLEXPR) {
-			return kExpr_p(stmt, expr, InfoTag, "%s.%s%s accepts %s at the parameter %d", Method_t(mtd), TY_t(paramType), (int)i+1);
+			return kStmtExpr_printMessage(kctx, stmt, expr, InfoTag, "%s.%s%s accepts %s at the parameter %d", Method_t(mtd), TY_t(paramType), (int)i+1);
 		}
 		if(!Expr_isCONST(texpr)) isConst = 0;
 	}
 	expr = Expr_typedWithMethod(kctx, expr, mtd, reqty);
 	if(isConst && Method_isConst(mtd)) {
 		ktype_t rtype = ktype_var(kctx, pa->rtype, thisClass);
-		return ExprCall_toConstValue(kctx, expr, expr->cons, rtype);
+		return kExprCall_toConstValue(kctx, expr, expr->cons, rtype);
 	}
 	return expr;
 }
@@ -691,16 +633,16 @@ static const char* MethodType_t(KonohaContext *kctx, kmethodn_t mn, size_t psize
 	return "method";
 }
 
-static kExpr *Expr_lookupMethod(KonohaContext *kctx, kStmt *stmt, kExpr *expr, ktype_t this_cid, kGamma *gma, ktype_t reqty)
+static kExpr *kStmtExpr_lookupMethod(KonohaContext *kctx, kStmt *stmt, kExpr *expr, ktype_t this_cid, kGamma *gma, ktype_t reqty)
 {
 	kNameSpace *ns = Stmt_nameSpace(stmt);
 	kTokenVar *tkMN = expr->cons->tokenVarItems[0];
 	DBG_ASSERT(IS_Token(tkMN));
 	size_t psize = kArray_size(expr->cons) - 2;
-	kMethod *mtd = KLIB kNameSpace_getMethodNULL(kctx, ns, this_cid, tkMN->resolvedSymbol, psize, MPOL_LATEST|MPOL_PARAMSIZE|MPOL_CANONICAL);
+	kMethod *mtd = kNameSpace_getMethodByParamSizeNULL(kctx, ns, this_cid, tkMN->resolvedSymbol, psize);
 	if(mtd == NULL) {
 		if(tkMN->text != TS_EMPTY) {  // find Dynamic Call ..
-			mtd = KLIB kNameSpace_getMethodNULL(kctx, ns, this_cid, 0/*NONAME*/, 0, MPOL_FIRST);
+			mtd = KLIB kNameSpace_getMethodByParamSizeNULL(kctx, ns, this_cid, 0/*NONAME*/, -1);
 			if(mtd != NULL) {
 				return tyCheckDynamicCallParams(kctx, stmt, expr, mtd, gma, tkMN->text, tkMN->resolvedSymbol, reqty);
 			}
@@ -708,7 +650,7 @@ static kExpr *Expr_lookupMethod(KonohaContext *kctx, kStmt *stmt, kExpr *expr, k
 		if(tkMN->resolvedSymbol == MN_new && psize == 0 && CT_(kExpr_at(expr, 1)->ty)->baseTypeId == TY_Object) {
 			return kExpr_at(expr, 1);  // new Person(); // default constructor
 		}
-		kToken_p(stmt, tkMN, ErrTag, "undefined %s: %s.%s%s", MethodType_t(kctx, tkMN->resolvedSymbol, psize), TY_t(this_cid), KW_t(tkMN->resolvedSymbol));
+		kStmtToken_printMessage(kctx, stmt, tkMN, ErrTag, "undefined %s: %s.%s%s", MethodType_t(kctx, tkMN->resolvedSymbol, psize), TY_t(this_cid), PSYM_t(tkMN->resolvedSymbol));
 	}
 	if(mtd != NULL) {
 		if(Method_isOverloaded(mtd)) {
@@ -729,7 +671,7 @@ static KMETHOD ExprTyCheck_MethodCall(KonohaContext *kctx, KonohaStack *sfp)
 	kExpr *texpr = SUGAR kStmt_tyCheckExprAt(kctx, stmt, expr, 1, gma, TY_var, 0);
 	if(texpr != K_NULLEXPR) {
 		ktype_t this_cid = texpr->ty;
-		RETURN_(Expr_lookupMethod(kctx, stmt, expr, this_cid, gma, reqty));
+		RETURN_(kStmtExpr_lookupMethod(kctx, stmt, expr, this_cid, gma, reqty));
 	}
 }
 
@@ -753,7 +695,7 @@ static kMethod* Expr_lookUpFuncOrMethod(KonohaContext *kctx, kNameSpace *ns, kEx
 	}
 	if(genv->localScope.varItems[0].ty != TY_void) {
 		DBG_ASSERT(genv->this_cid == genv->localScope.varItems[0].ty);
-		kMethod *mtd = KLIB kNameSpace_getMethodNULL(kctx, ns, genv->this_cid, fn, 0, MPOL_FIRST);
+		kMethod *mtd = KLIB kNameSpace_getMethodByParamSizeNULL(kctx, ns, genv->this_cid, fn, -1);
 		if(mtd != NULL) {
 			KSETv(exprN->cons, exprN->cons->exprItems[1], new_VariableExpr(kctx, gma, TEXPR_LOCAL, gma->genv->this_cid, 0));
 			return mtd;
@@ -767,31 +709,31 @@ static kMethod* Expr_lookUpFuncOrMethod(KonohaContext *kctx, kNameSpace *ns, kEx
 				}
 			}
 		}
-		mtd = NameSpace_getGetterMethodNULL(kctx, ns, genv->this_cid, fn);
+		mtd = kNameSpace_getGetterMethodNULL(kctx, ns, genv->this_cid, fn, TY_var);
 		if(mtd != NULL && TY_isFunc(Method_returnType(mtd))) {
 			KSETv(exprN->cons, exprN->cons->exprItems[0], new_GetterExpr(kctx, termToken, mtd, new_VariableExpr(kctx, gma, TEXPR_LOCAL, genv->this_cid, 0)));
 			return NULL;
 		}
 	}
 	{
-		ktype_t cid = O_typeId(ns->scriptObject);
 		int paramsize = kArray_size(exprN->cons) - 2;
-		kMethod *mtd = KLIB kNameSpace_getMethodNULL(kctx, ns, cid, fn, paramsize, MPOL_FIRST|MPOL_PARAMSIZE|MPOL_CANONICAL);
+		kMethod *mtd = kNameSpace_getMethodByParamSizeNULL(kctx, ns, O_typeId(ns), fn, paramsize);
 		if(mtd != NULL) {
-			KSETv(exprN->cons, exprN->cons->exprItems[1], new_ConstValueExpr(kctx, cid, ns->scriptObject));
+			KSETv(exprN->cons, exprN->cons->exprItems[1], new_ConstValueExpr(kctx, O_typeId(ns), UPCAST(ns)));
 			return mtd;
 		}
-		mtd = NameSpace_getGetterMethodNULL(kctx, ns, cid, fn);
+	}
+
+	if((Gamma_isTopLevel(gma) || kNameSpace_allowedTransparentGlobalVariable(ns)) && ns->globalObjectNULL != NULL) {
+		ktype_t cid = O_typeId(ns->globalObjectNULL);
+		kMethod *mtd = kNameSpace_getGetterMethodNULL(kctx, ns, cid, fn, TY_var);
 		if(mtd != NULL && TY_isFunc(Method_returnType(mtd))) {
-			KSETv(exprN->cons, exprN->cons->exprItems[0], new_GetterExpr(kctx, termToken, mtd, new_ConstValueExpr(kctx, cid, ns->scriptObject)));
+			KSETv(exprN->cons, exprN->cons->exprItems[0], new_GetterExpr(kctx, termToken, mtd, new_ConstValueExpr(kctx, cid, ns->globalObjectNULL)));
 			return NULL;
-		}
-		mtd = KLIB kNameSpace_getMethodNULL(kctx, ns, TY_System, fn, paramsize, MPOL_FIRST|MPOL_PARAMSIZE|MPOL_CANONICAL);
-		if(mtd != NULL) {
-			KSETv(exprN->cons, exprN->cons->exprItems[1], new_VariableExpr(kctx, gma, TEXPR_NULL, TY_System, 0));
 		}
 		return mtd;
 	}
+	return NULL;
 }
 
 static KMETHOD ExprTyCheck_FuncStyleCall(KonohaContext *kctx, KonohaStack *sfp)
@@ -811,13 +753,13 @@ static KMETHOD ExprTyCheck_FuncStyleCall(KonohaContext *kctx, KonohaStack *sfp)
 		if(!TY_isFunc(kExpr_at(expr, 0)->ty)) {
 			kToken *tk = kExpr_at(expr, 0)->termToken;
 			DBG_ASSERT(IS_Token(tk));  // TODO: make error message in case of not Token
-			RETURN_(kToken_p(stmt, tk, ErrTag, "undefined function: %s", Token_text(tk)));
+			RETURN_(kStmtToken_printMessage(kctx, stmt, tk, ErrTag, "undefined function: %s", Token_text(tk)));
 		}
 	}
 	else {
 		if(kStmt_tyCheckExprAt(kctx, stmt, expr, 0, gma, TY_var, 0) != K_NULLEXPR) {
 			if(!TY_isFunc(expr->cons->exprItems[0]->ty)) {
-				RETURN_(kExpr_p(stmt, expr, ErrTag, "function is expected"));
+				RETURN_(kStmtExpr_printMessage(kctx, stmt, expr, ErrTag, "function is expected"));
 			}
 		}
 	}
@@ -830,7 +772,7 @@ static kExpr *Expr_tyCheckFuncParams(KonohaContext *kctx, kStmt *stmt, kExpr *ex
 	kParam *pa = CT_cparam(ct);
 	size_t i, size = kArray_size(expr->cons);
 	if(pa->psize + 2 != size) {
-		return kExpr_p(stmt, expr, ErrTag, "function %s takes %d parameter(s), but given %d parameter(s)", CT_t(ct), (int)pa->psize, (int)size-2);
+		return kStmtExpr_printMessage(kctx, stmt, expr, ErrTag, "function %s takes %d parameter(s), but given %d parameter(s)", CT_t(ct), (int)pa->psize, (int)size-2);
 	}
 	for(i = 0; i < pa->psize; i++) {
 		size_t n = i + 2;
@@ -839,7 +781,7 @@ static kExpr *Expr_tyCheckFuncParams(KonohaContext *kctx, kStmt *stmt, kExpr *ex
 			return texpr;
 		}
 	}
-	kMethod *mtd = KLIB kNameSpace_getMethodNULL(kctx, Stmt_nameSpace(stmt), TY_Func, MN_("invoke"), 0, MPOL_FIRST);
+	kMethod *mtd = KLIB kNameSpace_getMethodByParamSizeNULL(kctx, Stmt_nameSpace(stmt), TY_Func, MN_("invoke"), -1);
 	DBG_ASSERT(mtd != NULL);
 	KSETv(expr->cons, expr->cons->exprItems[1], expr->cons->exprItems[0]);
 	return Expr_typedWithMethod(kctx, expr, mtd, rtype);
@@ -861,7 +803,7 @@ static KMETHOD StmtTyCheck_if(KonohaContext *kctx, KonohaStack *sfp)
 {
 	kbool_t r = 1;
 	VAR_StmtTyCheck(stmt, gma);
-	if((r = kStmt_tyCheckByName(kctx, stmt, KW_ExprPattern, gma, TY_Boolean, 0))) {
+	if((r = kStmt_tyCheckByName(kctx, stmt, KW_ExprPattern, gma, TY_boolean, 0))) {
 		kBlock *bkThen = SUGAR kStmt_getBlock(kctx, stmt, DefaultNameSpace, KW_BlockPattern, K_NULLBLOCK);
 		kBlock *bkElse = SUGAR kStmt_getBlock(kctx, stmt, DefaultNameSpace, KW_else, K_NULLBLOCK);
 		r = kBlock_tyCheckAll(kctx, bkThen, gma);
@@ -913,11 +855,11 @@ static KMETHOD StmtTyCheck_else(KonohaContext *kctx, KonohaStack *sfp)
 	if(stmtIf != NULL) {
 		kBlock *bkElse = SUGAR kStmt_getBlock(kctx, stmt, NULL/*DefaultNameSpace*/, KW_BlockPattern, K_NULLBLOCK);
 		KLIB kObject_setObject(kctx, stmtIf, KW_else, TY_Block, bkElse);
-		kStmt_done(stmt);
+		kStmt_done(kctx, stmt);
 		r = kBlock_tyCheckAll(kctx, bkElse, gma);
 	}
 	else {
-		kkStmt_printMessage(stmt, ErrTag, "else is not statement");
+		kStmt_printMessage(kctx, stmt, ErrTag, "else is not statement");
 		r = 0;
 	}
 	RETURNb_(r);
@@ -934,7 +876,7 @@ static KMETHOD StmtTyCheck_return(KonohaContext *kctx, KonohaStack *sfp)
 	} else {
 		kExpr *expr = (kExpr*)kStmt_getObjectNULL(kctx, stmt, KW_ExprPattern);
 		if (expr != NULL) {
-			kkStmt_printMessage(stmt, WarnTag, "ignored return value");
+			kStmt_printMessage(kctx, stmt, WarnTag, "ignored return value");
 			r = kStmt_tyCheckByName(kctx, stmt, KW_ExprPattern, gma, TY_var, 0);
 			KLIB kObject_removeKey(kctx, stmt, 1);
 		}
@@ -944,11 +886,11 @@ static KMETHOD StmtTyCheck_return(KonohaContext *kctx, KonohaStack *sfp)
 
 ///* ------------------------------------------------------------------------ */
 
-static kStmt* TypeDeclLocalVariable(KonohaContext *kctx, kStmt *stmt, kGamma *gma, ktype_t ty, kExpr *termExpr, kExpr *vexpr)
+static kStmt* TypeDeclLocalVariable(KonohaContext *kctx, kStmt *stmt, kGamma *gma, ktype_t ty, kExpr *termExpr, kExpr *vexpr, kObject *thunk)
 {
 	DBG_ASSERT(Expr_isSymbolTerm(termExpr));
 	kToken *tk = termExpr->termToken;
-	int index = addGammaStack(kctx, &gma->genv->localScope, ty, tk->resolvedSymbol);
+	int index = kGamma_declareLocalVariable(kctx, gma, ty, tk->resolvedSymbol);
 	SUGAR kExpr_setVariable(kctx, termExpr, gma, TEXPR_LOCAL, ty, index);
 	termExpr = new_TypedConsExpr(kctx, TEXPR_LET, TY_void, 3, K_NULL, termExpr, vexpr);
 	kStmt *newstmt = GCSAFE_new(Stmt, stmt->uline);
@@ -958,7 +900,7 @@ static kStmt* TypeDeclLocalVariable(KonohaContext *kctx, kStmt *stmt, kGamma *gm
 	return newstmt;
 }
 
-static kbool_t kStmt_declType(KonohaContext *kctx, kStmt *stmt, kGamma *gma, ktype_t ty, kExpr *declExpr, TypeDeclFunc TypeDecl, kStmt **lastStmtRef)
+static kbool_t kStmt_declType(KonohaContext *kctx, kStmt *stmt, kGamma *gma, ktype_t ty, kExpr *declExpr, kObject *thunk, TypeDeclFunc TypeDecl, kStmt **lastStmtRef)
 {
 	kStmt *newstmt = NULL;
 	if(TypeDecl == NULL) {
@@ -967,7 +909,7 @@ static kbool_t kStmt_declType(KonohaContext *kctx, kStmt *stmt, kGamma *gma, kty
 	if(declExpr->syn->keyword == KW_COMMA) {
 		size_t i;
 		for(i = 1; i < kArray_size(declExpr->cons); i++) {
-			if(!kStmt_declType(kctx, stmt, gma, ty, kExpr_at(declExpr, i), TypeDecl, lastStmtRef)) return false;
+			if(!kStmt_declType(kctx, stmt, gma, ty, kExpr_at(declExpr, i), thunk, TypeDecl, lastStmtRef)) return false;
 		}
 		return true;
 	}
@@ -976,21 +918,33 @@ static kbool_t kStmt_declType(KonohaContext *kctx, kStmt *stmt, kGamma *gma, kty
 			// this is neccesarry to avoid 'int a = a + 1;';
 			return false;
 		}
-		newstmt = TypeDecl(kctx, stmt, gma, ty, kExpr_at(declExpr, 1), kExpr_at(declExpr, 2));
+		if(ty == TY_var) {
+			kToken *termToken = kExpr_at(declExpr, 1)->termToken;
+			ktype_t inferedType = kExpr_at(declExpr, 2)->ty;
+			kStmtToken_printMessage(kctx, stmt, termToken, InfoTag, "%s%s has type %s", PSYM_t(termToken->resolvedSymbol), TY_t(inferedType));
+			ty = inferedType;
+		}
+		newstmt = TypeDecl(kctx, stmt, gma, ty, kExpr_at(declExpr, 1), kExpr_at(declExpr, 2), thunk);
 	}
 	else if(Expr_isSymbolTerm(declExpr)) {
-		kExpr *vexpr = new_VariableExpr(kctx, gma, TEXPR_NULL, ty, 0);
-		newstmt = TypeDecl(kctx, stmt, gma, ty, declExpr, vexpr);
+		if(ty == TY_var) {
+			kStmt_printMessage(kctx, stmt, ErrTag, "initial value is expected: var %s%s", PSYM_t(declExpr->termToken->resolvedSymbol));
+			return false;
+		}
+		else {
+			kExpr *vexpr = new_VariableExpr(kctx, gma, TEXPR_NULL, ty, 0);
+			newstmt = TypeDecl(kctx, stmt, gma, ty, declExpr, vexpr, thunk);
+		}
 	}
 	else {
-		kkStmt_printMessage(stmt, ErrTag, "type declaration: variable name is expected");
+		kStmt_printMessage(kctx, stmt, ErrTag, "type declaration: variable name is expected");
 		return false;
 	}
 	if(newstmt != NULL) {
 		kStmt *lastStmt = lastStmtRef[0];
 		kBlock_insertAfter(kctx, lastStmt->parentBlockNULL, lastStmt, newstmt);
 		lastStmtRef[0] = newstmt;
-		kStmt_done(stmt);
+		kStmt_done(kctx, stmt);
 		return true;
 	}
 	return false;
@@ -1004,7 +958,7 @@ static KMETHOD StmtTyCheck_TypeDecl(KonohaContext *kctx, KonohaStack *sfp)
 //	if(tk == NULL || !Token_isVirtualTypeLiteral(tk) || expr == NULL) {
 //		RETURNb_(false);
 //	}
-	RETURNb_(kStmt_declType(kctx, stmt, gma, Token_typeLiteral(tk), expr, TypeDeclLocalVariable, &stmt));
+	RETURNb_(kStmt_declType(kctx, stmt, gma, Token_typeLiteral(tk), expr, NULL, TypeDeclLocalVariable, &stmt));
 }
 
 // ------------------
@@ -1073,7 +1027,7 @@ static kParam *kStmt_newMethodParamNULL(KonohaContext *kctx, kStmt *stmt, kGamma
 	kParam *pa = (kParam*)kStmt_getObjectNULL(kctx, stmt, KW_ParamPattern);
 	if(pa == NULL || !IS_Param(pa)) {
 		SugarSyntax *syn = SYN_(Stmt_nameSpace(stmt), KW_ParamPattern);
-		if(!Stmt_TyCheck(kctx, syn, stmt, gma)) {
+		if(!SugarSyntax_tyCheckStmt(kctx, syn, stmt, gma)) {
 			return NULL;
 		}
 	}
@@ -1096,18 +1050,20 @@ static KMETHOD StmtTyCheck_ParamsDecl(KonohaContext *kctx, KonohaStack *sfp)
 		size_t i, psize = kArray_size(params->stmtList);
 		kparamtype_t p[psize];
 		for(i = 0; i < psize; i++) {
+			p[i].ty = TY_void; p[i].fn = 0;
 			kStmt *stmt = params->stmtList->stmtItems[i];
 			if(stmt->syn->keyword != KW_StmtTypeDecl || !StmtTypeDecl_setParam(kctx, stmt, i, p)) {
-				kkStmt_printMessage(stmt, ErrTag, "parameter declaration must be a $Type $Symbol form");
-				RETURNb_(false);
+				break;
 			}
 		}
 		pa = new_kParam(kctx, rtype, psize, p);
 	}
-	if(IS_Param(pa)) {
+	if(pa != NULL && IS_Param(pa)) {
 		KLIB kObject_setObject(kctx, stmt, KW_ParamPattern, TY_Param, pa);
+		kStmt_done(kctx, stmt);
 		RETURNb_(true);
 	}
+	kStmt_printMessage(kctx, stmt, ErrTag, "expected parameter declaration");
 	RETURNb_(false);
 }
 
@@ -1156,7 +1112,7 @@ static KMETHOD StmtTyCheck_MethodDecl(KonohaContext *kctx, KonohaStack *sfp)
 	}
 	uintptr_t flag    = kStmt_parseFlag(kctx, stmt, MethodDeclFlag, 0);
 	kNameSpace *ns    = Stmt_nameSpace(stmt);
-	ktype_t typeId   = kStmt_getClassId(kctx, stmt, ns, SYM_("ClassName"), O_typeId(ns->scriptObject));
+	ktype_t typeId    = kStmt_getClassId(kctx, stmt, ns, SYM_("ClassName"), O_typeId(ns));
 	kmethodn_t mn     = kStmt_getMethodSymbol(kctx, stmt, ns, KW_SymbolPattern, MN_new);
 	kParam *pa        = kStmt_newMethodParamNULL(kctx, stmt, gma);
 	if(TY_isSingleton(typeId)) { flag |= kMethod_Static; }
@@ -1169,17 +1125,17 @@ static KMETHOD StmtTyCheck_MethodDecl(KonohaContext *kctx, KonohaStack *sfp)
 		if(foundMethod != NULL) {
 			pa = NULL;
 			if(mtd->typeId == foundMethod->typeId) {
-				kkStmt_printMessage(stmt, ErrTag, "method %s.%s%s has already defined", Method_t(mtd));
+				kStmt_printMessage(kctx, stmt, ErrTag, "method %s.%s%s has already defined", Method_t(mtd));
 			}
 			else {
-				kkStmt_printMessage(stmt, ErrTag, "method %s.%s%s is final", Method_t(mtd));
+				kStmt_printMessage(kctx, stmt, ErrTag, "method %s.%s%s is final", Method_t(mtd));
 			}
 		}
 		if(pa != NULL) {
 			kMethod_setLazyCompilation(kctx, (kMethodVar*)mtd, stmt, ns);
 		}
 	}
-	kStmt_done(stmt);
+	kStmt_done(kctx, stmt);
 	RETURNb_(pa != NULL);
 }
 
@@ -1194,7 +1150,7 @@ static void defineDefaultSyntax(KonohaContext *kctx, kNameSpace *ns)
 	DBG_ASSERT(SYM_("$Param") == KW_ParamPattern);
 	DBG_ASSERT(SYM_(".") == KW_DOT);
 	DBG_ASSERT(SYM_(":") == KW_COLON);
-	DBG_ASSERT(SYM_("void") == KW_void);
+	DBG_ASSERT(SYM_("true") == KW_true);
 	DBG_ASSERT(SYM_("return") == KW_return);
 	DBG_ASSERT(SYM_("new") == MN_new);
 
@@ -1203,7 +1159,7 @@ static void defineDefaultSyntax(KonohaContext *kctx, kNameSpace *ns)
 		{ PATTERN(Symbol),  PatternMatch_(MethodName), ParseExpr_(Term), ExprTyCheck_(Symbol),},
 		{ PATTERN(Text),    ExprTyCheck_(Text),},
 		{ PATTERN(Number),  ExprTyCheck_(Int),},
-		{ PATTERN(Float),   },
+//		{ PATTERN(Float),  },
 		{ GROUP(Parenthesis), .flag = SYNFLAG_ExprPostfixOp2, ParseExpr_(Parenthesis), .precedence_op2 = C_PRECEDENCE_CALL, ExprTyCheck_(FuncStyleCall),}, //KW_ParenthesisGroup
 		{ GROUP(Bracket),  },  //KW_BracketGroup
 		{ GROUP(Brace),  }, // KW_BraceGroup
@@ -1222,29 +1178,25 @@ static void defineDefaultSyntax(KonohaContext *kctx, kNameSpace *ns)
 		{ TOKEN(GTE), .precedence_op2 = C_PRECEDENCE_COMPARE, },
 		{ TOKEN(EQ),  .precedence_op2 = C_PRECEDENCE_EQUALS, },
 		{ TOKEN(NEQ), .precedence_op2 = C_PRECEDENCE_EQUALS, },
+		{ TOKEN(LET), .flag = SYNFLAG_ExprLeftJoinOp2, ParseExpr_(Op), ExprTyCheck_(assign), .precedence_op2 = C_PRECEDENCE_ASSIGN, },
 		{ TOKEN(AND), .precedence_op2 = C_PRECEDENCE_AND, ParseExpr_(Op), ExprTyCheck_(AND)},
 		{ TOKEN(OR),  .precedence_op2 = C_PRECEDENCE_OR, ParseExpr_(Op), ExprTyCheck_(OR)},
 		{ TOKEN(NOT),  .precedence_op1 = C_PRECEDENCE_PREUNARY,},
-		{ TOKEN(COLON), /*.precedence_op2 = C_PRECEDENCE_TRINARY,*/ },  // colon
-		{ TOKEN(LET),      .flag = SYNFLAG_ExprLeftJoinOp2, ParseExpr_(Op), ExprTyCheck_(assign), .precedence_op2 = C_PRECEDENCE_ASSIGN, },
+		{ TOKEN(COLON), .precedence_op2 = C_PRECEDENCE_TRINARY, },  // colon
 		{ TOKEN(COMMA),    ParseExpr_(COMMA), .precedence_op2 = C_PRECEDENCE_COMMA,},
 		{ TOKEN(DOLLAR),   ParseExpr_(DOLLAR), },
-		{ TOKEN(boolean), .type = TY_Boolean, },
-		{ TOKEN(int),     .type = TY_Int, },
 		{ TOKEN(true),    ExprTyCheck_(true),},
 		{ TOKEN(false),   ExprTyCheck_(false),},
-		{ PATTERN(Expr), .rule ="$Expr", PatternMatch_(Expr), TopStmtTyCheck_(Expr), StmtTyCheck_(Expr),  },
+		{ PATTERN(Expr), .rule ="$Expr", PatternMatch_(Expr), TopStmtTyCheck_(Expr), StmtTyCheck_(Expr), ParseExpr_(Expr) },
 		{ PATTERN(Type),  PatternMatch_(Type), .rule = "$Type $Expr", StmtTyCheck_(TypeDecl), ExprTyCheck_(Type), },
-		{ PATTERN(Const), PatternMatch_(ConstName), .rule = "$Const \"=\" $Expr", TopStmtTyCheck_(ConstDecl), /*ExprTyCheck_(Usymbol),*/},
-		{ TOKEN(void),   .type = TY_void, .rule ="$Type [ClassName: $Type \".\"] $Symbol $Param [$Block]", TopStmtTyCheck_(MethodDecl)},
+//		{ PATTERN(Const), PatternMatch_(ConstName), .rule = "$Const \"=\" $Expr", TopStmtTyCheck_(ConstDecl), },
+		{ PATTERN(MethodDecl), .rule ="$Type [ClassName: $Type \".\"] $Symbol $Param [$Block]", TopStmtTyCheck_(MethodDecl)},
 		{ TOKEN(if),     .rule ="\"if\" \"(\" $Expr \")\" $Block [\"else\" else: $Block]", TopStmtTyCheck_(if), StmtTyCheck_(if), },
 		{ TOKEN(else),   .rule = "\"else\" $Block", TopStmtTyCheck_(else), StmtTyCheck_(else), },
 		{ TOKEN(return), .rule ="\"return\" [$Expr]", .flag = SYNFLAG_StmtBreakExec, StmtTyCheck_(return), },
 		{ .keyword = KW_END, },
 	};
-	kNameSpace_defineSyntax(kctx, ns, SYNTAX);
-	SugarSyntaxVar *syn = (SugarSyntaxVar*)SYN_(ns, KW_void);
-	syn->ty = TY_void; // it's not cool, but necessary
+	kNameSpace_defineSyntax(kctx, ns, SYNTAX, ns);
 }
 
 /* ------------------------------------------------------------------------ */

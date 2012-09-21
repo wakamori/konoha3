@@ -31,11 +31,11 @@ extern "C" {
 /* ------------------------------------------------------------------------ */
 /* [perror] */
 
-static int isPRINT(KonohaContext *kctx, SugarContext *sugarContext, int pe)
+static int isPrintMessage(KonohaContext *kctx, SugarContext *sugarContext, kinfotag_t taglevel)
 {
 	if(sugarContext->isBlockingErrorMessage) return false;
 	if(verbose_sugar) return true;
-	if(pe == InfoTag) {
+	if(taglevel == InfoTag) {
 		if(KonohaContext_isInteractive(kctx) || KonohaContext_isCompileOnly(kctx)) {
 			return true;
 		}
@@ -44,12 +44,11 @@ static int isPRINT(KonohaContext *kctx, SugarContext *sugarContext, int pe)
 	return true;
 }
 
-static kString* vperrorf(KonohaContext *kctx, int pe, kfileline_t uline, int lpos, const char *fmt, va_list ap)
+static kString* SugarContext_vprintMessage(KonohaContext *kctx, kinfotag_t taglevel, kfileline_t uline, const char *fmt, va_list ap)
 {
 	SugarContext *sugarContext = KonohaContext_getSugarContext(kctx);
-	if(isPRINT(kctx, sugarContext, pe)) {
-		const char *msg = TAG_t(pe);
-		size_t errref = ((size_t)-1);
+	if(isPrintMessage(kctx, sugarContext, taglevel)) {
+		const char *msg = TAG_t(taglevel);
 		KUtilsWriteBuffer wb;
 		KLIB Kwb_init(&sugarContext->errorMessageBuffer, &wb);
 		size_t pos = wb.m->bytesize;
@@ -63,11 +62,10 @@ static kString* vperrorf(KonohaContext *kctx, int pe, kfileline_t uline, int lpo
 		size_t len = wb.m->bytesize - pos;
 		KLIB Kwb_vprintf(kctx, &wb, fmt, ap);
 		msg = KLIB Kwb_top(kctx, &wb, 1);
-		kreportf(pe, uline, "%s", msg + len);
+		kreportf(taglevel, uline, "%s", msg + len);
 		kString *emsg = KLIB new_kString(kctx, msg, strlen(msg), 0);
-		errref = kArray_size(sugarContext->errorMessageList);
 		KLIB kArray_add(kctx, sugarContext->errorMessageList, emsg);
-		if(pe == ErrTag || pe == CritTag) {
+		if(taglevel == ErrTag || taglevel == CritTag) {
 			sugarContext->errorMessageCount ++;
 		}
 		return emsg;
@@ -75,15 +73,26 @@ static kString* vperrorf(KonohaContext *kctx, int pe, kfileline_t uline, int lpo
 	return NULL;
 }
 
-static void Token_pERR(KonohaContext *kctx, kTokenVar *tk, const char *fmt, ...)
+static kString* SugarContext_printMessage(KonohaContext *kctx, kinfotag_t taglevel, kfileline_t uline, const char *fmt, ...)
 {
 	va_list ap;
 	va_start(ap, fmt);
-	kString *errmsg = vperrorf(kctx, ErrTag, tk->uline, -1, fmt, ap);
+	kString *errmsg = SugarContext_vprintMessage(kctx, taglevel, uline, fmt, ap);
 	va_end(ap);
-	KSETv(tk, tk->text, errmsg);
-	tk->unresolvedTokenType = TokenType_ERR;
-	tk->resolvedSyntaxInfo = NULL;
+	return errmsg;
+}
+
+static void kToken_printMessage(KonohaContext *kctx, kTokenVar *tk, kinfotag_t taglevel, const char *fmt, ...)
+{
+	va_list ap;
+	va_start(ap, fmt);
+	kString *errmsg = SugarContext_vprintMessage(kctx, taglevel, tk->uline, fmt, ap);
+	va_end(ap);
+	if(errmsg != NULL) {
+		KSETv(tk, tk->text, errmsg);
+		tk->unresolvedTokenType = TokenType_ERR;
+		tk->resolvedSyntaxInfo = NULL;
+	}
 }
 
 #define Stmt_isERR(STMT)       ((STMT)->build == TSTMT_ERR)
@@ -126,16 +135,12 @@ static kfileline_t kExpr_uline(KonohaContext *kctx, kExpr *expr, kfileline_t uli
 	return uline;
 }
 
-#define kkStmt_printMessage(STMT, PE, FMT, ...)        kStmt_printMessage(kctx, STMT, NULL, PE, FMT, ## __VA_ARGS__)
-#define kToken_p(STMT, TK, PE, FMT, ...)   kStmt_printMessage(kctx, STMT, TK, PE, FMT, ## __VA_ARGS__)
-#define kExpr_p(STMT, EXPR, PE, FMT, ...)  kStmt_printMessage(kctx, STMT, (kToken*)EXPR, PE, FMT, ## __VA_ARGS__)
-
-static kExpr* kStmt_printMessage(KonohaContext *kctx, kStmt *stmt, kToken *tk, int pe, const char *fmt, ...)
+static kExpr* kStmt_printMessage2(KonohaContext *kctx, kStmt *stmt, kToken *tk, kinfotag_t taglevel, const char *fmt, ...)
 {
 	va_list ap;
 	va_start(ap, fmt);
 	kfileline_t uline = stmt->uline;
-	if(tk != NULL && pe <= ErrTag ) {
+	if(tk != NULL && taglevel <= ErrTag ) {
 		if(IS_Token(tk)) {
 			uline = tk->uline;
 		}
@@ -143,8 +148,8 @@ static kExpr* kStmt_printMessage(KonohaContext *kctx, kStmt *stmt, kToken *tk, i
 			uline = kExpr_uline(kctx, (kExpr*)tk, uline);
 		}
 	}
-	kString *errmsg = vperrorf(kctx, pe, uline, -1, fmt, ap);
-	if(pe <= ErrTag && !Stmt_isERR(stmt)) {
+	kString *errmsg = SugarContext_vprintMessage(kctx, taglevel, uline, fmt, ap);
+	if(taglevel <= ErrTag && !Stmt_isERR(stmt)) {
 		kStmt_toERR(kctx, stmt, errmsg);
 	}
 	va_end(ap);
@@ -162,7 +167,7 @@ static const char *kToken_t_(KonohaContext *kctx, kToken *tk)
 	}
 	else {
 		switch(tk->resolvedSymbol) {
-			case TokenType_CODE: ;
+			case TokenType_CODE:
 			case KW_BraceGroup: return "{... }";
 			case KW_ParenthesisGroup: return "(... )";
 			case KW_BracketGroup: return "[... ]";
@@ -171,9 +176,9 @@ static const char *kToken_t_(KonohaContext *kctx, kToken *tk)
 	}
 }
 
-static void WARN_IgnoredTokens(KonohaContext *kctx, kArray *tokenList, int beginIdx, int endIdx)
-{
-	if(beginIdx < endIdx) {
+//static void WARN_IgnoredTokens(KonohaContext *kctx, kArray *tokenList, int beginIdx, int endIdx)
+//{
+//	if(beginIdx < endIdx) {
 //		int i = beginIdx;
 //		KUtilsWriteBuffer wb;
 //		KLIB Kwb_init(&(kctx->stack->cwb), &wb);
@@ -181,12 +186,10 @@ static void WARN_IgnoredTokens(KonohaContext *kctx, kArray *tokenList, int begin
 //		while(i < endIdx) {
 //			KLIB Kwb_printf(kctx, &wb, " %s", Token_text(tokenList->tokenItems[i])); i++;
 //		}
-//		pWARN(tokenList->tokenItems[beginIdx]->uline, "ignored tokens: %s", KLIB Kwb_top(kctx, &wb, 1));
+//		SugarContext_printMessage(kctx, InfoTag, tokenList->tokenItems[beginIdx]->uline, "ignored tokens: %s", KLIB Kwb_top(kctx, &wb, 1));
 //		KLIB Kwb_free(&wb);
-	}
-}
-
-
+//	}
+//}
 
 #ifdef __cplusplus
 }

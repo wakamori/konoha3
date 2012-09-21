@@ -63,7 +63,7 @@ static int parseINDENT(KonohaContext *kctx, kTokenVar *tk, TokenizerEnv *tenv, i
 	}
 	if(IS_NOTNULL(tk)) {
 		tk->unresolvedTokenType = TokenType_INDENT;
-		tk->indent = 0; /* indent FIXME: Debug/Parser/LineNumber.k (Failed) */
+		tk->indent = indent;
 	}
 	return pos-1;
 }
@@ -74,7 +74,6 @@ static int parseNL(KonohaContext *kctx, kTokenVar *tk, TokenizerEnv *tenv, int p
 	return parseINDENT(kctx, tk, tenv, pos+1);
 }
 
-#ifdef USE_SCRIPT_TOKENER
 static int parseNUM(KonohaContext *kctx, kTokenVar *tk, TokenizerEnv *tenv, int tok_start)
 {
 	int ch, pos = tok_start;
@@ -89,59 +88,8 @@ static int parseNUM(KonohaContext *kctx, kTokenVar *tk, TokenizerEnv *tenv, int 
 	}
 	return pos - 1;  // next
 }
-#else
-static int parseNUM(KonohaContext *kctx, kTokenVar *tk, TokenizerEnv *tenv, int tok_start)
-{
-	int ch, pos = tok_start, dot = 0;
-	const char *ts = tenv->source;
-	while((ch = ts[pos++]) != 0) {
-		if(ch == '_') continue; // nothing
-		if(ch == '.') {
-			if(!isdigit(ts[pos])) {
-				break;
-			}
-			dot++;
-			continue;
-		}
-		if((ch == 'e' || ch == 'E') && (ts[pos] == '+' || ts[pos] =='-')) {
-			pos++;
-			continue;
-		}
-		if(!isalnum(ch)) break;
-	}
-	if(IS_NOTNULL(tk)) {
-		KSETv(tk, tk->text, KLIB new_kString(kctx, ts + tok_start, (pos-1)-tok_start, SPOL_ASCII));
-		tk->unresolvedTokenType = (dot == 0) ? TokenType_INT : TokenType_FLOAT;
-	}
-	return pos - 1;  // next
-}
-#endif
 
-/**static kbool_t isLowerCaseSymbol(const char *t)
-{
-	while(t[0] != 0) {
-		if(islower(t[0])) return true;
-		if(t[0] == '_') {
-			t++; continue;
-		}
-		return false;
-	}
-	return true;
-}**/
-
-static kbool_t isUpperCaseSymbol(const char *t)
-{
-	while(t[0] != 0) {
-		if(isupper(t[0])) return true;
-		if(t[0] == '_') {
-			t++; continue;
-		}
-		break;
-	}
-	return false;
-}
-
-static void Token_setSymbolText(KonohaContext *kctx, kTokenVar *tk, const char *t, size_t len)
+static void kToken_setSymbolText(KonohaContext *kctx, kTokenVar *tk, const char *t, size_t len)
 {
 	if(IS_NOTNULL(tk)) {
 		ksymbol_t kw = ksymbolA(t, len, SYM_NONAME);
@@ -166,13 +114,13 @@ static int parseSYMBOL(KonohaContext *kctx, kTokenVar *tk, TokenizerEnv *tenv, i
 		if(ch == '_' || isalnum(ch)) continue; // nothing
 		break;
 	}
-	Token_setSymbolText(kctx, tk, ts + tok_start, (pos-1)-tok_start);
+	kToken_setSymbolText(kctx, tk, ts + tok_start, (pos-1)-tok_start);
 	return pos - 1;  // next
 }
 
 static int parseOP1(KonohaContext *kctx, kTokenVar *tk, TokenizerEnv *tenv, int tok_start)
 {
-	Token_setSymbolText(kctx, tk,  tenv->source + tok_start, 1);
+	kToken_setSymbolText(kctx, tk,  tenv->source + tok_start, 1);
 	return tok_start+1;
 }
 
@@ -190,7 +138,7 @@ static int parseOP(KonohaContext *kctx, kTokenVar *tk, TokenizerEnv *tenv, int t
 		}
 		break;
 	}
-	Token_setSymbolText(kctx, tk, tenv->source + tok_start, (pos-1)-tok_start);
+	kToken_setSymbolText(kctx, tk, tenv->source + tok_start, (pos-1)-tok_start);
 	return pos-1;
 }
 
@@ -218,13 +166,13 @@ static int parseCOMMENT(KonohaContext *kctx, kTokenVar *tk, TokenizerEnv *tenv, 
 		if(prev == '*' && ch == '/') {
 			level--;
 			if(level == 0) return pos;
-		}else if(prev == '/' && ch == '*') {
+		} else if(prev == '/' && ch == '*') {
 			level++;
 		}
 		prev = ch;
 	}
 	if(IS_NOTNULL(tk)) {
-		Token_pERR(kctx, tk, "must close with */");
+		kToken_printMessage(kctx, tk, ErrTag, "must close with */");
 	}
 	return pos-1;/*EOF*/
 }
@@ -264,10 +212,23 @@ static int parseDoubleQuotedText(KonohaContext *kctx, kTokenVar *tk, TokenizerEn
 		kwb_putc(&wb, ch);
 	}
 	if(IS_NOTNULL(tk)) {
-		Token_pERR(kctx, tk, "must close with \"");
+		kToken_printMessage(kctx, tk, ErrTag, "must close with \"");
 	}
 	KLIB Kwb_free(&wb);
 	return pos-1;
+}
+
+static int ParseWhiteSpace(KonohaContext *kctx, kTokenVar *tk, TokenizerEnv *tenv, int tok_start)
+{
+	size_t size = kArray_size(tenv->tokenList);
+	if(size > 0) {
+		kTokenVar *tk = tenv->tokenList->tokenVarItems[size-1];
+		if(tk->uline == tenv->currentLine && tk->unresolvedTokenType != TokenType_INDENT) {
+			Token_setBeforeWhiteSpace(tk, true);
+//			DBG_P("BeforeWhiteSpace: '%s'", S_text(tk->text));
+		}
+	}
+	return tok_start+1;
 }
 
 static int parseSKIP(KonohaContext *kctx, kTokenVar *tk, TokenizerEnv *tenv, int tok_start)
@@ -278,7 +239,7 @@ static int parseSKIP(KonohaContext *kctx, kTokenVar *tk, TokenizerEnv *tenv, int
 static int parseUndefinedToken(KonohaContext *kctx, kTokenVar *tk, TokenizerEnv *tenv, int tok_start)
 {
 	if(IS_NOTNULL(tk)) {
-		Token_pERR(kctx, tk, "undefined token character: %c (ascii=%x)", tenv->source[tok_start], tenv->source[tok_start]);
+		kToken_printMessage(kctx, tk, ErrTag, "undefined token character: %c (ascii=%x)", tenv->source[tok_start], tenv->source[tok_start]);
 	}
 	while(tenv->source[++tok_start] != 0);
 	return tok_start;
@@ -302,9 +263,9 @@ static const TokenizeFunc MiniKonohaTokenMatrix[] = {
 #define _NL        6
 	parseNL,
 #define _TAB       7
-	parseSKIP,
+	ParseWhiteSpace,
 #define _SP_       8
-	parseSKIP,
+	ParseWhiteSpace,
 #define _LPAR      9
 	parseOP1,
 #define _RPAR      10
@@ -375,31 +336,31 @@ static const TokenizeFunc MiniKonohaTokenMatrix[] = {
 static const char cMatrix[128] = {
 	0/*nul*/, 1/*soh*/, 1/*stx*/, 1/*etx*/, 1/*eot*/, 1/*enq*/, 1/*ack*/, 1/*bel*/,
 	1/*bs*/,  _TAB/*ht*/, _NL/*nl*/, 1/*vt*/, 1/*np*/, 1/*cr*/, 1/*so*/, 1/*si*/,
-	/*	020 dle  021 dc1  022 dc2  023 dc3  024 dc4  025 nak  026 syn  027 etb*/
+	/*020 dle  021 dc1  022 dc2  023 dc3  024 dc4  025 nak  026 syn  027 etb */
 	1, 1, 1, 1,     1, 1, 1, 1,
-	/*	030 can  031 em   032 sub  033 esc  034 fs   035 gs   036 rs   037 us*/
+	/*030 can  031 em   032 sub  033 esc  034 fs   035 gs   036 rs   037 us */
 	1, 1, 1, 1,     1, 1, 1, 1,
-	/*040 sp   041  !   042  "   043  #   044  $   045  %   046  &   047  '*/
+	/*040 sp   041  !   042  "   043  #   044  $   045  %   046  &   047  ' */
 	_SP_, _OKIDOKI, _DQUOTE, _SHARP, _DOLLAR, _PER, _AND, _QUOTE,
-	/*050  (   051  )   052  *   053  +   054  ,   055  -   056  .   057  /*/
+	/*050  (   051  )   052  *   053  +   054  ,   055  -   056  .   057  / */
 	_LPAR, _RPAR, _STAR, _PLUS, _COMMA, _MINUS, _DOT, _SLASH,
 	/*060  0   061  1   062  2   063  3   064  4   065  5   066  6   067  7 */
 	_DIGIT, _DIGIT, _DIGIT, _DIGIT,  _DIGIT, _DIGIT, _DIGIT, _DIGIT,
-	/*	070  8   071  9   072  :   073  ;   074  <   075  =   076  >   077  ? */
+	/*070  8   071  9   072  :   073  ;   074  <   075  =   076  >   077  ? */
 	_DIGIT, _DIGIT, _COLON, _SEMICOLON, _LT, _EQ, _GT, _QUESTION,
 	/*100  @   101  A   102  B   103  C   104  D   105  E   106  F   107  G */
 	_AT_, _UALPHA, _UALPHA, _UALPHA, _UALPHA, _UALPHA, _UALPHA, _UALPHA,
 	/*110  H   111  I   112  J   113  K   114  L   115  M   116  N   117  O */
 	_UALPHA, _UALPHA, _UALPHA, _UALPHA, _UALPHA, _UALPHA, _UALPHA, _UALPHA,
-	/*120  P   121  Q   122  R   123  S   124  T   125  U   126  V   127  W*/
+	/*120  P   121  Q   122  R   123  S   124  T   125  U   126  V   127  W */
 	_UALPHA, _UALPHA, _UALPHA, _UALPHA, _UALPHA, _UALPHA, _UALPHA, _UALPHA,
-	/*130  X   131  Y   132  Z   133  [   134  \   135  ]   136  ^   137  _*/
+	/*130  X   131  Y   132  Z   133  [   134  \   135  ]   136  ^   137  _ */
 	_UALPHA, _UALPHA, _UALPHA, _LSQ, _BKSLASH, _RSQ, _HAT, _UNDER,
-	/*140  `   141  a   142  b   143  c   144  d   145  e   146  f   147  g*/
+	/*140  `   141  a   142  b   143  c   144  d   145  e   146  f   147  g */
 	_BKQUOTE, _LALPHA, _LALPHA, _LALPHA, _LALPHA, _LALPHA, _LALPHA, _LALPHA,
-	/*150  h   151  i   152  j   153  k   154  l   155  m   156  n   157  o*/
+	/*150  h   151  i   152  j   153  k   154  l   155  m   156  n   157  o */
 	_LALPHA, _LALPHA, _LALPHA, _LALPHA, _LALPHA, _LALPHA, _LALPHA, _LALPHA,
-	/*160  p   161  q   162  r   163  s   164  t   165  u   166  v   167  w*/
+	/*160  p   161  q   162  r   163  s   164  t   165  u   166  v   167  w */
 	_LALPHA, _LALPHA, _LALPHA, _LALPHA, _LALPHA, _LALPHA, _LALPHA, _LALPHA,
 	/*170  x   171  y   172  z   173  {   174  |   175  }   176  ~   177 del*/
 	_LALPHA, _LALPHA, _LALPHA, _LBR, _VAR, _RBR, _CHILDER, 1,
@@ -411,9 +372,10 @@ static int kchar(const char *t, int pos)
 	return (ch < 0) ? _MULTI : cMatrix[ch];
 }
 
-static int callFuncTokenize(KonohaContext *kctx, kFunc *fo, kTokenVar *tk, TokenizerEnv *tenv, int tok_start)
+static int callTokennizeFunc(KonohaContext *kctx, kFunc *fo, kTokenVar *tk, TokenizerEnv *tenv, int tok_start)
 {
 	// The above string operation is bad thing. Don't repeat it
+	DBG_ASSERT(IS_Func(fo));
 	kStringVar *preparedString = (kStringVar*)tenv->preparedString;
 	preparedString->text = tenv->source + tok_start;
 	preparedString->bytesize = tenv->sourceLength - tok_start;
@@ -421,7 +383,11 @@ static int callFuncTokenize(KonohaContext *kctx, kFunc *fo, kTokenVar *tk, Token
 	KSETv_AND_WRITE_BARRIER(NULL, lsfp[K_CALLDELTA+0].o, fo->self, GC_NO_WRITE_BARRIER);
 	KSETv_AND_WRITE_BARRIER(NULL, lsfp[K_CALLDELTA+1].o, (kObject*)tk, GC_NO_WRITE_BARRIER);
 	KSETv_AND_WRITE_BARRIER(NULL, lsfp[K_CALLDELTA+2].s, preparedString, GC_NO_WRITE_BARRIER);
-	KCALL(lsfp, 0, fo->mtd, 2, KLIB Knull(kctx, CT_Int));
+	{
+		KonohaStack *sfp = lsfp + K_CALLDELTA;
+		KSetMethodCallStack(sfp, 0/*UL*/, fo->mtd, 2, KLIB Knull(kctx, CT_Int));
+		KonohaRuntime_callMethod(kctx, sfp);
+	}
 	END_LOCAL();
 	int pos = lsfp[0].intValue + tok_start;
 	if(pos > tok_start) { // check new lines
@@ -443,12 +409,12 @@ static int tokenizeEach(KonohaContext *kctx, int kchar, kTokenVar* tk, Tokenizer
 			kArray *a = (kArray*)fo;
 			int i;
 			for(i = kArray_size(a) - 1; i >= 0; i--) {
-				pos = callFuncTokenize(kctx, a->funcItems[i], tk, tenv, tok_start);
+				pos = callTokennizeFunc(kctx, a->funcItems[i], tk, tenv, tok_start);
 				if(pos > tok_start) return pos;
 			}
 			fo = a->funcItems[0];
 		}
-		pos = callFuncTokenize(kctx, fo, tk, tenv, tok_start);
+		pos = callTokennizeFunc(kctx, fo, tk, tenv, tok_start);
 		if(pos > tok_start) return pos;
 	}
 	pos = tenv->cfuncItems[kchar](kctx, tk, tenv, tok_start);
@@ -497,12 +463,12 @@ static int parseLazyBlock(KonohaContext *kctx, kTokenVar *tk, TokenizerEnv *tenv
 		}
 	}
 	if(IS_NOTNULL(tk)) {
-		Token_pERR(kctx, tk, "must close with }");
+		kToken_printMessage(kctx, tk, ErrTag, "must close with }");
 	}
 	return pos-1;
 }
 
-static const TokenizeFunc *NameSpace_tokenMatrix(KonohaContext *kctx, kNameSpace *ns)
+static const TokenizeFunc *kNameSpace_tokenMatrix(KonohaContext *kctx, kNameSpace *ns)
 {
 	if(ns->tokenMatrix == NULL) {
 		DBG_ASSERT(KCHAR_MAX * sizeof(TokenizeFunc) == sizeof(MiniKonohaTokenMatrix));
@@ -514,14 +480,14 @@ static const TokenizeFunc *NameSpace_tokenMatrix(KonohaContext *kctx, kNameSpace
 			memcpy(tokenMatrix, MiniKonohaTokenMatrix, sizeof(MiniKonohaTokenMatrix));
 			bzero(tokenMatrix + KCHAR_MAX, sizeof(MiniKonohaTokenMatrix));
 		}
-		((kNameSpaceVar*)ns)->tokenMatrix = (const TokenizeFunc*)tokenMatrix;
+		((kNameSpaceVar*)ns)->tokenMatrix = (void*)tokenMatrix;
 	}
-	return ns->tokenMatrix;
+	return (TokenizeFunc*)ns->tokenMatrix;
 }
 
-static kFunc **NameSpace_tokenFuncMatrix(KonohaContext *kctx, kNameSpace *ns)
+static kFunc **kNameSpace_tokenFuncMatrix(KonohaContext *kctx, kNameSpace *ns)
 {
-	kFunc **funcMatrix = (kFunc**)NameSpace_tokenMatrix(kctx, ns);
+	kFunc **funcMatrix = (kFunc**)kNameSpace_tokenMatrix(kctx, ns);
 	return funcMatrix + KCHAR_MAX;
 }
 
@@ -529,11 +495,11 @@ static void kNameSpace_setTokenizeFunc(KonohaContext *kctx, kNameSpace *ns, int 
 {
 	int kchar = (ch < 0) ? _MULTI : cMatrix[ch];
 	if(cfunc != NULL) {
-		TokenizeFunc *funcMatrix = (TokenizeFunc *)NameSpace_tokenMatrix(kctx, ns);
+		TokenizeFunc *funcMatrix = (TokenizeFunc *)kNameSpace_tokenMatrix(kctx, ns);
 		funcMatrix[kchar] = cfunc;
 	}
 	else {
-		kFunc ** funcMatrix = NameSpace_tokenFuncMatrix(kctx, ns);
+		kFunc ** funcMatrix = kNameSpace_tokenFuncMatrix(kctx, ns);
 		if(funcMatrix[kchar] == NULL) {
 			KINITp(ns, funcMatrix[kchar], funcTokenize);
 		}
@@ -554,33 +520,6 @@ static void kNameSpace_setTokenizeFunc(KonohaContext *kctx, kNameSpace *ns, int 
 	}
 }
 
-//static void TokenRange_tokenize(KonohaContext *kctx, kNameSpace *ns, const char *source, kfileline_t uline, kArray *parsedTokenList)
-//{
-//	size_t i, pos = kArray_size(parsedTokenList);
-//	TokenizerEnv tenv = {
-//		.source = source,
-//		.sourceLength = strlen(source),
-//		.currentLine  = uline,
-//		.tokenList   = parsedTokenList,
-//		.tabsize = 4,
-//		.cfuncItems   = (ns == NULL) ? MiniKonohaTokenMatrix : NameSpace_tokenMatrix(kctx, ns),
-//	};
-//	INIT_GCSTACK();
-//	kString *preparedString = KLIB new_kString(kctx, tenv.source, tenv.sourceLength, SPOL_ASCII|SPOL_TEXT|SPOL_NOPOOL);
-//	PUSH_GCSTACK(preparedString);
-//	tenv.preparedString = preparedString;
-//	if(ns != NULL) {
-//		tenv.funcItems = NameSpace_tokenFuncMatrix(kctx, ns);
-//	}
-//	tokenize(kctx, &tenv);
-//	RESET_GCSTACK();
-//	if(uline == 0) {
-//		for(i = pos; i < kArray_size(parsedTokenList); i++) {
-//			parsedTokenList->tokenVarItems[i]->uline = 0;
-//		}
-//	}
-//}
-
 static void TokenRange_tokenize(KonohaContext *kctx, TokenRange *range, const char *source, kfileline_t uline)
 {
 	DBG_ASSERT(range->beginIdx == range->endIdx);
@@ -590,14 +529,14 @@ static void TokenRange_tokenize(KonohaContext *kctx, TokenRange *range, const ch
 		.currentLine  = uline,
 		.tokenList    = range->tokenList,
 		.tabsize = 4,
-		.cfuncItems   = (range->ns == NULL) ? MiniKonohaTokenMatrix : NameSpace_tokenMatrix(kctx, range->ns),
+		.cfuncItems   = (range->ns == NULL) ? MiniKonohaTokenMatrix : kNameSpace_tokenMatrix(kctx, range->ns),
 	};
 	INIT_GCSTACK();
 	kString *preparedString = KLIB new_kString(kctx, tenv.source, tenv.sourceLength, SPOL_ASCII|SPOL_TEXT|SPOL_NOPOOL);
 	PUSH_GCSTACK(preparedString);
 	tenv.preparedString = preparedString;
 	if(range->ns != NULL) {
-		tenv.funcItems = NameSpace_tokenFuncMatrix(kctx, range->ns);
+		tenv.funcItems = kNameSpace_tokenFuncMatrix(kctx, range->ns);
 	}
 	tokenize(kctx, &tenv);
 	TokenRange_end(kctx, range);
@@ -684,8 +623,7 @@ static kbool_t kArray_addSyntaxRule(KonohaContext *kctx, kArray *ruleList, Token
 			i++;
 			continue;
 		}
-		dumpToken(kctx, tk, -1);
-		Token_pERR(kctx, tk, "illegal syntax rule: %s", Token_text(tk));
+		kToken_printMessage(kctx, tk, ErrTag, "illegal syntax rule: %s", Token_text(tk));
 		return false;
 	}
 	//KdumpTokenArray(kctx, ruleList, 0, kArray_size(ruleList));
@@ -693,23 +631,6 @@ static kbool_t kArray_addSyntaxRule(KonohaContext *kctx, kArray *ruleList, Token
 }
 
 static kbool_t TokenRange_resolved(KonohaContext *kctx, TokenRange *range, TokenRange *sourceRange);
-
-//static void check(KonohaContext *kctx, kArray *a, int as, int ae, kArray *b, int bs, int be)
-//{
-//	DBG_ASSERT(ae-as==be-bs);
-//	int i;
-//	for(i = 0; i < ae-as; i++) {
-//		kToken *tkA = a->tokenItems[as+i];
-//		kToken *tkB = b->tokenItems[bs+i];
-//		dumpToken(kctx, tkA, i);
-//		dumpToken(kctx, tkB, i);
-//		DBG_ASSERT(tkA->unresolvedTokenType == tkB->resolvedSymbol);
-//		if(IS_Array(tkA->subTokenList)) {
-//			DBG_ASSERT(IS_Array(tkB->subTokenList));
-//			check(kctx, tkA->subTokenList, 0, kArray_size(tkA->subTokenList), tkB->subTokenList, 0, kArray_size(tkB->subTokenList));
-//		}
-//	}
-//}
 
 static void kNameSpace_parseSugarRule2(KonohaContext *kctx, kNameSpace *ns, const char *rule, kfileline_t uline, kArray *ruleList)
 {

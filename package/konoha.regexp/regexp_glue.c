@@ -324,7 +324,7 @@ static void knh_RegExp_setOptions(kRegExp *re, const char *option)
 static size_t knh_regexp_matched(kregmatch_t* r, size_t maxmatch)
 {
 	size_t n = 0;
-	for (; n < maxmatch && r[n].rm_so != -1; n++) ;
+	for (; n < maxmatch && r[n].rm_so != -1; n++) {}
 	return n;
 }
 
@@ -442,41 +442,41 @@ static kArray *RegExp_execute(KonohaContext *kctx, kRegExp *re, kString *s0)
 }
 
 /* ------------------------------------------------------------------------ */
-//## @Const method Boolean RegExp.getGlobal();
+//## @Const method Boolean RegExp.getglobal();
 
-static KMETHOD RegExp_getGlobal(KonohaContext *kctx, KonohaStack *sfp)
+static KMETHOD RegExp_getglobal(KonohaContext *kctx, KonohaStack *sfp)
 {
 	RETURNb_(RegExp_isGlobal(sfp[0].re));
 }
 
 /* ------------------------------------------------------------------------ */
-//## @Const method Boolean RegExp.getIgnoreCase();
+//## @Const method Boolean RegExp.getignoreCase();
 
-static KMETHOD RegExp_getIgnoreCase(KonohaContext *kctx, KonohaStack *sfp)
+static KMETHOD RegExp_getignoreCase(KonohaContext *kctx, KonohaStack *sfp)
 {
 	RETURNb_(RegExp_isIgnoreCase(sfp[0].re));
 }
 
 /* ------------------------------------------------------------------------ */
-//## @Const method Boolean RegExp.getMultiline();
+//## @Const method Boolean RegExp.getmultiline();
 
-static KMETHOD RegExp_getMultiline(KonohaContext *kctx, KonohaStack *sfp)
+static KMETHOD RegExp_getmultiline(KonohaContext *kctx, KonohaStack *sfp)
 {
 	RETURNb_(RegExp_isMultiline(sfp[0].re));
 }
 
 /* ------------------------------------------------------------------------ */
-//## @Const method String RegExp.getSource();
+//## @Const method String RegExp.getsource();
 
-static KMETHOD RegExp_getSource(KonohaContext *kctx, KonohaStack *sfp)
+static KMETHOD RegExp_getsource(KonohaContext *kctx, KonohaStack *sfp)
 {
 	RETURN_(sfp[0].re->pattern);
 }
 
 /* ------------------------------------------------------------------------ */
-//## @Const method Int RegExp.getLastIndex();
+//## @Const method Int RegExp.getlastIndex();
 
-static KMETHOD RegExp_getLastIndex(KonohaContext *kctx, KonohaStack *sfp)
+static KMETHOD RegExp_getlastIndex(KonohaContext *kctx, KonohaStack *sfp)
 {
 	RETURNi_(sfp[0].re->lastIndex);
 }
@@ -738,7 +738,7 @@ static kbool_t regexp_initPackage(KonohaContext *kctx, kNameSpace *ns, int argc,
 	base->h.setup    = kregexpshare_setup;
 	base->h.reftrace = kregexpshare_reftrace;
 	base->h.free     = kregexpshare_free;
-	KLIB Konoha_setModule(kctx, MOD_REGEXP, &base->h, pline);
+	KLIB KonohaRuntime_setModule(kctx, MOD_REGEXP, &base->h, pline);
 
 	KDEFINE_CLASS RegExpDef = {
 		STRUCTNAME(RegExp),
@@ -747,24 +747,24 @@ static kbool_t regexp_initPackage(KonohaContext *kctx, kNameSpace *ns, int argc,
 		.free = RegExp_free,
 		.p    = RegExp_p,
 	};
-	base->cRegExp = KLIB Konoha_defineClass(kctx, ns->packageId, PN_konoha, NULL, &RegExpDef, pline);
+	base->cRegExp = KLIB kNameSpace_defineClass(kctx, ns, NULL, &RegExpDef, pline);
 
 	ktype_t TY_StringArray0 = CT_StringArray0->typeId;
 	KDEFINE_METHOD MethodData[] = {
-		/*JS*/_Public|_Const|_Im, _F(RegExp_getGlobal), TY_Boolean, TY_RegExp, MN_("getGlobal"), 0,
-		/*JS*/_Public|_Const|_Im, _F(RegExp_getIgnoreCase), TY_Boolean, TY_RegExp, MN_("getIgnoreCase"), 0,
-		/*JS*/_Public|_Const|_Im, _F(RegExp_getMultiline), TY_Boolean, TY_RegExp, MN_("getMultiline"), 0,
-		/*JS*/_Public|_Const|_Im, _F(RegExp_getSource), TY_String, TY_RegExp, MN_("getSource"), 0,
-		/*JS*/_Public|_Const|_Im, _F(RegExp_getLastIndex), TY_Int, TY_RegExp, MN_("getLastIndex"), 0,
+		/*JS*/_Public|_Const|_Im, _F(RegExp_getglobal), TY_boolean, TY_RegExp, MN_("getglobal"), 0,
+		/*JS*/_Public|_Const|_Im, _F(RegExp_getignoreCase), TY_boolean, TY_RegExp, MN_("getignoreCase"), 0,
+		/*JS*/_Public|_Const|_Im, _F(RegExp_getmultiline), TY_boolean, TY_RegExp, MN_("getmultiline"), 0,
+		/*JS*/_Public|_Const|_Im, _F(RegExp_getsource), TY_String, TY_RegExp, MN_("getsource"), 0,
+		/*JS*/_Public|_Const|_Im, _F(RegExp_getlastIndex), TY_int, TY_RegExp, MN_("getlastIndex"), 0,
 		/*JS*/_Public|_Im, _F(String_match), TY_StringArray0, TY_String, MN_("match"), 1, TY_RegExp, FN_("regexp"),
 		/*JS*/_Public|_Const|_Im, _F(String_replace), TY_String, TY_String, MN_("replace"), 2, TY_RegExp, FN_("searchvalue"), TY_String, FN_("newvalue"),
-		/*JS*/_Public|_Const|_Im, _F(String_search), TY_Int, TY_String, MN_("search"), 1, TY_RegExp, FN_("searchvalue"),
+		/*JS*/_Public|_Const|_Im, _F(String_search), TY_int, TY_String, MN_("search"), 1, TY_RegExp, FN_("searchvalue"),
 		/*JS*/_Public|_Im, _F(String_split), TY_StringArray0, TY_String, MN_("split"), 1, TY_RegExp, FN_("separator"),
-		/*JS*/_Public|_Im, _F(String_splitwithSeparatorLimit), TY_StringArray0, TY_String, MN_("split"), 2, TY_RegExp, FN_("separator"), TY_Int, FN_("limit"),
+		/*JS*/_Public|_Im, _F(String_splitwithSeparatorLimit), TY_StringArray0, TY_String, MN_("split"), 2, TY_RegExp, FN_("separator"), TY_int, FN_("limit"),
 		/*JS*/_Public|_Const, _F(RegExp_new),     TY_RegExp,  TY_RegExp,  MN_("new"), 1, TY_String, FN_("pattern"),
 		/*JS*/_Public|_Const, _F(RegExp_newwithOption),     TY_RegExp,  TY_RegExp,  MN_("new"), 2, TY_String, FN_("pattern"), TY_String, FN_("option"),
 		/*JS*/_Public|_Const, _F(RegExp_exec),    TY_StringArray0, TY_RegExp,  MN_("exec"), 1, TY_String, FN_("str"),
-		/*JS*/_Public|_Const|_Im, _F(RegExp_test),    TY_Boolean, TY_RegExp,  MN_("test"), 1, TY_String, FN_("str"),
+		/*JS*/_Public|_Const|_Im, _F(RegExp_test),    TY_boolean, TY_RegExp,  MN_("test"), 1, TY_String, FN_("str"),
 		DEND,
 	};
 	KLIB kNameSpace_loadMethodData(kctx, ns, MethodData);
@@ -827,7 +827,7 @@ static KMETHOD ExprTyCheck_RegExp(KonohaContext *kctx, KonohaStack *sfp)
 	RETURN_(SUGAR kExpr_setConstValue(kctx, expr, TY_RegExp, UPCAST(r)));
 }
 
-static kbool_t regexp_initNameSpace(KonohaContext *kctx, kNameSpace *ns, kfileline_t pline)
+static kbool_t regexp_initNameSpace(KonohaContext *kctx, kNameSpace *packageNameSpace, kNameSpace *ns, kfileline_t pline)
 {
 	kMethod *mtd = KLIB new_kMethod(kctx, 0, 0, 0, parseREGEXP);
 	kFunc *fo = GCSAFE_new(Func, (uintptr_t) mtd);
@@ -836,11 +836,11 @@ static kbool_t regexp_initNameSpace(KonohaContext *kctx, kNameSpace *ns, kfileli
 		{ .keyword = SYM_("$regexp"),  ExprTyCheck_(RegExp), },
 		{ .keyword = KW_END, },
 	};
-	SUGAR kNameSpace_defineSyntax(kctx, ns, SYNTAX);
+	SUGAR kNameSpace_defineSyntax(kctx, ns, SYNTAX, packageNameSpace);
 	return true;
 }
 
-static kbool_t regexp_setupNameSpace(KonohaContext *kctx, kNameSpace *ns, kfileline_t pline)
+static kbool_t regexp_setupNameSpace(KonohaContext *kctx, kNameSpace *packageNameSpace, kNameSpace *ns, kfileline_t pline)
 {
 	return true;
 }

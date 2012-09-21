@@ -26,6 +26,8 @@
 #include <minikonoha/sugar.h>
 #include "minikonoha/gc.h"
 #include <minikonoha/klib.h>
+#define USE_BUILTINTEST 1
+#include "testkonoha.h"
 #include <getopt.h>
 
 #ifdef __cplusplus
@@ -46,7 +48,7 @@ extern int verbose_code;
 extern int verbose_sugar;
 extern int verbose_gc;
 
-#include <minikonoha/platform_posix.h>
+#include <minikonoha/platform.h>
 
 // -------------------------------------------------------------------------
 // minishell
@@ -198,7 +200,7 @@ static void show_version(KonohaContext *kctx)
 	fprintf(stdout, K_PROGNAME " " K_VERSION " (%s) (%x, %s)\n", K_CODENAME, K_REVISION, __DATE__);
 	fprintf(stdout, "[gcc %s]\n", __VERSION__);
 	fprintf(stdout, "options:");
-	for(i = 0; i < MOD_MAX; i++) {
+	for(i = 0; i < KonohaModule_MAXSIZE; i++) {
 		if(kctx->modshare[i] != NULL) {
 			fprintf(stdout, " %s", kctx->modshare[i]->name);
 		}
@@ -208,11 +210,19 @@ static void show_version(KonohaContext *kctx)
 
 static kbool_t konoha_shell(KonohaContext* konoha)
 {
+#ifdef __MINGW32__
+	void *handler = (void *)LoadLibraryA((LPCTSTR)"libreadline" K_OSDLLEXT);
+	void *f = (handler != NULL) ? (void *)GetProcAddress(handler, "readline") : NULL;
+	kreadline = (f != NULL) ? (char* (*)(const char*))f : readline;
+	f = (handler != NULL) ? (void *)GetProcAddress(handler, "add_history") : NULL;	
+	kadd_history = (f != NULL) ? (int (*)(const char*))f : add_history;
+#else
 	void *handler = dlopen("libreadline" K_OSDLLEXT, RTLD_LAZY);
 	void *f = (handler != NULL) ? dlsym(handler, "readline") : NULL;
 	kreadline = (f != NULL) ? (char* (*)(const char*))f : readline;
 	f = (handler != NULL) ? dlsym(handler, "add_history") : NULL;
 	kadd_history = (f != NULL) ? (int (*)(const char*))f : add_history;
+#endif
 	show_version(konoha);
 	shell(konoha);
 	return true;
@@ -431,16 +441,23 @@ static void CommandLine_define(KonohaContext *kctx, char *keyvalue)
 		memcpy(namebuf, keyvalue, len); namebuf[len] = 0;
 		DBG_P("name='%s'", namebuf);
 		ksymbol_t key = KLIB Ksymbol(kctx, namebuf, len, 0, SYM_NEWID);
+		uintptr_t unboxValue;
+		ktype_t ty;
 		if(isdigit(p[1])) {
-			long n = strtol(p+1, NULL, 0);
-			KLIB kNameSpace_setConstData(kctx, KNULL(NameSpace), key, TY_Int, (uintptr_t)n);
+			ty = TY_int;
+			unboxValue = (uintptr_t)strtol(p+1, NULL, 0);
 		}
 		else {
-			KLIB kNameSpace_setConstData(kctx, KNULL(NameSpace), key, TY_TEXT, (uintptr_t)(p+1));
+			ty = TY_TEXT;
+			unboxValue = (uintptr_t)(p+1);
+		}
+		if(!KLIB kNameSpace_setConstData(kctx, KNULL(NameSpace), key, ty, unboxValue, 0)) {
+			PLATAPI exit_i(EXIT_FAILURE);
 		}
 	}
 	else {
 		fprintf(stdout, "invalid define option: use -D<key>=<value>\n");
+		PLATAPI exit_i(EXIT_FAILURE);
 	}
 }
 
@@ -449,7 +466,7 @@ static void CommandLine_import(KonohaContext *kctx, char *packageName)
 	size_t len = strlen(packageName)+1;
 	char bufname[len];
 	memcpy(bufname, packageName, len);
-	if(!(KEXPORT_PACKAGE(bufname, KNULL(NameSpace), 0))) {
+	if(!(KLIB kNameSpace_importPackage(kctx, KNULL(NameSpace), bufname, 0))) {
 		PLATAPI exit_i(EXIT_FAILURE);
 	}
 }
@@ -606,7 +623,6 @@ int main(int argc, char *argv[])
 	KonohaContext* konoha = konoha_open(plat);
 	ret = konoha_parseopt(konoha, (PlatformApiVar*)plat, argc, argv);
 	konoha_close(konoha);
-	MODGC_check_malloced_size();
 	return ret ? konoha_detectFailedAssert: 0;
 }
 

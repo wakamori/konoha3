@@ -1,6 +1,7 @@
 // written by kimio kuramitsu
 
-K.import("konoha.class");
+import("konoha.object");
+import("konoha.new");
 
 void test() {
 	Object o = new Object();

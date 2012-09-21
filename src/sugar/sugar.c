@@ -25,7 +25,7 @@
 /* ************************************************************************ */
 
 #define USING_SUGAR_AS_BUILTIN 1
-#include<minikonoha/sugar.h>
+#include <minikonoha/sugar.h>
 
 /* ************************************************************************ */
 
@@ -33,7 +33,7 @@
 extern "C" {
 #endif
 
-#include<minikonoha/local.h>
+#include <minikonoha/local.h>
 
 // global variable
 int verbose_sugar = 0;
@@ -41,12 +41,12 @@ int verbose_sugar = 0;
 #include "perror.h"
 #include "sugarclass.h"
 #include "namespace.h"
-#include "sugardump.h"
+#include "macro.h"
 #include "token.h"
 #include "ast.h"
 #include "tycheck.h"
 #include "sugarfunc.h"
-#include "loader.h"
+#include "sugardump.h"
 
 /* ------------------------------------------------------------------------ */
 /* Sugar Global Functions */
@@ -112,32 +112,12 @@ static void SugarModule_setup(KonohaContext *kctx, struct KonohaModule *def, int
 	}
 }
 
-static void packageMap_reftrace(KonohaContext *kctx, KUtilsHashMapEntry *p, void *thunk)
-{
-	KonohaPackage *pack = (KonohaPackage*)p->unboxValue;
-	BEGIN_REFTRACE(1);
-	KREFTRACEn(pack->packageNameSpace);
-	END_REFTRACE();
-}
-
-static void packageMap_free(KonohaContext *kctx, void *p)
-{
-	KFREE(p, sizeof(KonohaPackage));
-}
-
 static void SugarModule_reftrace(KonohaContext *kctx, struct KonohaModule *baseh)
 {
-	KModuleSugar *base = (KModuleSugar*)baseh;
-	KLIB Kmap_each(kctx, base->packageMapNO, NULL, packageMap_reftrace);
-	BEGIN_REFTRACE(1);
-	KREFTRACEv(base->packageList);
-	END_REFTRACE();
 }
 
 static void SugarModule_free(KonohaContext *kctx, struct KonohaModule *baseh)
 {
-	KModuleSugar *base = (KModuleSugar*)baseh;
-	KLIB Kmap_free(kctx, base->packageMapNO, packageMap_free);
 	KFREE(baseh, sizeof(KModuleSugar));
 }
 
@@ -148,25 +128,23 @@ void MODSUGAR_init(KonohaContext *kctx, KonohaContextVar *ctx)
 	mod->h.setup    = SugarModule_setup;
 	mod->h.reftrace = SugarModule_reftrace;
 	mod->h.free     = SugarModule_free;
-	KLIB Konoha_setModule(kctx, MOD_sugar, (KonohaModule*)mod, 0);
+	KLIB KonohaRuntime_setModule(kctx, MOD_sugar, (KonohaModule*)mod, 0);
 
 	KonohaLibVar* l = (KonohaLibVar*)ctx->klib;
-	l->kNameSpace_getClass   = kNameSpace_getClass;
+	l->kNameSpace_getClass       = kNameSpace_getClass;
+	l->kNameSpace_defineClass    = kNameSpace_defineClass;
 	l->kNameSpace_loadMethodData = kNameSpace_loadMethodData;
 	l->kNameSpace_setConstData   = kNameSpace_setConstData;
 	l->kNameSpace_loadConstData  = kNameSpace_loadConstData;
-	l->kNameSpace_getMethodNULL  = kNameSpace_getMethodNULL;
-	l->kNameSpace_compileAllDefinedMethods    = kNameSpace_compileAllDefinedMethods;
+	l->kNameSpace_getGetterMethodNULL  = kNameSpace_getGetterMethodNULL;
+	l->kNameSpace_getSetterMethodNULL  = kNameSpace_getSetterMethodNULL;
+	l->kNameSpace_getMethodByParamSizeNULL  = kNameSpace_getMethodByParamSizeNULL;
+	l->kNameSpace_getMethodBySignatureNULL  = kNameSpace_getMethodBySignatureNULL;
 
-	KINITv(mod->packageList, new_(Array, 8));
-	mod->packageMapNO = KLIB Kmap_init(kctx, 0);
+	l->kNameSpace_compileAllDefinedMethods  = kNameSpace_compileAllDefinedMethods;
+	l->kNameSpace_reftraceSugarExtension =  kNameSpace_reftraceSugarExtension;
+	l->kNameSpace_freeSugarExtension =  kNameSpace_freeSugarExtension;
 
-	KDEFINE_CLASS defNameSpace = {
-		STRUCTNAME(NameSpace),
-		.init = NameSpace_init,
-		.reftrace = NameSpace_reftrace,
-		.free = NameSpace_free,
-	};
 	KDEFINE_CLASS defToken = {
 		STRUCTNAME(Token),
 		.init = Token_init,
@@ -191,25 +169,30 @@ void MODSUGAR_init(KonohaContext *kctx, KonohaContextVar *ctx)
 		STRUCTNAME(Gamma),
 		.init = Gamma_init,
 	};
-	mod->cNameSpace = KLIB Konoha_defineClass(kctx, PackageId_sugar, PackageId_sugar, NULL, &defNameSpace, 0);
-	mod->cToken =     KLIB Konoha_defineClass(kctx, PackageId_sugar, PackageId_sugar, NULL, &defToken, 0);
-	mod->cExpr  =     KLIB Konoha_defineClass(kctx, PackageId_sugar, PackageId_sugar, NULL, &defExpr, 0);
-	mod->cStmt  =     KLIB Konoha_defineClass(kctx, PackageId_sugar, PackageId_sugar, NULL, &defStmt, 0);
-	mod->cBlock =     KLIB Konoha_defineClass(kctx, PackageId_sugar, PackageId_sugar, NULL, &defBlock, 0);
-	mod->cGamma =     KLIB Konoha_defineClass(kctx, PackageId_sugar, PackageId_sugar, NULL, &defGamma, 0);
+
+	mod->cToken =     KLIB KonohaClass_define(kctx, PackageId_sugar, NULL, &defToken, 0);
+	mod->cExpr  =     KLIB KonohaClass_define(kctx, PackageId_sugar, NULL, &defExpr, 0);
+	mod->cStmt  =     KLIB KonohaClass_define(kctx, PackageId_sugar, NULL, &defStmt, 0);
+	mod->cBlock =     KLIB KonohaClass_define(kctx, PackageId_sugar, NULL, &defBlock, 0);
+	mod->cGamma =     KLIB KonohaClass_define(kctx, PackageId_sugar, NULL, &defGamma, 0);
 	mod->cTokenArray = CT_p0(kctx, CT_Array, mod->cToken->typeId);
 
-	KLIB Knull(kctx, mod->cNameSpace);
 	KLIB Knull(kctx, mod->cToken);
 	KLIB Knull(kctx, mod->cExpr);
 	KLIB Knull(kctx, mod->cBlock);
+
 	SugarModule_setup(kctx, &mod->h, 0);
 
-//	KINITv(mod->UndefinedParseExpr,   new_SugarFunc(UndefinedParseExpr));
-//	KINITv(mod->UndefinedStmtTyCheck, new_SugarFunc(UndefinedStmtTyCheck));
-//	KINITv(mod->UndefinedExprTyCheck, new_SugarFunc(UndefinedExprTyCheck));
-//	KINITv(mod->ParseExpr_Op,         new_SugarFunc(ParseExpr_Op));
-//	KINITv(mod->ParseExpr_Term,       new_SugarFunc(ParseExpr_Term));
+	KDEFINE_INT_CONST ClassData[] = {   // minikonoha defined class
+		{"void", TY_TYPE, (uintptr_t)CT_void},
+		{"boolean", TY_TYPE, (uintptr_t)CT_Boolean},
+		{"int",    TY_TYPE, (uintptr_t)CT_Int},
+		{"String", TY_TYPE, (uintptr_t)CT_String},
+		{"Func",   TY_TYPE, (uintptr_t)CT_Func},
+		{"System", TY_TYPE, (uintptr_t)CT_System},
+		{NULL},
+	};
+	kNameSpace_loadConstData(kctx, KNULL(NameSpace), KonohaConst_(ClassData), 0);
 
 	mod->new_TokenListRange         = new_TokenListRange;
 	mod->new_TokenStackRange        = new_TokenStackRange;
@@ -218,6 +201,7 @@ void MODSUGAR_init(KonohaContext *kctx, KonohaContextVar *ctx)
 	mod->TokenRange_eval            = TokenRange_eval;
 	mod->TokenRange_resolved        = TokenRange_resolved;
 	mod->kStmt_parseTypePattern     = kStmt_parseTypePattern;
+	mod->kToken_transformToBraceGroup = kToken_transformToBraceGroup;
 	mod->kStmt_parseFlag            = kStmt_parseFlag;
 	mod->kStmt_getToken             = kStmt_getToken;
 	mod->kStmt_getBlock             = kStmt_getBlock;
@@ -231,7 +215,10 @@ void MODSUGAR_init(KonohaContext *kctx, KonohaContextVar *ctx)
 	mod->kBlock_tyCheckAll          = kBlock_tyCheckAll;
 	mod->kStmt_tyCheckCallParamExpr = kStmt_tyCheckCallParamExpr;
 	mod->new_TypedCallExpr          = new_TypedCallExpr;
+	mod->kGamma_declareLocalVariable = kGamma_declareLocalVariable;
 	mod->kStmt_declType             = kStmt_declType;
+	mod->kStmt_tyCheckVariableNULL  = kStmt_tyCheckVariableNULL;
+
 	mod->kNameSpace_defineSyntax    = kNameSpace_defineSyntax;
 	mod->kNameSpace_getSyntax       = kNameSpace_getSyntax;
 	mod->kArray_addSyntaxRule       = kArray_addSyntaxRule;
@@ -246,8 +233,15 @@ void MODSUGAR_init(KonohaContext *kctx, KonohaContextVar *ctx)
 	mod->kStmt_parseExpr            = kStmt_parseExpr;
 	mod->kStmt_addExprParam         = kStmt_addExprParam;
 	mod->kStmt_rightJoinExpr        = kStmt_rightJoinExpr;
-	mod->Token_pERR                 = Token_pERR;
-	mod->kStmt_printMessage                     = kStmt_printMessage;
+	mod->kToken_printMessage        = kToken_printMessage;
+	mod->kStmt_printMessage2        = kStmt_printMessage2;
+
+#ifndef USE_SMALLBUILD
+	mod->dumpToken      = dumpToken;
+	mod->dumpTokenArray = dumpTokenArray;
+	mod->dumpExpr       = dumpExpr;
+	mod->dumpStmt       = dumpStmt;
+#endif
 
 	defineDefaultSyntax(kctx, KNULL(NameSpace));
 }
@@ -273,8 +267,8 @@ static KMETHOD NameSpace_importPackage(KonohaContext *kctx, KonohaStack *sfp)
 void MODSUGAR_loadMethod(KonohaContext *kctx)
 {
 	KDEFINE_METHOD MethodData[] = {
-		_Public, _F(NameSpace_importPackage), TY_Boolean, TY_NameSpace, MN_("import"), 1, TY_String, FN_("name"),
-		_Public, _F(NameSpace_loadScript), TY_Boolean, TY_NameSpace, MN_("load"), 1, TY_String, FN_("path"),
+		_Public, _F(NameSpace_importPackage), TY_boolean, TY_NameSpace, MN_("import"), 1, TY_String, FN_("name"),
+		_Public, _F(NameSpace_loadScript), TY_boolean, TY_NameSpace, MN_("load"), 1, TY_String, FN_("path"),
 		DEND,
 	};
 	KLIB kNameSpace_loadMethodData(kctx, NULL, MethodData);

@@ -103,8 +103,8 @@ void konoha_plugin_init(KonohaContextVar **konohap, memcached_st **mcp)
     *mcp = memcached_create(NULL);
     KonohaContext *kctx = *konohap;
     kNameSpace *ns = KNULL(NameSpace);
-    KEXPORT_PACKAGE("sugar", ns, 0);
-    KEXPORT_PACKAGE("logpool", ns, 0);
+    KImportPackage("sugar", ns, 0);
+    KImportPackage("logpool", ns, 0);
     memcached_server_list_st servers;
     memcached_return_t rc;
     servers = memcached_server_list_append(NULL, "127.0.0.1", 11211, &rc);
@@ -124,7 +124,7 @@ struct pool_plugin *konoha_plugin_get(KonohaContext *kctx, memcached_st *mc, cha
     kObject *ev = KLIB new_kObject(kctx, CT_Int/*Dummy*/, (uintptr_t)req);
     MODSUGAR_eval(kctx, script, 0);
     kNameSpace *ns = KNULL(NameSpace);
-    kMethod *mtd = KLIB kNameSpace_getMethodNULL(kctx, ns, TY_System, MN_("initPlugin"), 1, MPOL_PARAMSIZE|MPOL_FIRST);
+    kMethod *mtd = KLIB kNameSpace_getMethodByParamSizeNULL(kctx, ns, TY_System, MN_("initPlugin"), 1, MPOL_PARAMSIZE|MPOL_FIRST);
     if (mtd) {
         BEGIN_LOCAL(lsfp, K_CALLDELTA + 2);
         KSETv_AND_WRITE_BARRIER(0, lsfp[K_CALLDELTA+0].o, K_NULL, GC_NO_WRITE_BARRIER);
