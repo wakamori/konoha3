@@ -155,7 +155,7 @@ set(PACKAGES
 	python
 	apache
 #	openssl
-#	logpool
+	logpool
 )
 
 find_library(HAVE_LIBDL NAMES dl)
