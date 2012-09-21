@@ -28,7 +28,7 @@ add_custom_command(OUTPUT
 add_custom_command(OUTPUT
 		${CMAKE_CURRENT_BINARY_DIR}/files/readlink.txt
 		COMMAND ${CMAKE_COMMAND} -E create_symlink
-		files/readlink.txt
+		newfile.txt
 		${CMAKE_CURRENT_BINARY_DIR}/files/readlink.txt)
 add_custom_target(copy_fd_test_files ALL DEPENDS
 		${CMAKE_CURRENT_BINARY_DIR}/files/another.txt
