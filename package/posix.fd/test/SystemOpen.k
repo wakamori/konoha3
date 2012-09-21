@@ -1,7 +1,7 @@
 //Written by Joseph
 
 import("konoha.int");
-import("posix.process");
+import("posix.fd");
 
 void test() {
 	assert(System.open("files/newfile.txt", O_RDONLY) > 0);
