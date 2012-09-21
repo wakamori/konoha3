@@ -627,6 +627,8 @@ static KMETHOD SockAddr_new (KonohaContext *kctx, KonohaStack *sfp)
 #define TY_SockAddr         cSockAddr->typeId
 #define IS_SockAddr(O)      ((O)->h.ct == CT_SockAddr)
 
+#define _KVi(T) #T, TY_int, T
+
 static kbool_t socket_initPackage(KonohaContext *kctx, kNameSpace *ns, int argc, const char**args, kfileline_t pline)
 {
 	KDEFINE_CLASS defSockAddr = {
@@ -673,61 +675,60 @@ static kbool_t socket_initPackage(KonohaContext *kctx, kNameSpace *ns, int argc,
 		kreportf(InfoTag, pline, "konoha.bytes package hasn't imported. Some features are still disabled.");
 	}
 	KDEFINE_INT_CONST IntData[] = {
-			{"PF_LOCAL",TY_int, PF_LOCAL},
-			{"PF_UNIX", TY_int, PF_UNIX},
-			{"PF_INET", TY_int, PF_INET},
-			{"PF_INET6", TY_int, PF_INET6},
-			{"PF_APPLETALK", TY_int, PF_APPLETALK},
+			{_KVi(PF_LOCAL)},
+			{_KVi(PF_UNIX)},
+			{_KVi(PF_INET)},
+			{_KVi(PF_INET6)},
+			{_KVi(PF_APPLETALK)},
 #ifndef __APPLE__
-			{"PF_PACKET", TY_int, PF_PACKET},
+			{_KVi(PF_PACKET)},
 #endif
-			{"AF_LOCAL", TY_int, AF_LOCAL},
-			{"AF_UNIX", TY_int, AF_UNIX},
-			{"AF_INET", TY_int, AF_INET},
-			{"AF_INET6", TY_int, AF_INET6},
-			{"AF_APPLETALK", TY_int, AF_APPLETALK},
+			{_KVi(AF_LOCAL)},
+			{_KVi(AF_UNIX)},
+			{_KVi(AF_INET)},
+			{_KVi(AF_INET6)},
+			{_KVi(AF_APPLETALK)},
 #ifndef __APPLE__
-			{"AF_PACKET", TY_int, AF_PACKET},
+			{_KVi(AF_PACKET)},
 #endif
 			// Types of sockets
-			{"SOCK_STREAM", TY_int, SOCK_STREAM},
-			{"SOCK_DGRAM", TY_int, SOCK_DGRAM},
-			{"SOCK_RAW", TY_int, SOCK_RAW},
-			{"SOCK_RDM", TY_int, SOCK_RDM},
+			{_KVi(SOCK_STREAM)},
+			{_KVi(SOCK_DGRAM)},
+			{_KVi(SOCK_RAW)},
+			{_KVi(SOCK_RDM)},
 			// send & recv flags
-			{"MSG_OOB", TY_int, MSG_OOB},
-			{"MSG_PEEK", TY_int, MSG_PEEK},
-			{"MSG_DONTROUTE", TY_int, MSG_DONTROUTE},
-			{"MSG_OOB", TY_int, MSG_OOB},
-			{"MSG_TRUNC", TY_int, MSG_TRUNC},
-			{"MSG_DONTWAIT", TY_int, MSG_DONTWAIT},
-			{"MSG_EOR", TY_int, MSG_EOR},
-			{"MSG_WAITALL", TY_int, MSG_WAITALL},
+			{_KVi(MSG_OOB)},
+			{_KVi(MSG_PEEK)},
+			{_KVi(MSG_DONTROUTE)},
+			{_KVi(MSG_OOB)},
+			{_KVi(MSG_TRUNC)},
+			{_KVi(MSG_DONTWAIT)},
+			{_KVi(MSG_EOR)},
+			{_KVi(MSG_WAITALL)},
 #ifndef	__APPLE__
-			{"MSG_CONFIRM", TY_int, MSG_CONFIRM},
-			{"MSG_ERRQUEUE", TY_int, MSG_ERRQUEUE},
-			{"MSG_NOSIGNAL", TY_int, MSG_NOSIGNAL},
-			{"MSG_MORE", TY_int, MSG_MORE},
+			{_KVi(MSG_CONFIRM)},
+			{_KVi(MSG_ERRQUEUE)},
+			{_KVi(MSG_NOSIGNAL)},
+			{_KVi(MSG_MORE)},
 #endif
 			// socket options
-			{"SO_REUSEADDR", TY_int, SO_REUSEADDR},
-			{"SO_TYPE", TY_int, SO_TYPE},
-			{"SO_ERROR", TY_int, SO_ERROR},
-			{"SO_DONTROUTE", TY_int, SO_DONTROUTE},
-			{"SO_BROADCAST", TY_int, SO_BROADCAST},
-			{"SO_SNDBUF", TY_int, SO_SNDBUF},
-			{"SO_RCVBUF", TY_int, SO_RCVBUF},
-			{"SO_KEEPALIVE", TY_int, SO_KEEPALIVE},
-			{"SO_OOBINLINE", TY_int, SO_OOBINLINE},
+			{_KVi(SO_REUSEADDR)},
+			{_KVi(SO_TYPE)},
+			{_KVi(SO_ERROR)},
+			{_KVi(SO_DONTROUTE)},
+			{_KVi(SO_BROADCAST)},
+			{_KVi(SO_SNDBUF)},
+			{_KVi(SO_RCVBUF)},
+			{_KVi(SO_KEEPALIVE)},
+			{_KVi(SO_OOBINLINE)},
 #ifndef __APPLE__
-			{"SO_NO_CHECK", TY_int, SO_NO_CHECK},
-			{"SO_PRIORITY", TY_int, SO_PRIORITY},
+			{_KVi(SO_NO_CHECK)},
+			{_KVi(SO_PRIORITY)},
 #endif
-			{"SHUT_RD", TY_int, SHUT_RD},
-			{"SHUT_WR", TY_int, SHUT_WR},
-			{"SHUT_RDWR", TY_int, SHUT_RDWR},
-
-			{"SOMAXCONN", TY_int, SOMAXCONN},
+			{_KVi(SHUT_RD)},
+			{_KVi(SHUT_WR)},
+			{_KVi(SHUT_RDWR)},
+			{_KVi(SOMAXCONN)},
 			{}
 	};
 	KLIB kNameSpace_loadConstData(kctx, ns, KonohaConst_(IntData), pline);

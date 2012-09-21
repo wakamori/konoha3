@@ -1,7 +1,7 @@
 //Written by Joseph
 
-K.import("konoha.int");
-K.import("posix.process");
+import("konoha.int");
+import("posix.process");
 
 void test() {
 	assert(System.open("files/newfile.txt", O_RDONLY) > 0);
@@ -17,6 +17,6 @@ void test() {
 	assert(System.open("files/newfile.txt", O_NONBLOCK|O_RDONLY) > 0);
 	assert(System.open("files/newfile.txt", O_NDELAY|O_WRONLY) > 0);
 	assert(System.open("files/newfile.txt", O_NOCTTY|O_RDWR) > 0);
-
 }
+
 test();

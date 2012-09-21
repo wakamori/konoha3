@@ -1,8 +1,10 @@
 //Written by Joseph
-K.import("konoha.bytes");
-K.import("posix.socket");
+
+import("konoha.bytes");
+import("posix.socket");
 
 void test() {
 
 }
+
 test();

@@ -1,6 +1,7 @@
 //Written by Joseph
-K.import("konoha.bytes");
-K.import("posix.socket");
+
+import("konoha.bytes");
+import("posix.socket");
 
 void test() {
 	int fd = System.socket(PF_INET, SOCK_STREAM, 0);
@@ -8,4 +9,5 @@ void test() {
 	assert(System.getsockopt(fd, SO_REUSEADDR) == 1);
 	System.close(fd);
 }
+
 test();
