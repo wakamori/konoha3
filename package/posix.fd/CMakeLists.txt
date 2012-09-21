@@ -1,4 +1,5 @@
 cmake_minimum_required(VERSION 2.6)
+if(NOT MINGW AND NOT MSVC)
 set(PACKAGE_SOURCE_CODE fd_glue.c)
 include(CheckStructHasMember)
 check_struct_has_member("struct stat" st_rdev sys/stat.h HAVE_STRUCT_STAT_ST_RDEV)
@@ -29,6 +30,5 @@ add_custom_target(copy_fd_test_files ALL DEPENDS
 		${CMAKE_CURRENT_BINARY_DIR}/files/ftruncate.txt
 		${CMAKE_CURRENT_BINARY_DIR}/files/newfile.txt)
 include_directories(${CMAKE_CURRENT_BINARY_DIR})
-if(NOT MINGW AND NOT MSVC)
-	add_konoha_package(posix.fd)
+add_konoha_package(posix.fd)
 endif()
