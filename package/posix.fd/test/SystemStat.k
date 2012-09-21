@@ -5,7 +5,7 @@ K.import("konoha");
 K.import("konoha.new");
 
 void test() {
-	Stat s = System.stat("newfile.txt");
+	Stat s = System.stat("files/newfile.txt");
 	assert(s.getst_dev() > 0);
 	assert(s.getst_ino() > 0);
 	assert(s.getst_mode() > 0);

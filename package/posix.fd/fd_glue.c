@@ -34,6 +34,10 @@
 #include <dirent.h>
 #include "fdconfig.h"
 
+#ifndef PATHMAX
+#define PATHMAX 256
+#endif /*PATHMAX*/
+
 /* ------------------------------------------------------------------------ */
 
 typedef const struct _kStat kStat;
@@ -344,24 +348,22 @@ static KMETHOD System_symlink(KonohaContext *kctx, KonohaStack *sfp)
 static KMETHOD System_readlink(KonohaContext *kctx, KonohaStack *sfp)
 {
 	kString *s1 = sfp[1].asString;
-	kString *s2 = sfp[2].asString;
 	const char *pathname = S_text(s1);
-	const char *buf = S_text(s2);
-	size_t bufsize = sfp[3].intValue;
-	//size_t bufsize = strlen(buf);
-	//ssize_t ret = readlink(pathname, (char *)buf, bufsize);
-	ssize_t ret = readlink(pathname, (char *)buf, bufsize);
+	char pathbuf[PATHMAX];
+	ssize_t ret = readlink(pathname, pathbuf, PATHMAX);
 	if (ret == -1) {
 		// TODO: throw
 		ktrace(_SystemFault,
 			   KeyValue_s("@", "readlink"),
 			   KeyValue_s("pathname", pathname),
-			   KeyValue_s("buf", buf),
-			   KeyValue_u("bufsize", bufsize),
 			   KeyValue_p("errstr", strerror(errno))
 			);
+		pathbuf[0] = '\0';
 	}
-	RETURNi_(ret);
+	else {
+		pathbuf[ret] = '\0';
+	}
+	RETURN_(KLIB new_kString(kctx, pathbuf, strlen(pathbuf), 0));
 }
 
 static KMETHOD System_chown(KonohaContext *kctx, KonohaStack *sfp)
@@ -829,7 +831,7 @@ static kbool_t fd_initPackage(KonohaContext *kctx, kNameSpace *ns, int argc, con
 		_Public|_Const|_Im, _F(System_rename), TY_int, TY_System, MN_("rename"), 2, TY_String, FN_("oldpath"), TY_String, FN_("newpath"),
 		_Public|_Const|_Im, _F(System_rmdir), TY_int, TY_System, MN_("rmdir"), 1, TY_String, FN_("pathname"),
 		_Public|_Const|_Im, _F(System_symlink), TY_int, TY_System, MN_("symlink"), 2, TY_String, FN_("oldpath"), TY_String, FN_("newpath"),
-		_Public|_Const|_Im, _F(System_readlink), TY_int, TY_System, MN_("readlink"), 3, TY_String, FN_("pathname"), TY_String, FN_("buf"), TY_int, FN_("bufsize"),
+		_Public|_Const|_Im, _F(System_readlink), TY_String, TY_System, MN_("readlink"), 1, TY_String, FN_("pathname"),
 		_Public|_Const|_Im, _F(System_chown), TY_int, TY_System, MN_("chown"), 3, TY_String, FN_("pathname"), TY_int, FN_("owner"), TY_int, FN_("group"),
 		_Public|_Const|_Im, _F(System_lchown), TY_int, TY_System, MN_("lchown"), 3, TY_String, FN_("pathname"), TY_int, FN_("owner"), TY_int, FN_("group"),
 		_Public|_Const|_Im, _F(System_fchown), TY_int, TY_System, MN_("fchown"), 3, TY_int, FN_("pd"), TY_int, FN_("owner"), TY_int, FN_("group"),

@@ -726,6 +726,8 @@ static kbool_t socket_initPackage(KonohaContext *kctx, kNameSpace *ns, int argc,
 			{"SHUT_RD", TY_int, SHUT_RD},
 			{"SHUT_WR", TY_int, SHUT_WR},
 			{"SHUT_RDWR", TY_int, SHUT_RDWR},
+
+			{"SOMAXCONN", TY_int, SOMAXCONN},
 			{}
 	};
 	KLIB kNameSpace_loadConstData(kctx, ns, KonohaConst_(IntData), pline);
