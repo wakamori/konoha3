@@ -1,3 +1,4 @@
- - (SubprocExec.k:8) $HOME
+ - (SubprocExec.k:8) "hi"
 
-Q.E.D.
+ - (SubprocExec.k:9) "hello"
+

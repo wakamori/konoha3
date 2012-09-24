@@ -4,7 +4,6 @@
 import("konoha.bytes");
 import("konoha.string");
 import("posix.file");
-import("konoha.string");
 
 void test() {
 	FILE f = System.fopen("files/writetest.txt", "w");
