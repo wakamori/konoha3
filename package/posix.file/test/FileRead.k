@@ -1,4 +1,5 @@
-//Written by Joseph
+//Written by shinpei
+//Modified by Joseph
 
 import("konoha.new");
 import("konoha.bytes");

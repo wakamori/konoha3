@@ -22,35 +22,43 @@
  * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  ***************************************************************************/
 
-#ifndef MINIOKNOHA_LOCAL_H_
-#define MINIOKNOHA_LOCAL_H_
-#ifndef MINIOKNOHA_H_
-#error Do not include local.h without minikonoha.h.
-#endif
+#ifndef LIBC_READLINE_H_
+#define LIBC_READLINE_H_
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+static char* readline(const char* prompt)
+{
+	static int checkCTL = 0;
+	int ch, pos = 0;
+	static char linebuf[1024]; // THREAD-UNSAFE
+	fputs(prompt, stdout);
+	while((ch = fgetc(stdin)) != EOF) {
+		if(ch == '\r') continue;
+		if(ch == 27) {
+			/* ^[[A */;
+			fgetc(stdin); fgetc(stdin);
+			if(checkCTL == 0) {
+				fprintf(stdout, " - use readline, it provides better shell experience.\n");
+				checkCTL = 1;
+			}
+			continue;
+		}
+		if(ch == '\n' || pos == sizeof(linebuf) - 1) {
+			linebuf[pos] = 0;
+			break;
+		}
+		linebuf[pos] = ch;
+		pos++;
+	}
+	if(ch == EOF) return NULL;
+	char *p = (char*)malloc(pos+1);
+	memcpy(p, linebuf, pos+1);
+	return p;
+}
 
-#define IS_RootKonohaContext(o)   (kctx == (KonohaContext*)o)
+static int add_history(const char* line)
+{
+	// dummy
+	return 0;
+}
 
-// These functions are local functions in minikonoha binary.
-// Don't call from packages directly   (kimio)
-
-void KONOHA_reftraceObject(KonohaContext *kctx, kObject *o);  // called from MODGC
-void KONOHA_freeObjectField(KonohaContext *kctx, kObjectVar *o);       // callled from MODGC
-
-void MODCODE_init(KonohaContext *kctx, KonohaContextVar *ctx);
-//void MODCODE_genCode(KonohaContext *kctx, kMethod *mtd, kBlock *bk);
-
-void MODSUGAR_init(KonohaContext *kctx, KonohaContextVar *ctx);
-kstatus_t MODSUGAR_loadScript(KonohaContext *kctx, const char *path, size_t len, kfileline_t pline);
-kstatus_t MODSUGAR_eval(KonohaContext *kctx, const char *script, kfileline_t uline);
-
-void MODSUGAR_loadMethod(KonohaContext *kctx);
-
-#ifdef __cplusplus
-} /* extern "C" */
-#endif
-
-#endif /* MINIOKNOHA_LOCAL_H_ */
+#endif /* LIBC_READLINE_H_ */

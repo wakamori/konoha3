@@ -55,9 +55,9 @@ static void File_free(KonohaContext *kctx, kObject *o)
 		int ret = fclose(file->fp);
 		if (ret != 0) {
 			// TODO: throw
-			ktrace(_SystemFault,
-					KeyValue_s("@", "fclose"),
-					KeyValue_s("errstr", strerror(errno))
+			OLDTRACE_SWITCH_TO_KTrace(_SystemFault,
+					LogText("@", "fclose"),
+					LogText("errstr", strerror(errno))
 			);
 		}
 		file->fp = NULL;
@@ -85,11 +85,11 @@ static KMETHOD System_fopen(KonohaContext *kctx, KonohaStack *sfp)
 	DBG_P("fp=%p, filepath=%s", fp, S_text(s));
 	if (fp == NULL) {
 		// TODO: throw
-		ktrace(_SystemFault|_ScriptFault,
-				KeyValue_s("@", "fopen"),
-				KeyValue_s("path", S_text(s)),
-				KeyValue_u("mode", mode),
-				KeyValue_s("errstr", strerror(errno))
+		OLDTRACE_SWITCH_TO_KTrace(_SystemFault|_ScriptFault,
+				LogText("@", "fopen"),
+				LogText("path", S_text(s)),
+				LogUint("mode", mode),
+				LogText("errstr", strerror(errno))
 		);
 	}
 	struct _kFILE *file = (struct _kFILE*)KLIB new_kObject(kctx, O_ct(sfp[K_RTNIDX].asObject), (uintptr_t)fp);
@@ -117,9 +117,9 @@ static KMETHOD File_read(KonohaContext *kctx, KonohaStack *sfp)
 		size = fread(ba->buf + offset, 1, len, fp);
 		if (size == 0 && ferror(fp) != 0){
 			// TODO: throw
-			ktrace(_SystemFault,
-					KeyValue_s("@", "fread"),
-					KeyValue_s("errstr", strerror(errno))
+			OLDTRACE_SWITCH_TO_KTrace(_SystemFault,
+					LogText("@", "fread"),
+					LogText("errstr", strerror(errno))
 			);
 			clearerr(fp);
 		}
@@ -142,9 +142,9 @@ static KMETHOD File_write(KonohaContext *kctx , KonohaStack *sfp)
 		size = fwrite(ba->buf + offset, 1, len, fp);
 		if (size < len) {
 			// TODO: throw
-			ktrace(_SystemFault,
-					KeyValue_s("@", "fwrite"),
-					KeyValue_s("errstr", strerror(errno))
+			OLDTRACE_SWITCH_TO_KTrace(_SystemFault,
+					LogText("@", "fwrite"),
+					LogText("errstr", strerror(errno))
 			);
 		}
 	}
@@ -160,9 +160,9 @@ static KMETHOD File_close(KonohaContext *kctx, KonohaStack *sfp)
 		int ret = fclose(fp);
 		if (ret != 0) {
 			// TODO: throw
-			ktrace(_SystemFault,
-					KeyValue_s("@", "fclose"),
-					KeyValue_s("errstr", strerror(errno))
+			OLDTRACE_SWITCH_TO_KTrace(_SystemFault,
+					LogText("@", "fclose"),
+					LogText("errstr", strerror(errno))
 			);
 		}
 		file->fp = NULL;
@@ -179,9 +179,9 @@ static KMETHOD File_getC(KonohaContext *kctx, KonohaStack *sfp)
 		ch = fgetc(fp);
 		if (ch == EOF && ferror(fp) != 0) {
 			// TODO: throw
-			ktrace(LOGPOL_DEBUG | _DataFault,
-					KeyValue_s("@", "fgetc"),
-					KeyValue_s("errstr", strerror(errno))
+			OLDTRACE_SWITCH_TO_KTrace(LOGPOL_DEBUG | _DataFault,
+					LogText("@", "fgetc"),
+					LogText("errstr", strerror(errno))
 			);
 		}
 	}
@@ -196,9 +196,9 @@ static KMETHOD File_putC(KonohaContext *kctx, KonohaStack *sfp)
 		int ch = fputc(sfp[1].intValue, fp);
 		if (ch == EOF) {
 			// TODO: throw
-			ktrace(LOGPOL_DEBUG | _DataFault,
-					KeyValue_s("@", "fputc"),
-					KeyValue_s("errstr", strerror(errno))
+			OLDTRACE_SWITCH_TO_KTrace(LOGPOL_DEBUG | _DataFault,
+					LogText("@", "fputc"),
+					LogText("errstr", strerror(errno))
 			);
 		}
 		RETURNb_(ch != EOF);
@@ -265,6 +265,7 @@ static KMETHOD System_chmod(KonohaContext *kctx, KonohaStack *sfp)
 
 #define _Public   kMethod_Public
 #define _Const    kMethod_Const
+#define _Static   kMethod_Static
 #define _Coercion kMethod_Coercion
 #define _Im kMethod_Immutable
 #define _F(F)   (intptr_t)(F)
@@ -285,15 +286,15 @@ static kbool_t file_initPackage(KonohaContext *kctx, kNameSpace *ns, int argc, c
 	KonohaClass *cFile = KLIB kNameSpace_defineClass(kctx, ns, NULL, &defFile, pline);
 
 	KDEFINE_METHOD MethodData[] = {
-		_Public|_Const|_Im, _F(System_fopen), TY_File, TY_System, MN_("fopen"), 2, TY_String, FN_("path"), TY_String, FN_("mode"),
+		_Public|_Static|_Const|_Im, _F(System_fopen), TY_File, TY_System, MN_("fopen"), 2, TY_String, FN_("path"), TY_String, FN_("mode"),
 		_Public|_Const|_Im, _F(File_close), TY_void, TY_File, MN_("close"), 0,
 		_Public|_Const|_Im, _F(File_getC), TY_int, TY_File, MN_("getC"), 0,
 		_Public|_Const|_Im, _F(File_putC), TY_boolean, TY_File, MN_("putC"), 1, TY_int, FN_("ch"),
-		_Public|_Const|_Im, _F(System_umask), TY_int, TY_System, MN_("umask"), 1, TY_int, FN_("cmask"),
-		_Public|_Const|_Im, _F(System_mkdir), TY_int, TY_System, MN_("mkdir"), 2, TY_String, FN_("path"), TY_int, FN_("mode"),
-		_Public|_Const|_Im, _F(System_rmdir), TY_int, TY_System, MN_("rmdir"), 1, TY_String, FN_("path"),
-		_Public|_Const|_Im, _F(System_truncate), TY_int, TY_System, MN_("truncate"), 2, TY_String, FN_("path"), TY_int, FN_("length"),
-		_Public|_Const|_Im, _F(System_chmod), TY_int, TY_System, MN_("chmod"), 2, TY_String, FN_("path"), TY_int, FN_("mode"),
+		_Public|_Static|_Const|_Im, _F(System_umask), TY_int, TY_System, MN_("umask"), 1, TY_int, FN_("cmask"),
+		_Public|_Static|_Const|_Im, _F(System_mkdir), TY_int, TY_System, MN_("mkdir"), 2, TY_String, FN_("path"), TY_int, FN_("mode"),
+		_Public|_Static|_Const|_Im, _F(System_rmdir), TY_int, TY_System, MN_("rmdir"), 1, TY_String, FN_("path"),
+		_Public|_Static|_Const|_Im, _F(System_truncate), TY_int, TY_System, MN_("truncate"), 2, TY_String, FN_("path"), TY_int, FN_("length"),
+		_Public|_Static|_Const|_Im, _F(System_chmod), TY_int, TY_System, MN_("chmod"), 2, TY_String, FN_("path"), TY_int, FN_("mode"),
 		DEND,
 	};
 	KLIB kNameSpace_loadMethodData(kctx, ns, MethodData);

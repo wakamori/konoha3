@@ -33,16 +33,6 @@
 extern "C" {
 #endif
 
-#ifndef K_OSDLLEXT
-#if defined(__APPLE__)
-#define K_OSDLLEXT        ".dylib"
-#elif defined(__linux__)
-#define K_OSDLLEXT        ".so"
-#elif defined(__MINGW32__)
-#define K_OSDLLEXT        ".dll"
-#endif
-#endif
-
 #define K_TYTABLE_INIT 64
 #define K_PAGESIZE        4096
 
@@ -60,7 +50,9 @@ extern "C" {
 /* - 2012/06/14 */
 //#define K_CODENAME "Miyajima"
 /*2012/06/14 -  */
-#define K_CODENAME "The Summer Palace, Beijing"
+//#define K_CODENAME "The Summer Palace, Beijing"
+/*2012/09/22 -  */
+#define K_CODENAME "Old Riga"
 #else
 #define K_CODENAME "based on MiniKonoha-" K_VERSION
 #endif
@@ -168,8 +160,9 @@ typedef enum {
 	// LogPoint
 	PeriodicPoint     =  (1<<6),  /* sampling */
 	PreactionPoint    =  (1<<7),  /* prediction WARN */
-	ActionChangePoint =  (1<<8),
+	ActionPoint       =  (1<<8),
 	SecurityAudit     =  (1<<9),  /* security audit */
+	// Otehr flag
 	PrivacyCaution    =  (1<<10), /* including privacy information */
 	// Internal Use
 	LOGPOOL_INIT      =  (1<<12)
@@ -177,8 +170,10 @@ typedef enum {
 
 typedef struct logconf_t {
 	logpolicy_t policy;
-	void *formatPointer; // for precompiled formattings
+	void *formatter; // for precompiled formattings
 } logconf_t;
+
+typedef struct GcContext GcContext;
 
 struct PlatformApiVar {
 	// settings
@@ -191,6 +186,17 @@ struct PlatformApiVar {
 	// memory
 	void*   (*malloc_i)(size_t);
 	void    (*free_i)(void *);
+
+	const char* GC_NAME;
+	void    (*new_GcContext)(GcContext *gcctx);
+	void    (*free_GcContext)(GcContext *gcctx);
+	void    (*allocObject)(GcContext *gcctx, size_t);
+	int     (*isObject)(GcContext *gcctx, void *);
+	void    (*assignObject)(GcContext *gcctx, void *dst, void *val);
+	void    (*setFieldObject)(GcContext *gcctx, void *parent, void *dst, void *val);
+	void    (*reftraceObject)(GcContext *gcctx, void *val);
+	void    (*invokeGC)(GcContext *gcctx);
+	void    (*refdecObject)(GcContext *gcctx, void *val);  // for the future (RCGC)
 
 	// setjmp
 	int     (*setjmp_i)(jmpbuf_i);
@@ -208,8 +214,6 @@ struct PlatformApiVar {
 	unsigned long long (*getTimeMilliSecond)(void);
 
 	/* message */
-	void    (*syslog_i)(int priority, const char *message, ...) __PRINTFMT(2, 3);
-	void    (*vsyslog_i)(int priority, const char *message, va_list args);
 	int     (*printf_i)(const char *fmt, ...) __PRINTFMT(2, 3);
 	int     (*vprintf_i)(const char *fmt, va_list args);
 	int     (*snprintf_i)(char *str, size_t size, const char *fmt, ...);
@@ -236,32 +240,60 @@ struct PlatformApiVar {
 	KonohaPackageHandler* (*loadPackageHandler)(const char *packageName);
 	int (*loadScript)(const char *filePath, long uline, void *thunk, int (*evalFunc)(const char*, long, int *, void *));
 
-	// message
+	// message (cui)
+	char*  (*readline_i)(const char *prompt);
+	int    (*add_history_i)(const char *);
+
 	const char* (*shortText)(const char *msg);
 	const char* (*beginTag)(kinfotag_t);
 	const char* (*endTag)(kinfotag_t);
 	void (*reportCaughtException)(const char *exceptionName, const char *scriptName, int line, const char *optionalMessage);
 	void  (*debugPrintf)(const char *file, const char *func, int line, const char *fmt, ...) __PRINTFMT(4, 5);
-	// trace
-	void (*traceDataLog)(int, logconf_t *, ...);
+
+	// logging, trace
+	const char *LOGGER_NAME;
+	void  (*syslog_i)(int priority, const char *message, ...) __PRINTFMT(2, 3);
+	void  (*vsyslog_i)(int priority, const char *message, va_list args);
+	void   *logger;  // logger handler
+	void  (*traceDataLog)(void *, int, logconf_t *, ...);
 };
 
-#define LOG_END 0
-#define LOG_s   1
-#define LOG_u   2
+#define LOG_END   0
+#define LOG_s     1
+#define LOG_u     2
+#define LOG_ERRNO 3
 
-#define KeyValue_u(K,V)    LOG_u, (K), ((uintptr_t)V)
-#define KeyValue_s(K,V)    LOG_s, (K), (V)
-#define KeyValue_p(K,V)    LOG_u, (K), (V)
+#define LogUint(K,V)    LOG_u, (K), ((uintptr_t)V)
+#define LogText(K,V)    LOG_s, (K), (V)
+#define LogErrno        LOG_ERRNO
+#define LogScriptLine(sfp)   LogText("ScriptName", FileId_t(sfp[K_RTNIDX].uline)), LogUint("ScriptLine", (ushort_t)sfp[K_RTNIDX].uline)
 
-#define LOG_ScriptFault          KeyValue_u("uline", sfp[K_RTNIDX].uline)
+#define KTrace(POLICY, LOGKEY, ...)    do {\
+		static logconf_t _logconf = {isRecord|LOGPOOL_INIT|POLICY};\
+		if(TFLAG_is(int, _logconf.policy, isRecord)) {\
+			PLATAPI traceDataLog(PLATAPI logger, LOGKEY, &_logconf, ## __VA_ARGS__, LOG_END);\
+		}\
+	} while (0)
 
-#define KTraceDataLog(LOGKEY, POLICY, ...)    do {\
-	static logconf_t _logconf = {isRecord|LOGPOL_INIT|POLICY};\
-	if(TFLAG_is(int, _logconf.policy, isRecord)) {\
-		PLATAPI traceDataLog(LOGKEY, &_logconf, ## __VA_ARGS__, LOG_END);\
-	}\
-} while (0)
+#define KTraceApi(POLICY, APINAME, ...)    do {\
+		static logconf_t _logconf = {isRecord|LOGPOOL_INIT|POLICY};\
+		if(TFLAG_is(int, _logconf.policy, isRecord)) {\
+			PLATAPI traceDataLog(PLATAPI logger, 0/*LOGKEY*/, &_logconf, LogText("Api", APINAME), ## __VA_ARGS__, LOG_END);\
+		}\
+	} while (0)
+
+#define KSetElaspedTimer(TIMER)  TIMER = PLATAPI getTimeMilliSecond()
+
+#define KTraceApiElapsedTimer(POLICY, TPOLICY, APINAME, TIMER, ...)    do {\
+		static logconf_t _logconf = {isRecord|LOGPOOL_INIT|POLICY};\
+		unsigned long long elapsed_time = PLATAPI getTimeMilliSecond() - TIMER;\
+		if((elapsed_time) >= (TPOLICY) && TFLAG_is(int, _logconf.policy, isRecord)) {\
+			PLATAPI traceDataLog(PLATAPI logger, 0/*LOGKEY*/, &_logconf, LogText("Api", APINAME), LogUint("ElapsedTime", elapsed_time), ## __VA_ARGS__, LOG_END);\
+		}\
+	} while (0)
+
+
+#define OLDTRACE_SWITCH_TO_KTrace(POLICY, ...)
 
 /* ------------------------------------------------------------------------ */
 /* type */
@@ -1164,16 +1196,6 @@ typedef struct MethodMatch {
 
 typedef kbool_t (*MethodMatchFunc)(KonohaContext *kctx, kMethod *mtd, MethodMatch *m);
 
-// used in kNameSpace_getMethodNULL()
-
-#define MPOL_FIRST_          0
-#define MPOL_LATEST          1
-//#define MPOL_PARAMSIZE_   (1<<1)
-//#define MPOL_SIGNATURE_    (1<<2)
-//#define MPOL_SETTER       (1<<3)
-#define MPOL_CANONICAL    (1<<5)
-//#define MPOL_GETTER      MPOL_PARAMSIZE_|MPOL_FIRST_|MPOL_CANONICAL
-
 #define K_CALLDELTA   4
 #define K_RTNIDX    (-4)
 #define K_SHIFTIDX  (-3)
@@ -1240,9 +1262,6 @@ struct _kSystem {
 
 #define KonohaRuntime_setesp(kctx, newesp)  ((KonohaContextVar*)kctx)->esp = (newesp)
 #define klr_setmtdNC(sfpA, mtdO)   sfpA.mtdNC = mtdO
-
-//#define Method_isByteCode(mtd) ((mtd)->invokeMethodFunc == MethodFunc_runVirtualMachine)
-#define Method_isByteCode(mtd) (0)
 
 #define BEGIN_LOCAL(V,N) \
 	KonohaStack *V = kctx->esp, *esp_ = kctx->esp; (void)V;((KonohaContextVar*)kctx)->esp = esp_+N;\
@@ -1419,7 +1438,6 @@ struct KonohaLibVar {
 	kbool_t       (*KonohaRuntime_tryCallMethod)(KonohaContext *, KonohaStack *);
 	void          (*KonohaRuntime_raise)(KonohaContext*, int symbol, KonohaStack *, kfileline_t, kString *Nullable);
 
-	uintptr_t     (*Ktrace)(KonohaContext*, struct klogconf_t *logconf, ...);
 	KonohaContextVar *(*KonohaContext_init)(KonohaContext *rootContext, const PlatformApi *api);
 	void (*KonohaContext_free)(KonohaContext *rootContext, KonohaContextVar *ctx);
 };
@@ -1631,21 +1649,21 @@ typedef struct {
 	return; \
 } while (0)
 
-//#ifndef K_NODEBUG
+#ifndef USE_SMALLBUILD
 #define KNH_ASSERT(a)       assert(a)
 #define DBG_ASSERT(a)       assert(a)
 #define TODO_ASSERT(a)      assert(a)
 #define DBG_P(fmt, ...)     PLATAPI debugPrintf(__FILE__, __FUNCTION__, __LINE__, fmt, ## __VA_ARGS__)
 #define DBG_ABORT(fmt, ...) PLATAPI debugPrintf(__FILE__, __FUNCTION__, __LINE__, fmt, ## __VA_ARGS__); PLATAPI exit_i(EXIT_FAILURE)
 #define DUMP_P(fmt, ...)    PLATAPI printf_i(fmt, ## __VA_ARGS__)
-//#else
-//#define KNH_ASSERT(a)
-//#define DBG_ASSERT(a)
-//#define TODO_ASSERT(a)
-//#define DBG_P(fmt, ...)
-//#define DBG_ABORT(fmt, ...)
-//#define DUMP_P(fmt, ...)
-//#endif
+#else
+#define KNH_ASSERT(a)
+#define DBG_ASSERT(a)
+#define TODO_ASSERT(a)
+#define DBG_P(fmt, ...)
+#define DBG_ABORT(fmt, ...)
+#define DUMP_P(fmt, ...)
+#endif
 
 #ifndef unlikely
 #define unlikely(x)   __builtin_expect(!!(x), 0)
@@ -1666,7 +1684,6 @@ extern kbool_t konoha_run(KonohaContext* konoha);  // TODO
 } /* extern "C" */
 #endif
 
-#include "logger.h"
 #include "gc.h"
 
 #endif /* MINIOKNOHA_H_ */

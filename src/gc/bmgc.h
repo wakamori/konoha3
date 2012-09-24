@@ -815,19 +815,19 @@ static void* Kmalloc(KonohaContext *kctx, size_t s)
 #endif
 			);
 	if (unlikely(p == NULL)) {
-		ktrace(_ScriptFault|_SystemFault,
-			KeyValue_s("!",  "OutOfMemory"),
-			KeyValue_s("at", "malloc"),
-			KeyValue_u("size", s),
-			KeyValue_u("malloced_size", klib_malloced)
-		);
+//		OLDTRACE_SWITCH_TO_KTrace(_ScriptFault|_SystemFault,
+//			LogText("!",  "OutOfMemory"),
+//			LogText("at", "malloc"),
+//			LogUint("size", s),
+//			LogUint("malloced_size", klib_malloced)
+//		);
 	}
 #if GCDEBUG
-	ktrace(LOGPOL_DEBUG,
-			KeyValue_s("@", "malloc"),
+	OLDTRACE_SWITCH_TO_KTrace(LOGPOL_DEBUG,
+			LogText("@", "malloc"),
 			KeyValue_p("from", p),
 			KeyValue_p("to", ((char*)p)+s),
-			KeyValue_u("size", s));
+			LogUint("size", s));
 #endif
 	klib_malloced += s;
 #ifdef MEMORY_DEBUG
@@ -861,11 +861,11 @@ static void Kfree(KonohaContext *kctx, void *p, size_t s)
 	pp -= 1;
 #endif
 #if GCDEBUG
-	ktrace(LOGPOL_DEBUG,
-			KeyValue_s("@", "free"),
+	OLDTRACE_SWITCH_TO_KTrace(LOGPOL_DEBUG,
+			LogText("@", "free"),
 			KeyValue_p("from", p),
 			KeyValue_p("to", ((char*)p)+s),
-			KeyValue_u("size", s));
+			LogUint("size", s));
 #endif
 	do_free(pp, s
 #ifdef MEMORY_DEBUG
@@ -1920,11 +1920,11 @@ static inline void bmgc_Object_free(KonohaContext *kctx, kObject *o)
 	KonohaClass *ct = O_ct(o);
 	if (ct) {
 #if GCDEBUG
-		ktrace(LOGPOL_DEBUG,
-				KeyValue_s("@", "delete"),
+		OLDTRACE_SWITCH_TO_KTrace(LOGPOL_DEBUG,
+				LogText("@", "delete"),
 				KeyValue_p("ptr", o),
-				KeyValue_u("size", ct->cstruct_size),
-				KeyValue_u("cid", ct->typeId));
+				LogUint("size", ct->cstruct_size),
+				LogUint("cid", ct->typeId));
 #endif
 		gc_info("~Object ptr=%p, cid=%d", o, ct->typeId);
 		KONOHA_freeObjectField(kctx, (kObjectVar*)o);
@@ -1962,10 +1962,10 @@ kObject *MODGC_omalloc(KonohaContext *kctx, size_t size)
 	kObjectVar *o = (kObjectVar*)bm_malloc_internal(kctx, HeapManager(kctx), size);
 	OBJECT_INIT(o);
 #if GCDEBUG
-	ktrace(LOGPOL_DEBUG,
-			KeyValue_s("@", "new"),
+	OLDTRACE_SWITCH_TO_KTrace(LOGPOL_DEBUG,
+			LogText("@", "new"),
 			KeyValue_p("ptr", o),
-			KeyValue_u("size", size));
+			LogUint("size", size));
 #endif
 	return (kObject*)o;
 }

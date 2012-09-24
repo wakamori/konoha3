@@ -1,6 +1,8 @@
-//Written by Joseph
+//Written by shinpei
+//Modified by Joseph
 
 import("konoha.bytes");
+import("konoha.string");
 import("posix.file");
 import("konoha.string");
 

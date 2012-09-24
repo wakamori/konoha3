@@ -26,7 +26,6 @@
 #include <minikonoha/sugar.h>
 
 #include <stdio.h>
-#include <minikonoha/logger.h>
 #include <minikonoha/bytes.h>
 
 #include <errno.h> // include this because of E2BIG
@@ -128,10 +127,10 @@ static kBytes* convFromTo(KonohaContext *kctx, kBytes *fromBa, const char *fromC
 	}
 	conv = (kiconv_t)PLATAPI iconv_open_i(toCoding, fromCoding);
 	if (conv == (kiconv_t)(-1)) {
-		ktrace(_UserInputFault,
-				KeyValue_s("@","iconv_open"),
-				KeyValue_s("from", fromCoding),
-				KeyValue_s("to", toCoding)
+		OLDTRACE_SWITCH_TO_KTrace(_UserInputFault,
+				LogText("@","iconv_open"),
+				LogText("from", fromCoding),
+				LogText("to", toCoding)
 		);
 		return KNULL(Bytes);
 	}
@@ -152,11 +151,11 @@ static kBytes* convFromTo(KonohaContext *kctx, kBytes *fromBa, const char *fromC
 			memset(convBuf, '\0', CONV_BUFSIZE);
 			outBytesLeft = CONV_BUFSIZE;
 		} else if (iconv_ret == -1) {
-			ktrace(_DataFault,
-				KeyValue_s("@","iconv"),
-				KeyValue_s("from", "UTF-8"),
-				KeyValue_s("to", toCoding),
-				KeyValue_s("error", strerror(errno))
+			OLDTRACE_SWITCH_TO_KTrace(_DataFault,
+				LogText("@","iconv"),
+				LogText("from", "UTF-8"),
+				LogText("to", toCoding),
+				LogText("error", strerror(errno))
 			);
 			KLIB Kwb_free(&wb);
 			return (kBytes*)(CT_Bytes->defaultValueAsNull);

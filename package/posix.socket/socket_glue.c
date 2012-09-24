@@ -183,10 +183,10 @@ static int getNfd(kArray *a1, kArray *a2, kArray *a3)
 //	if(ret >= 0 ) {
 //		 fromSockaddr(kctx, sfp[2].m, addr);
 //	} else {
-//		ktrace(_SystemFault,
-//				KeyValue_s("@", "accept"),
-//				KeyValue_u("errno", errno),
-//				KeyValue_s("errstr", strerror(errno))
+//		OLDTRACE_SWITCH_TO_KTrace(_SystemFault,
+//				LogText("@", "accept"),
+//				LogUint("errno", errno),
+//				LogText("errstr", strerror(errno))
 //		);
 //	}
 //	RETURNi_(ret);
@@ -208,10 +208,10 @@ KMETHOD System_accept(KonohaContext *kctx, KonohaStack* sfp)
 //		fromSockaddr(kctx, sa, addr);
 	}
 	else {
-		ktrace(_SystemFault,
-				KeyValue_s("@", "accept"),
-				KeyValue_u("errno", errno),
-				KeyValue_s("errstr", strerror(errno))
+		OLDTRACE_SWITCH_TO_KTrace(_SystemFault,
+				LogText("@", "accept"),
+				LogUint("errno", errno),
+				LogText("errstr", strerror(errno))
 		);
 	}
 	RETURNi_(ret);
@@ -231,10 +231,10 @@ KMETHOD System_bind(KonohaContext *kctx, KonohaStack* sfp)
 			sizeof(addr)
 	);
 	if(ret != 0) {
-		ktrace(_SystemFault,
-			KeyValue_s("@", "bind"),
-			KeyValue_u("errno", errno),
-			KeyValue_s("errstr", strerror(errno))
+		OLDTRACE_SWITCH_TO_KTrace(_SystemFault,
+			LogText("@", "bind"),
+			LogUint("errno", errno),
+			LogText("errstr", strerror(errno))
 		);
 	}
 	RETURNi_(ret);
@@ -246,10 +246,10 @@ KMETHOD System_close(KonohaContext *kctx, KonohaStack* sfp)
 	int ret = close(WORD2INT(sfp[1].intValue) );
 
 	if(ret != 0 ) {
-		ktrace(_SystemFault,
-			KeyValue_s("@", "close"),
-			KeyValue_u("errno", errno),
-			KeyValue_s("errstr", strerror(errno))
+		OLDTRACE_SWITCH_TO_KTrace(_SystemFault,
+			LogText("@", "close"),
+			LogUint("errno", errno),
+			LogText("errstr", strerror(errno))
 		);
 	}
 	RETURNi_(ret);
@@ -270,10 +270,10 @@ KMETHOD System_connect(KonohaContext *kctx, KonohaStack* sfp)
 			sizeof(addr)
 	);
 	if(ret != 0) {
-		ktrace(_SystemFault,
-			KeyValue_s("@", "connect"),
-			KeyValue_u("errno", errno),
-			KeyValue_s("errstr", strerror(errno))
+		OLDTRACE_SWITCH_TO_KTrace(_SystemFault,
+			LogText("@", "connect"),
+			LogUint("errno", errno),
+			LogText("errstr", strerror(errno))
 		);
 	}
 	RETURNi_(ret);
@@ -284,10 +284,10 @@ KMETHOD System_listen(KonohaContext *kctx, KonohaStack* sfp)
 {
 	int ret = listen(WORD2INT(sfp[1].intValue), WORD2INT(sfp[2].intValue));
 	if(ret != 0) {
-		ktrace(_SystemFault,
-			KeyValue_s("@", "listen"),
-			KeyValue_u("errno", errno),
-			KeyValue_s("errstr", strerror(errno))
+		OLDTRACE_SWITCH_TO_KTrace(_SystemFault,
+			LogText("@", "listen"),
+			LogUint("errno", errno),
+			LogText("errstr", strerror(errno))
 		);
 	}
 	RETURNi_(ret);
@@ -329,10 +329,10 @@ KMETHOD System_getsockopt(KonohaContext *kctx, KonohaStack* sfp)
 		ret = val;
 	}
 	else {
-		ktrace(_SystemFault,
-			KeyValue_s("@", "getsockopt"),
-			KeyValue_u("errno", errno),
-			KeyValue_s("errstr", strerror(errno))
+		OLDTRACE_SWITCH_TO_KTrace(_SystemFault,
+			LogText("@", "getsockopt"),
+			LogUint("errno", errno),
+			LogText("errstr", strerror(errno))
 		);
 	}
 	RETURNi_(ret);
@@ -349,10 +349,10 @@ KMETHOD System_setsockopt(KonohaContext *kctx, KonohaStack* sfp)
 			sizeof(sfp[3].intValue)
 	);
 	if(ret != 0) {
-		ktrace(_SystemFault,
-			KeyValue_s("@", "setsockopt"),
-			KeyValue_u("errno", errno),
-			KeyValue_s("errstr", strerror(errno))
+		OLDTRACE_SWITCH_TO_KTrace(_SystemFault,
+			LogText("@", "setsockopt"),
+			LogUint("errno", errno),
+			LogText("errstr", strerror(errno))
 		);
 	}
 	RETURNi_(ret);
@@ -387,9 +387,9 @@ static KMETHOD System_recv(KonohaContext *kctx, KonohaStack* sfp)
 					  ba->bytesize,
 					  (int)sfp[3].intValue );
 	if(ret < 0 ) {
-		ktrace(_SystemFault,
-				KeyValue_s("@", "recv"),
-				KeyValue_s("perror", strerror(errno))
+		OLDTRACE_SWITCH_TO_KTrace(_SystemFault,
+				LogText("@", "recv"),
+				LogText("perror", strerror(errno))
 		);
 	}
 	RETURNi_(ret);
@@ -442,9 +442,9 @@ static KMETHOD System_select(KonohaContext *kctx, KonohaStack* sfp)
 	}
 	else {
 		if(ret < 0 ) {
-			ktrace(_SystemFault,
-					KeyValue_s("@", "select"),
-					KeyValue_s("perror", strerror(errno))
+			OLDTRACE_SWITCH_TO_KTrace(_SystemFault,
+					LogText("@", "select"),
+					LogText("perror", strerror(errno))
 			);
 		}
 		// TODO::error or timeout is socket list all clear [pending]
@@ -468,9 +468,9 @@ static KMETHOD System_send(KonohaContext *kctx, KonohaStack* sfp)
 	sig_t ret_signal = SIG_ERR;
 #endif
 	if(oldset == SIG_ERR) {
-		ktrace(_DataFault,
-				KeyValue_s("@", "signal"),
-				KeyValue_s("perror", strerror(errno))
+		OLDTRACE_SWITCH_TO_KTrace(_DataFault,
+				LogText("@", "signal"),
+				LogText("perror", strerror(errno))
 		);
 	}
 	int ret = send(WORD2INT(sfp[1].intValue),
@@ -478,17 +478,17 @@ static KMETHOD System_send(KonohaContext *kctx, KonohaStack* sfp)
 					  ba->bytesize,
 					  (int)sfp[3].intValue );
 	if(ret < 0) {
-		ktrace(_DataFault,
-				KeyValue_s("@", "send"),
-				KeyValue_s("perror", strerror(errno))
+		OLDTRACE_SWITCH_TO_KTrace(_DataFault,
+				LogText("@", "send"),
+				LogText("perror", strerror(errno))
 		);
 	}
 	if(oldset != SIG_ERR) {
 		ret_signal = signal(SIGPIPE, oldset);
 		if(ret_signal == SIG_ERR) {
-			ktrace(_DataFault,
-					KeyValue_s("@", "signal"),
-					KeyValue_s("perror", strerror(errno))
+			OLDTRACE_SWITCH_TO_KTrace(_DataFault,
+					LogText("@", "signal"),
+					LogText("perror", strerror(errno))
 			);
 		}
 	}
@@ -519,19 +519,19 @@ static KMETHOD System_sendto(KonohaContext *kctx, KonohaStack* sfp)
 			sizeof(struct sockaddr)
 	);
 	if(ret < 0) {
-		ktrace(_SystemFault,
-				KeyValue_s("@", "sendto"),
-				KeyValue_u("errno", errno),
-				KeyValue_s("errstr", strerror(errno))
+		OLDTRACE_SWITCH_TO_KTrace(_SystemFault,
+				LogText("@", "sendto"),
+				LogUint("errno", errno),
+				LogText("errstr", strerror(errno))
 		);
 	}
 	if(oldset != SIG_ERR) {
 		ret_signal = signal(SIGPIPE, oldset);
 		if(ret_signal == SIG_ERR) {
-			ktrace(_SystemFault,
-				KeyValue_s("@", "signal"),
-				KeyValue_u("errno", errno),
-				KeyValue_s("errstr", strerror(errno))
+			OLDTRACE_SWITCH_TO_KTrace(_SystemFault,
+				LogText("@", "signal"),
+				LogUint("errno", errno),
+				LogText("errstr", strerror(errno))
 			);
 		}
 	}
@@ -543,10 +543,10 @@ KMETHOD System_shutdown(KonohaContext *kctx, KonohaStack* sfp)
 {
 	int ret = shutdown(WORD2INT(sfp[1].intValue), WORD2INT(sfp[2].intValue));
 	if(ret != 0) {
-		ktrace(_SystemFault,
-			KeyValue_s("@", "shutdown"),
-			KeyValue_u("errno", errno),
-			KeyValue_s("errstr", strerror(errno))
+		OLDTRACE_SWITCH_TO_KTrace(_SystemFault,
+			LogText("@", "shutdown"),
+			LogUint("errno", errno),
+			LogText("errstr", strerror(errno))
 		);
 	}
 	RETURNi_(ret);
@@ -557,10 +557,10 @@ KMETHOD System_sockatmark(KonohaContext *kctx, KonohaStack* sfp)
 {
 	int ret = sockatmark(WORD2INT(sfp[1].intValue));
 	if(ret < 0) {
-		ktrace(_SystemFault,
-			KeyValue_s("@", "sockadmark"),
-			KeyValue_u("errno", errno),
-			KeyValue_s("errstr", strerror(errno))
+		OLDTRACE_SWITCH_TO_KTrace(_SystemFault,
+			LogText("@", "sockadmark"),
+			LogUint("errno", errno),
+			LogText("errstr", strerror(errno))
 		);
 	}
 	RETURNi_(ret);
@@ -573,10 +573,10 @@ KMETHOD System_socket(KonohaContext *kctx, KonohaStack* sfp)
 					WORD2INT(sfp[2].intValue),
 					WORD2INT(sfp[3].intValue));
 	if(ret < 0) {
-		ktrace(_SystemFault,
-				KeyValue_s("@", "socket"),
-				KeyValue_u("errno", errno),
-				KeyValue_s("errstr", strerror(errno))
+		OLDTRACE_SWITCH_TO_KTrace(_SystemFault,
+				LogText("@", "socket"),
+				LogUint("errno", errno),
+				LogText("errstr", strerror(errno))
 		);
 	}
 	RETURNi_(ret);
@@ -597,10 +597,10 @@ static KMETHOD System_socketpair(KonohaContext *kctx, KonohaStack* sfp)
 			a->kintItems[1] = pairFd[1];
 		}
 		else {
-			ktrace(_SystemFault,
-					KeyValue_s("@", "socketpair"),
-					KeyValue_u("errno", errno),
-					KeyValue_s("errstr", strerror(errno))
+			OLDTRACE_SWITCH_TO_KTrace(_SystemFault,
+					LogText("@", "socketpair"),
+					LogUint("errno", errno),
+					LogText("errstr", strerror(errno))
 			);
 		}
 	}
@@ -619,6 +619,7 @@ static KMETHOD SockAddr_new (KonohaContext *kctx, KonohaStack *sfp)
 
 #define _Public   kMethod_Public
 #define _Const    kMethod_Const
+#define _Static   kMethod_Static
 #define _Coercion kMethod_Coercion
 #define _Im kMethod_Immutable
 #define _F(F)   (intptr_t)(F)
@@ -643,30 +644,30 @@ static kbool_t socket_initPackage(KonohaContext *kctx, kNameSpace *ns, int argc,
 	ktype_t TY_intArray = CT_IntArray->typeId;
 
 	KDEFINE_METHOD MethodData[] = {
-		_Public|_Const|_Im, _F(System_accept), TY_int, TY_System, MN_("accept"), 2, TY_int, FN_("fd"), TY_SockAddr, FN_("sockaddr"),
-		_Public|_Const|_Im, _F(System_bind), TY_int, TY_System, MN_("bind"), 4, TY_int, FN_("fd"), TY_String, FN_("srcIP"), TY_int, FN_("srcPort"), TY_int, FN_("family"),
-		_Public|_Const|_Im, _F(System_close), TY_int, TY_System, MN_("close"), 1, TY_int, FN_("fd"),
-		_Public|_Const|_Im, _F(System_connect), TY_int, TY_System, MN_("connect"), 4, TY_int, FN_("fd"), TY_String, FN_("dstIP"), TY_int, FN_("dstPort"), TY_int, FN_("family"),
-		_Public|_Const|_Im, _F(System_listen), TY_int, TY_System, MN_("listen"), 2, TY_int, FN_("fd"), TY_int, FN_("backlog"),
-//		_Public|_Const|_Im, _F(System_getsockname), TY_Map TY_System, MN_("getsockname"),1, TY_int, FN_("fd"),
-		_Public|_Const|_Im, _F(System_getsockopt), TY_int, TY_System, MN_("getsockopt"), 2, TY_int, FN_("fd"), TY_int, FN_("opt"),
-		_Public|_Const|_Im, _F(System_setsockopt), TY_int, TY_System, MN_("setsockopt"), 3, TY_int, FN_("fd"), TY_int, FN_("opt"), TY_int, FN_("value"),
-//		_Public|_Const|_Im, _F(System_getpeername), TY_Map, TY_System, MN_("getpeername"), 1, TY_int, FN_("fd"),
-		_Public, _F(System_select), TY_int, TY_System, MN_("select"), 5, TY_intArray, FN_("readsocks"), TY_intArray, FN_("writesocks"), TY_intArray, FN_("exceptsocks"), TY_int, FN_("timeoutSec"), TY_int, FN_("timeoutUSec"),
-		_Public|_Const|_Im, _F(System_shutdown), TY_int, TY_System, MN_("shutdown"), 2, TY_int, FN_("fd"), TY_int, FN_("how"),
-		_Public|_Const|_Im, _F(System_sockatmark), TY_int, TY_System, MN_("sockatmark"), 1, TY_int, FN_("fd"),
-		_Public|_Const|_Im, _F(System_socket), TY_int, TY_System, MN_("socket"), 3, TY_int, FN_("family"), TY_int, FN_("type"), TY_int, FN_("protocol"),
-		_Public|_Const|_Im, _F(System_socketpair), TY_int, TY_System, MN_("socketpair"), 4, TY_int, FN_("family"), TY_int, FN_("type"), TY_int, FN_("protocol"), TY_intArray, FN_("pairsock"),
+		_Public|_Static|_Const|_Im, _F(System_accept), TY_int, TY_System, MN_("accept"), 2, TY_int, FN_("fd"), TY_SockAddr, FN_("sockaddr"),
+		_Public|_Static|_Const|_Im, _F(System_bind), TY_int, TY_System, MN_("bind"), 4, TY_int, FN_("fd"), TY_String, FN_("srcIP"), TY_int, FN_("srcPort"), TY_int, FN_("family"),
+		_Public|_Static|_Const|_Im, _F(System_close), TY_int, TY_System, MN_("close"), 1, TY_int, FN_("fd"),
+		_Public|_Static|_Const|_Im, _F(System_connect), TY_int, TY_System, MN_("connect"), 4, TY_int, FN_("fd"), TY_String, FN_("dstIP"), TY_int, FN_("dstPort"), TY_int, FN_("family"),
+		_Public|_Static|_Const|_Im, _F(System_listen), TY_int, TY_System, MN_("listen"), 2, TY_int, FN_("fd"), TY_int, FN_("backlog"),
+//		_Public|_Static|_Const|_Im, _F(System_getsockname), TY_Map TY_System, MN_("getsockname"),1, TY_int, FN_("fd"),
+		_Public|_Static|_Const|_Im, _F(System_getsockopt), TY_int, TY_System, MN_("getsockopt"), 2, TY_int, FN_("fd"), TY_int, FN_("opt"),
+		_Public|_Static|_Const|_Im, _F(System_setsockopt), TY_int, TY_System, MN_("setsockopt"), 3, TY_int, FN_("fd"), TY_int, FN_("opt"), TY_int, FN_("value"),
+//		_Public|_Static|_Const|_Im, _F(System_getpeername), TY_Map, TY_System, MN_("getpeername"), 1, TY_int, FN_("fd"),
+		_Public|_Static, _F(System_select), TY_int, TY_System, MN_("select"), 5, TY_intArray, FN_("readsocks"), TY_intArray, FN_("writesocks"), TY_intArray, FN_("exceptsocks"), TY_int, FN_("timeoutSec"), TY_int, FN_("timeoutUSec"),
+		_Public|_Static|_Const|_Im, _F(System_shutdown), TY_int, TY_System, MN_("shutdown"), 2, TY_int, FN_("fd"), TY_int, FN_("how"),
+		_Public|_Static|_Const|_Im, _F(System_sockatmark), TY_int, TY_System, MN_("sockatmark"), 1, TY_int, FN_("fd"),
+		_Public|_Static|_Const|_Im, _F(System_socket), TY_int, TY_System, MN_("socket"), 3, TY_int, FN_("family"), TY_int, FN_("type"), TY_int, FN_("protocol"),
+		_Public|_Static|_Const|_Im, _F(System_socketpair), TY_int, TY_System, MN_("socketpair"), 4, TY_int, FN_("family"), TY_int, FN_("type"), TY_int, FN_("protocol"), TY_intArray, FN_("pairsock"),
 		_Public|_Const|_Im, _F(SockAddr_new), TY_SockAddr, TY_SockAddr, MN_("new"), 0,
 		DEND,
 	};
 	KLIB kNameSpace_loadMethodData(kctx, ns, MethodData);
 	if(IS_defineBytes()) {
 		KDEFINE_METHOD MethodData2[] = {
-				_Public|_Const|_Im, _F(System_sendto), TY_int, TY_System, MN_("sendto"), 6, TY_int, FN_("socket"), TY_Bytes, FN_("msg"), TY_int, FN_("flag"), TY_String, FN_("dstIP"), TY_int, FN_("dstPort"), TY_int, FN_("family"),
-				_Public|_Const|_Im, _F(System_recv), TY_int, TY_System, MN_("recv"), 3, TY_int, FN_("fd"), TY_Bytes, FN_("buf"), TY_int, FN_("flags"),
-//				_Public|_Const|_Im, _F(System_recvfrom), TY_int, TY_System, MN_("recvfrom"), 4, TY_int, FN_x, TY_Bytes, FN_y, TY_int, FN_z, TY_Map, FN_v,
-				_Public|_Const|_Im, _F(System_send), TY_int, TY_System, MN_("send"), 3, TY_int, FN_("fd"), TY_Bytes, FN_("msg"), TY_int, FN_("flags"),
+				_Public|_Static|_Const|_Im, _F(System_sendto), TY_int, TY_System, MN_("sendto"), 6, TY_int, FN_("socket"), TY_Bytes, FN_("msg"), TY_int, FN_("flag"), TY_String, FN_("dstIP"), TY_int, FN_("dstPort"), TY_int, FN_("family"),
+				_Public|_Static|_Const|_Im, _F(System_recv), TY_int, TY_System, MN_("recv"), 3, TY_int, FN_("fd"), TY_Bytes, FN_("buf"), TY_int, FN_("flags"),
+//				_Public|_Static|_Const|_Im, _F(System_recvfrom), TY_int, TY_System, MN_("recvfrom"), 4, TY_int, FN_x, TY_Bytes, FN_y, TY_int, FN_z, TY_Map, FN_v,
+				_Public|_Static|_Const|_Im, _F(System_send), TY_int, TY_System, MN_("send"), 3, TY_int, FN_("fd"), TY_Bytes, FN_("msg"), TY_int, FN_("flags"),
 				DEND,
 			};
 		KLIB kNameSpace_loadMethodData(kctx, ns, MethodData2);

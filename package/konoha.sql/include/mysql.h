@@ -69,16 +69,16 @@ kconn_t *MYSQL_qopen(KonohaContext *kctx, const char* url)
 	pdbnm = (dbnm[0]) ? dbnm : NULL;
 
 	MYSQL *db = mysql_init(NULL);
-	ktrace(_UserInputFault, KeyValue_s("@","mysql_init"));
+	OLDTRACE_SWITCH_TO_KTrace(_UserInputFault, LogText("@","mysql_init"));
 	db = mysql_real_connect(db, phost, puser, ppass, pdbnm, port, NULL, 0);
-	ktrace(_UserInputFault, KeyValue_s("@","mysql_real_connect"),
-			KeyValue_s("host", phost),
-			KeyValue_s("user", user),
-			KeyValue_s("passwd", ppass),
-			KeyValue_s("dbname", pdbnm),
-			KeyValue_u("port", port),
-			KeyValue_u("errno", mysql_errno(db)),
-			KeyValue_s("error", mysql_error(db)));
+	OLDTRACE_SWITCH_TO_KTrace(_UserInputFault, LogText("@","mysql_real_connect"),
+			LogText("host", phost),
+			LogText("user", user),
+			LogText("passwd", ppass),
+			LogText("dbname", pdbnm),
+			LogUint("port", port),
+			LogUint("errno", mysql_errno(db)),
+			LogText("error", mysql_error(db)));
 	//if (!mysql_real_connect(db, phost, puser, ppass, pdbnm, port, NULL, 0)) {
 	//	knh_mysql_perror(kctx, db, 0);
 	//	mysql_close(db);
@@ -93,7 +93,7 @@ int MYSQL_qnext(KonohaContext *kctx, kqcur_t *qcursor, kResultSet *rs)
 {
 	MYSQL_ROW row;
 	if ((row = mysql_fetch_row((MYSQL_RES*)qcursor)) != NULL) {
-		ktrace(_UserInputFault, KeyValue_s("@","mysql_fetch_row"));
+		OLDTRACE_SWITCH_TO_KTrace(_UserInputFault, LogText("@","mysql_fetch_row"));
 		int i;
 		kint_t ival;
 		kfloat_t fval;
@@ -130,7 +130,7 @@ int MYSQL_qnext(KonohaContext *kctx, kqcur_t *qcursor, kResultSet *rs)
 		} /* for */
 		return 1; /* CONTINUE */
 	} else {
-		ktrace(_UserInputFault, KeyValue_s("@","mysql_fetch_row"));
+		OLDTRACE_SWITCH_TO_KTrace(_UserInputFault, LogText("@","mysql_fetch_row"));
 	}
 	return 0; /* NOMORE */
 }
@@ -148,47 +148,47 @@ kqcur_t *MYSQL_query(KonohaContext *kctx, void *hdr, const char* sql, struct _kR
 		/* Connection.exec */
 		int r = mysql_query(db, sql);
 		if(r > 0) {
-			ktrace(_UserInputFault,
-					KeyValue_s("@","mysql_query"),
-					KeyValue_s("query", sql),
-					KeyValue_u("errno", mysql_errno(db)),
-					KeyValue_s("error",mysql_error(db))
+			OLDTRACE_SWITCH_TO_KTrace(_UserInputFault,
+					LogText("@","mysql_query"),
+					LogText("query", sql),
+					LogUint("errno", mysql_errno(db)),
+					LogText("error",mysql_error(db))
 			);
 		}
 	}
 	else {
 		/* Connection.query */
 		int r = mysql_query((MYSQL*)db, sql);
-		ktrace(_UserInputFault,
-				KeyValue_s("@","mysql_query"),
-				KeyValue_s("query", sql),
-				KeyValue_u("errno", mysql_errno(db)),
-				KeyValue_s("error", mysql_error(db))
+		OLDTRACE_SWITCH_TO_KTrace(_UserInputFault,
+				LogText("@","mysql_query"),
+				LogText("query", sql),
+				LogUint("errno", mysql_errno(db)),
+				LogText("error", mysql_error(db))
 		);
 		if (r == 0) { 
 			res = mysql_store_result((MYSQL*)db);
 			if (res == NULL) { // NULL RESULT
 				if (mysql_errno(db) != 0) {
 					mysql_free_result(res);
-					ktrace(_UserInputFault,
-							KeyValue_s("@","mysql_sotre_result"),
-							KeyValue_u("errno", mysql_errno(db)),
-							KeyValue_s("error", mysql_error(db))
+					OLDTRACE_SWITCH_TO_KTrace(_UserInputFault,
+							LogText("@","mysql_sotre_result"),
+							LogUint("errno", mysql_errno(db)),
+							LogText("error", mysql_error(db))
 					);
 				} else {
-					ktrace(_UserInputFault,
-							KeyValue_s("@","mysql_sotre_result"),
-							KeyValue_u("errno", mysql_errno(db)),
-							KeyValue_s("error", mysql_error(db))
+					OLDTRACE_SWITCH_TO_KTrace(_UserInputFault,
+							LogText("@","mysql_sotre_result"),
+							LogUint("errno", mysql_errno(db)),
+							LogText("error", mysql_error(db))
 					);
 				}
 			}
 			else {
 				knh_ResultSet_initColumn(kctx, rs, (size_t)mysql_num_fields(res));
-				ktrace(_UserInputFault,
-							KeyValue_s("@","mysql_sotre_result"),
-							KeyValue_u("errno", mysql_errno(db)),
-							KeyValue_s("error", mysql_error(db))
+				OLDTRACE_SWITCH_TO_KTrace(_UserInputFault,
+							LogText("@","mysql_sotre_result"),
+							LogUint("errno", mysql_errno(db)),
+							LogText("error", mysql_error(db))
 					);
 				int i = 0;
 				MYSQL_FIELD *field = NULL;

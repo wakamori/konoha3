@@ -26,6 +26,7 @@
 #include <minikonoha/sugar.h>
 #include "minikonoha/gc.h"
 #include <minikonoha/klib.h>
+
 #define USE_BUILTINTEST 1
 #include "testkonoha.h"
 #include <getopt.h>
@@ -49,185 +50,7 @@ extern int verbose_sugar;
 extern int verbose_gc;
 
 #include <minikonoha/platform.h>
-
-// -------------------------------------------------------------------------
-// minishell
-
-static char *(*kreadline)(const char *);
-static int  (*kadd_history)(const char *);
-
-static char* readline(const char* prompt)
-{
-	static int checkCTL = 0;
-	int ch, pos = 0;
-	static char linebuf[1024]; // THREAD-UNSAFE
-	fputs(prompt, stdout);
-	while((ch = fgetc(stdin)) != EOF) {
-		if(ch == '\r') continue;
-		if(ch == 27) {
-			/* ^[[A */;
-			fgetc(stdin); fgetc(stdin);
-			if(checkCTL == 0) {
-				fprintf(stdout, " - use readline, it provides better shell experience.\n");
-				checkCTL = 1;
-			}
-			continue;
-		}
-		if(ch == '\n' || pos == sizeof(linebuf) - 1) {
-			linebuf[pos] = 0;
-			break;
-		}
-		linebuf[pos] = ch;
-		pos++;
-	}
-	if(ch == EOF) return NULL;
-	char *p = (char*)malloc(pos+1);
-	memcpy(p, linebuf, pos+1);
-	return p;
-}
-
-static int add_history(const char* line)
-{
-	return 0;
-}
-
-static int checkstmt(const char *t, size_t len)
-{
-	size_t i = 0;
-	int ch, quote = 0, nest = 0;
-	L_NORMAL:
-	for(; i < len; i++) {
-		ch = t[i];
-		if(ch == '{' || ch == '[' || ch == '(') nest++;
-		if(ch == '}' || ch == ']' || ch == ')') nest--;
-		if(ch == '\'' || ch == '"' || ch == '`') {
-			if(t[i+1] == ch && t[i+2] == ch) {
-				quote = ch; i+=2;
-				goto L_TQUOTE;
-			}
-		}
-	}
-	return nest;
-	L_TQUOTE:
-	DBG_ASSERT(i > 0);
-	for(; i < len; i++) {
-		ch = t[i];
-		if(t[i-1] != '\\' && ch == quote) {
-			if(t[i+1] == ch && t[i+2] == ch) {
-				i+=2;
-				goto L_NORMAL;
-			}
-		}
-	}
-	return 1;
-}
-
-static kstatus_t readstmt(KonohaContext *kctx, KUtilsWriteBuffer *wb, kfileline_t *uline)
-{
-	int line = 1;
-	kstatus_t status = K_CONTINUE;
-//	fputs(TERM_BBOLD(kctx), stdout);
-	while(1) {
-		int check;
-		char *ln = kreadline(line == 1 ? ">>> " : "    ");
-		if(ln == NULL) {
-			KLIB Kwb_free(wb);
-			status = K_BREAK;
-			break;
-		}
-		if(line > 1) kwb_putc(wb, '\n');
-		KLIB Kwb_write(kctx, wb, ln, strlen(ln));
-		free(ln);
-		if((check = checkstmt(KLIB Kwb_top(kctx, wb, 0), Kwb_bytesize(wb))) > 0) {
-			uline[0]++;
-			line++;
-			continue;
-		}
-		if(check < 0) {
-			fputs("(Cancelled)...\n", stdout);
-			KLIB Kwb_free(wb);
-		}
-		break;
-	}
-	if(Kwb_bytesize(wb) > 0) {
-		kadd_history(KLIB Kwb_top(kctx, wb, 1));
-	}
-//	fputs(TERM_EBOLD(kctx), stdout);
-	fflush(stdout);
-	uline[0]++;
-	return status;
-}
-
-static void dumpEval(KonohaContext *kctx, KUtilsWriteBuffer *wb)
-{
-	KonohaStackRuntimeVar *base = kctx->stack;
-	ktype_t ty = base->evalty;
-	if(ty != TY_void) {
-		KonohaStack *lsfp = base->stack + base->evalidx;
-		CT_(ty)->p(kctx, lsfp, 0, wb, P_DUMP);
-		fflush(stdout);
-		fprintf(stdout, "TYPE=%s EVAL=%s\n", TY_t(ty), KLIB Kwb_top(kctx, wb,1));
-	}
-}
-
-static void shell(KonohaContext *kctx)
-{
-	KUtilsWriteBuffer wb;
-	KLIB Kwb_init(&(kctx->stack->cwb), &wb);
-	kfileline_t uline = FILEID_("(shell)") | 1;
-	while(1) {
-		kfileline_t inc = 0;
-		kstatus_t status = readstmt(kctx, &wb, &inc);
-		if(status == K_BREAK) break;
-		if(status == K_CONTINUE && Kwb_bytesize(&wb) > 0) {
-			status = konoha_eval((KonohaContext*)kctx, KLIB Kwb_top(kctx, &wb, 1), uline);
-			uline += inc;
-			KLIB Kwb_free(&wb);
-			if(status != K_FAILED) {
-				dumpEval(kctx, &wb);
-				KLIB Kwb_free(&wb);
-			}
-		}
-	}
-	KLIB Kwb_free(&wb);
-	fprintf(stdout, "\n");
-	return;
-}
-
-static void show_version(KonohaContext *kctx)
-{
-	int i;
-	fprintf(stdout, K_PROGNAME " " K_VERSION " (%s) (%x, %s)\n", K_CODENAME, K_REVISION, __DATE__);
-	fprintf(stdout, "[gcc %s]\n", __VERSION__);
-	fprintf(stdout, "options:");
-	for(i = 0; i < KonohaModule_MAXSIZE; i++) {
-		if(kctx->modshare[i] != NULL) {
-			fprintf(stdout, " %s", kctx->modshare[i]->name);
-		}
-	}
-	fprintf(stdout, "\n");
-}
-
-static kbool_t konoha_shell(KonohaContext* konoha)
-{
-#ifdef __MINGW32__
-	void *handler = (void *)LoadLibraryA((LPCTSTR)"libreadline" K_OSDLLEXT);
-	void *f = (handler != NULL) ? (void *)GetProcAddress(handler, "readline") : NULL;
-	kreadline = (f != NULL) ? (char* (*)(const char*))f : readline;
-	f = (handler != NULL) ? (void *)GetProcAddress(handler, "add_history") : NULL;	
-	kadd_history = (f != NULL) ? (int (*)(const char*))f : add_history;
-#else
-	void *handler = dlopen("libreadline" K_OSDLLEXT, RTLD_LAZY);
-	void *f = (handler != NULL) ? dlsym(handler, "readline") : NULL;
-	kreadline = (f != NULL) ? (char* (*)(const char*))f : readline;
-	f = (handler != NULL) ? dlsym(handler, "add_history") : NULL;
-	kadd_history = (f != NULL) ? (int (*)(const char*))f : add_history;
-#endif
-	show_version(konoha);
-	shell(konoha);
-	return true;
-}
-
+#include <minikonoha/libcode/minishell.h>
 
 // -------------------------------------------------------------------------
 // KonohaContext*est
@@ -606,6 +429,14 @@ static int konoha_parseopt(KonohaContext* konoha, PlatformApiVar *plat, int argc
 	}
 	return (ret == true) ? 0 : 1;
 }
+
+//static void testDataLog(KonohaContext *kctx)
+//{
+//	unsigned long long timer;
+//	KSetElaspedTimer(timer);
+//	KTraceApi(SystemFault|ActionPoint, "test", LogText("start", "test"), LogUint("count", 1), LOG_ERRNO);
+//	KTraceApiElapsedTimer(SystemFault, 0/*ms*/, "syslog", timer);
+//}
 
 // -------------------------------------------------------------------------
 // ** main **
