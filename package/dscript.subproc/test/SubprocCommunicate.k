@@ -1,5 +1,7 @@
 //Written by Joseph
 
+import("konoha.bytes");
+import("konoha.null");
 import("konoha.new");
 import("konoha.array");
 import("dscript.subproc");
@@ -10,9 +12,10 @@ void test() {
 	s.enablePipemodeOUT(true);
 	s.bg();
 	String[] str = s.communicate("echo \"hello\"");
-	System.p(str.getSize());
 	System.p(str[0]);
 	System.p(str[1]);
+//	assert(str[0] == "hi");//TODO This assert doesn't pass.
+//	assert(str[1] == null);// This assert is ok.
 }
 
 test();

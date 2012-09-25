@@ -5,8 +5,8 @@ import("dscript.subproc");
 
 void test() {
 	Subproc s = new Subproc("", false);
-	System.p(s.exec("echo \"hi\""));
-	System.p(s.exec("echo \"hello\""));
+	assert(s.exec("echo \"hi\"") == "\"hi\"\n");
+	assert(s.exec("echo hello") == "hello\n");
 }
 
 test();
