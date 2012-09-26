@@ -239,7 +239,7 @@ static int spSplit(char* str, char* args[]) {
 
 static int knh_popen(KonohaContext *kctx, kString* command, subprocData_t *spd, int defaultMode)
 {
-	if (IS_NULL(command)) {
+	if (IS_NULL(command) || S_size(command) == 0) {
 		return -1;
 	}
 	pid_t pid  = -1;
