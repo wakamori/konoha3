@@ -29,6 +29,10 @@
 #include "config.h"
 #endif
 
+//#ifndef HAVE_BZERO
+//#define bzero(s, n) memset(s, 0, n)
+//#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -80,7 +84,11 @@ extern "C" {
 #ifndef __KERNEL__
 #include <limits.h>
 #include <float.h>
+#ifdef HAVE_STDBOOL_H
 #include <stdbool.h>
+#else
+#include <minikonoha/stdbool.h>
+#endif
 #include <stdint.h>
 #endif
 
@@ -88,6 +96,20 @@ extern "C" {
 #define __PRINTFMT(idx1, idx2) __attribute__((format(printf, idx1, idx2)))
 #else
 #define __PRINTFMT(idx1, idx2)
+#endif
+
+#ifdef _MSC_VER
+#pragma warning(disable:4013)
+#pragma warning(disable:4033)
+#pragma warning(disable:4100)
+#pragma warning(disable:4114)
+#pragma warning(disable:4127)
+#pragma warning(disable:4201)
+#pragma warning(disable:4204)
+#pragma warning(disable:4431)
+#pragma warning(disable:4820)
+
+#define inline
 #endif
 
 /* ------------------------------------------------------------------------ */
@@ -98,17 +120,28 @@ typedef struct PlatformApiVar        PlatformApiVar;
 typedef const struct KonohaLibVar    KonohaLib;
 typedef struct KonohaLibVar          KonohaLibVar;
 
+#define TEXTSIZE(T)   T, (sizeof(T) - 1)
 #define PLATAPI (kctx->platApi)->
 #define KLIB    (kctx->klib)->
 
 #define KDEFINE_PACKAGE KonohaPackageHandler
+#ifdef _MSC_VER
+typedef struct KonohaPackageHandlerVar KonohaPackageHandler;
+#else
 typedef const struct KonohaPackageHandlerVar KonohaPackageHandler;
+#endif
 typedef KonohaPackageHandler* (*PackageLoadFunc)(void);
 
 #ifndef jmpbuf_i
 #include <setjmp.h>
 #define jmpbuf_i jmp_buf
-#if __MINGW32__ || __MSVC__
+#if defined(__MINGW64__)
+static inline int setjmp_mingw(_JBTYPE* t)
+{
+	return _setjmp(t, NULL);
+}
+#define ksetjmp  setjmp_mingw
+#elif defined(__MINGW32__) || defined(_MSC_VER)
 #define ksetjmp  _setjmp
 #else
 #define ksetjmp  setjmp
@@ -555,8 +588,8 @@ typedef const struct KonohaRuntimeVar           KonohaRuntime;
 typedef struct KonohaRuntimeVar                 KonohaRuntimeVar;
 typedef const struct KonohaStackRuntimeVar      KonohaStackRuntime;
 typedef struct KonohaStackRuntimeVar            KonohaStackRuntimeVar;
-typedef struct KonohaStack                      KonohaStack;
-typedef struct KonohaStack                      KonohaStackVar;
+typedef struct KonohaValueVar                   KonohaStack;
+typedef struct KonohaValueVar                   KonohaValue;
 
 typedef struct KonohaModule        KonohaModule;
 typedef struct KonohaModuleContext KonohaModuleContext;
@@ -709,7 +742,7 @@ struct KonohaModuleContext {
 	kint_t     dummy_intValue;\
 	kfloat_t   dummy_floatValue
 
-struct KonohaStack {
+struct KonohaValueVar {
 	union {
 		K_FRAME_MEMBER;
 	};
@@ -733,8 +766,8 @@ typedef struct krbp_t {
 		void         (*reftrace)(KonohaContext*, kObject*);\
 		void         (*free)(KonohaContext*, kObject*);\
 		kObject*     (*fnull)(KonohaContext*, KonohaClass*);\
-		void         (*p)(KonohaContext*, KonohaStack *, int, KUtilsWriteBuffer *, int);\
 		uintptr_t    (*unbox)(KonohaContext*, kObject*);\
+		void         (*p)(KonohaContext*, KonohaValue *, int, KUtilsWriteBuffer *);\
 		int          (*compareObject)(kObject*, kObject*);\
 		int          (*compareUnboxValue)(uintptr_t, uintptr_t);\
 		kbool_t      (*hasField)(KonohaContext*, kObject*, ksymbol_t, ktype_t);\
@@ -1088,32 +1121,45 @@ struct kParamVar {
 /* ------------------------------------------------------------------------ */
 /* Method */
 
-#define IS_Method(o)              (O_baseTypeId(o) == TY_Method)
+#define IS_Method(o)                 (O_baseTypeId(o) == TY_Method)
 
+#ifdef FlagData
+static const char* MethodFlagData[] = {
+	"Public", "Virtual", "Final", "Const", "Static", "Immutable",
+	"Coercion", "Restricted", "FastCall", "SmartReturn", "Variadic",
+	"LibCompatible", "JSCompatible", "JavaCompatible",
+};
+#endif
+
+// property
 #define kMethod_Public               ((uintptr_t)(1<<0))
-#define kMethod_Hidden               ((uintptr_t)(1<<1))
-#define kMethod_Virtual              ((uintptr_t)(1<<2))
-#define kMethod_Final                ((uintptr_t)(1<<3))
-#define kMethod_Const                ((uintptr_t)(1<<4))
-#define kMethod_Static               ((uintptr_t)(1<<5))
-#define kMethod_Immutable            ((uintptr_t)(1<<6))
+#define kMethod_Virtual              ((uintptr_t)(1<<1))
+#define kMethod_Final                ((uintptr_t)(1<<2))
+#define kMethod_Const                ((uintptr_t)(1<<3))
+#define kMethod_Static               ((uintptr_t)(1<<4))
+#define kMethod_Immutable            ((uintptr_t)(1<<5))
+
+// call rule
+#define kMethod_Coercion             ((uintptr_t)(1<<6))
 #define kMethod_Restricted           ((uintptr_t)(1<<7))
-#define kMethod_Overloaded           ((uintptr_t)(1<<8))
-#define kMethod_Override             ((uintptr_t)(1<<9))
-#define kMethod_Abstract             ((uintptr_t)(1<<10))
-#define kMethod_Coercion             ((uintptr_t)(1<<11))
-#define kMethod_SmartReturn          ((uintptr_t)(1<<12))
+#define kMethod_FastCall             ((uintptr_t)(1<<8))
+#define kMethod_SmartReturn          ((uintptr_t)(1<<9))
+#define kMethod_Variadic             ((uintptr_t)(1<<10))
 
-//#define kMethod_CALLCC               ((uintptr_t)(1<<8))
-//#define kMethod_FASTCALL             ((uintptr_t)(1<<9))
-//#define kMethod_D                    ((uintptr_t)(1<<10))
+// compatible
+#define kMethod_LibCompatible        ((uintptr_t)(1<<11))
+#define kMethod_JSCompatible         ((uintptr_t)(1<<12))
+#define kMethod_JCompatible          ((uintptr_t)(1<<13))
 
-#define kMethod_LibraryCompatible    ((uintptr_t)(1<<31))
-#define kMethod_JSCompatible         ((uintptr_t)(1<<30))
-#define kMethod_JavaCompatible       ((uintptr_t)(1<<29))
-#define kMethod_DynamicCall          ((uintptr_t)(1<<28))
-#define kMethod_FastCall             ((uintptr_t)(1<<27))
+// internal
+#define kMethod_Hidden               ((uintptr_t)(1<<14))
+#define kMethod_Abstract             ((uintptr_t)(1<<15))
+#define kMethod_Overloaded           ((uintptr_t)(1<<16))
+#define kMethod_Override             ((uintptr_t)(1<<17))
+#define kMethod_DynamicCall          ((uintptr_t)(1<<18))
 
+#define Method_is(P, MTD)            (TFLAG_is(uintptr_t, (MTD)->flag, kMethod_##P))
+#define Method_set(P, MTD, B)        TFLAG_set(uintptr_t, ((kMethodVar*)MTD)->flag, kMethod_##P, B)
 
 #define Method_isPublic(o)       (TFLAG_is(uintptr_t, (o)->flag, kMethod_Public))
 //#define Method_setPublic(o,B)  TFLAG_set(uintptr_t, (o)->flag, kMethod_Public,B)
@@ -1309,9 +1355,13 @@ struct _kSystem {
 
 #define KPACKNAME(N, V) \
 	.name = N, .version = V, .konoha_checksum = K_CHECKSUM, .konoha_revision = K_REVISION
+#define KSETPACKNAME(VAR, N, V) \
+ 	do{ VAR.name = N; VAR.version = V; VAR.konoha_checksum = K_CHECKSUM; VAR.konoha_revision = K_REVISION; } while(0)
 
 #define KPACKLIB(N, V) \
 	.libname = N, .libversion = V
+#define KSETPACKLIB(VAR, N, V) \
+	do{ VAR.libname = N; VAR.libversion = V; } while(0)
 
 typedef enum {  Nope, FirstTime } isFirstTime_t;
 
@@ -1547,10 +1597,7 @@ typedef struct {
 // gc
 
 #if defined(_MSC_VER)
-#define OBJECT_SET(var, val) do {\
-	kObject **var_ = (kObject**)&val; \
-	var_[0] = (val_); \
-} while (0)
+#define OBJECT_SET(var, val) var = (decltype(var))(val)
 #else
 #define OBJECT_SET(var, val) var = (typeof(var))(val)
 #endif /* defined(_MSC_VER) */
@@ -1650,9 +1697,15 @@ typedef struct {
 } while (0)
 
 #ifndef USE_SMALLBUILD
+#ifdef _MSC_VER
+#define KNH_ASSERT(a)
+#define DBG_ASSERT(a)
+#define TODO_ASSERT(a)
+#else
 #define KNH_ASSERT(a)       assert(a)
 #define DBG_ASSERT(a)       assert(a)
 #define TODO_ASSERT(a)      assert(a)
+#endif /* _MSC_VER */
 #define DBG_P(fmt, ...)     PLATAPI debugPrintf(__FILE__, __FUNCTION__, __LINE__, fmt, ## __VA_ARGS__)
 #define DBG_ABORT(fmt, ...) PLATAPI debugPrintf(__FILE__, __FUNCTION__, __LINE__, fmt, ## __VA_ARGS__); PLATAPI exit_i(EXIT_FAILURE)
 #define DUMP_P(fmt, ...)    PLATAPI printf_i(fmt, ## __VA_ARGS__)
@@ -1665,12 +1718,22 @@ typedef struct {
 #define DUMP_P(fmt, ...)
 #endif
 
+#ifdef __GNUC__
 #ifndef unlikely
 #define unlikely(x)   __builtin_expect(!!(x), 0)
 #endif
 
 #ifndef likely
 #define likely(x)     __builtin_expect(!!(x), 1)
+#endif
+#else
+#ifndef unlikely
+#define unlikely(x)   (x)
+#endif
+
+#ifndef likely
+#define likely(x)     (x)
+#endif
 #endif
 
 ///* Konoha API */
