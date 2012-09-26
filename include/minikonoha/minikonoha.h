@@ -447,11 +447,11 @@ typedef struct {
 #define FN_Coersion             FN_COERCION
 #define FN_isCOERCION(fn)       ((fn & FN_COERCION) == FN_COERCION)
 
-#define MN_ISBOOL     KFLAG_H0
+//#define MN_ISBOOL     KFLAG_H0
 #define MN_GETTER     KFLAG_H1
 #define MN_SETTER     KFLAG_H2
 
-#define MN_Annotation (KFLAG_H1|KFLAG_H2)
+#define MN_Annotation        (KFLAG_H1|KFLAG_H2)
 #define MN_isAnnotation(S)   ((S & KW_PATTERN) == MN_Annotation)
 
 #define MN_TOCID             (KFLAG_H0|KFLAG_H1)
@@ -459,8 +459,8 @@ typedef struct {
 #define KW_PATTERN           (KFLAG_H0|KFLAG_H1|KFLAG_H2)
 #define KW_isPATTERN(S)      ((S & KW_PATTERN) == KW_PATTERN)
 
-#define MN_isISBOOL(mn)      (SYM_HEAD(mn) == MN_ISBOOL)
-#define MN_toISBOOL(mn)      ((SYM_UNMASK(mn)) | MN_ISBOOL)
+//#define MN_isISBOOL(mn)      (SYM_HEAD(mn) == MN_ISBOOL)
+//#define MN_toISBOOL(mn)      ((SYM_UNMASK(mn)) | MN_ISBOOL)
 #define MN_isGETTER(mn)      (SYM_HEAD(mn) == MN_GETTER)
 #define MN_toGETTER(mn)      ((SYM_UNMASK(mn)) | MN_GETTER)
 #define MN_isSETTER(mn)      (SYM_HEAD(mn) == MN_SETTER)
@@ -1068,10 +1068,6 @@ struct kStringVar /* extends _Bytes */ {
 #define S_text(s)           ((const char*) (O_ct(s)->unbox(kctx, (kObject*)s)))
 #define S_size(s)           ((s)->bytesize)
 
-//#define S_equals(s, b)        knh_bytes_equals(S_tobytes(s), b)
-//#define S_startsWith(s, b)    knh_bytes_startsWith_(S_tobytes(s), b)
-//#define S_endsWith(s, b)      knh_bytes_endsWith_(S_tobytes(s), b)
-
 /* ------------------------------------------------------------------------ */
 //## class Array   Object;
 
@@ -1123,7 +1119,7 @@ struct kParamVar {
 
 #define IS_Method(o)                 (O_baseTypeId(o) == TY_Method)
 
-#ifdef FlagData
+#ifdef USE_MethodFlagData
 static const char* MethodFlagData[] = {
 	"Public", "Virtual", "Final", "Const", "Static", "Immutable",
 	"Coercion", "Restricted", "FastCall", "SmartReturn", "Variadic",
@@ -1409,7 +1405,6 @@ struct KonohaLibVar {
 
 	void                (*Kwb_init)(KUtilsGrowingArray *, KUtilsWriteBuffer *);
 	void                (*Kwb_write)(KonohaContext*, KUtilsWriteBuffer *, const char *, size_t);
-	void                (*Kwb_putc)(KonohaContext*, KUtilsWriteBuffer *, ...);
 	void                (*Kwb_vprintf)(KonohaContext*, KUtilsWriteBuffer *, const char *fmt, va_list ap);
 	void                (*Kwb_printf)(KonohaContext*, KUtilsWriteBuffer *, const char *fmt, ...);
 	const char*         (*Kwb_top)(KonohaContext*, KUtilsWriteBuffer *, int);
@@ -1423,6 +1418,8 @@ struct KonohaLibVar {
 	void                (*Kmap_free)(KonohaContext*, KUtilsHashMap *, void (*)(KonohaContext*, void *));
 	ksymbol_t           (*Kmap_getcode)(KonohaContext*, KUtilsHashMap *, kArray *, const char *, size_t, uintptr_t, int, ksymbol_t);
 
+	KonohaContextVar *(*KonohaContext_init)(KonohaContext *rootContext, const PlatformApi *api);
+	void (*KonohaContext_free)(KonohaContext *rootContext, KonohaContextVar *ctx);
 
 	kfileline_t     (*KfileId)(KonohaContext*, const char *, size_t, int spol, ksymbol_t def);
 	kpackage_t      (*KpackageId)(KonohaContext*, const char *, size_t, int spol, ksymbol_t def);
@@ -1473,7 +1470,6 @@ struct KonohaLibVar {
 	kbool_t          (*kNameSpace_setConstData)(KonohaContext *, kNameSpace *, ksymbol_t, ktype_t, uintptr_t, kfileline_t);
 	kbool_t          (*kNameSpace_loadConstData)(KonohaContext*, kNameSpace *, const char **d, kfileline_t);
 	void             (*kNameSpace_loadMethodData)(KonohaContext*, kNameSpace *, intptr_t *);
-//	kMethod*         (*kNameSpace_getMethodNULL)(KonohaContext*, kNameSpace *, ktype_t cid, kmethodn_t mn, int option, int policy);
 
 	kMethod*         (*kNameSpace_getGetterMethodNULL)(KonohaContext*, kNameSpace *, ktype_t cid, ksymbol_t mn, ktype_t);
 	kMethod*         (*kNameSpace_getSetterMethodNULL)(KonohaContext*, kNameSpace *, ktype_t cid, ksymbol_t mn, ktype_t);
@@ -1482,14 +1478,11 @@ struct KonohaLibVar {
 
 	void             (*kNameSpace_compileAllDefinedMethods)(KonohaContext *kctx);
 
+	// code generator package
 	void             (*KCodeGen)(KonohaContext*, kMethod *, kBlock *);
+	kbool_t          (*KonohaRuntime_tryCallMethod)(KonohaContext *, KonohaStack *);
+	void             (*KonohaRuntime_raise)(KonohaContext*, int symbol, KonohaStack *, kfileline_t, kString *Nullable);
 	void             (*Kreportf)(KonohaContext*, kinfotag_t, kfileline_t, const char *fmt, ...);
-
-	kbool_t       (*KonohaRuntime_tryCallMethod)(KonohaContext *, KonohaStack *);
-	void          (*KonohaRuntime_raise)(KonohaContext*, int symbol, KonohaStack *, kfileline_t, kString *Nullable);
-
-	KonohaContextVar *(*KonohaContext_init)(KonohaContext *rootContext, const PlatformApi *api);
-	void (*KonohaContext_free)(KonohaContext *rootContext, KonohaContextVar *ctx);
 };
 
 #define K_NULL            (kctx->share->constNull)
@@ -1505,7 +1498,7 @@ struct KonohaLibVar {
 #define KCALLOC(size, item)    KLIB Kzmalloc(kctx, ((size) * (item)))
 #define KFREE(p, size)         KLIB Kfree(kctx, p, size)
 
-#define kwb_putc(W,...)          KLIB Kwb_putc(kctx,W, ## __VA_ARGS__, -1)
+//#define KLIB Kwb_write(W,...)          KLIB Kwb_putc(kctx,W, ## __VA_ARGS__, -1)
 #define Kwb_bytesize(W)                 (((W)->m)->bytesize - (W)->pos)
 
 #define kclass(CID, UL)           KLIB Kclass(kctx, CID, UL)

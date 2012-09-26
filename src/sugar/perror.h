@@ -107,11 +107,6 @@ static void kStmt_toERR(KonohaContext *kctx, kStmt *stmt, kString *errmsg)
 	}
 }
 
-//static inline void kStmt_errline(kStmt *stmt, kfileline_t uline)
-//{
-//	((kStmtVar*)stmt)->uline = uline;
-//}
-
 static kfileline_t kExpr_uline(KonohaContext *kctx, kExpr *expr, kfileline_t uline)
 {
 	kToken *tk = expr->termToken;
@@ -176,6 +171,26 @@ static const char *kToken_t_(KonohaContext *kctx, kToken *tk)
 		return "";
 	}
 }
+
+// libperror
+
+#ifdef USE_SMALLBUILD
+
+static kExpr* ERROR_SyntaxErrorToken(KonohaContext *kctx, kStmt *stmt, kToken *tk)
+{
+	return kStmtToken_printMessage(kctx, stmt, tk, ErrTag, "syntax error at %s", Token_text(kctx, tk));
+}
+
+#define ERROR_UndefinedEscapeSequence(kctx, stmt, tk) ERROR_SyntaxError(kctx, stmt, tk)
+
+#else
+
+static kExpr* ERROR_UndefinedEscapeSequence(KonohaContext *kctx, kStmt *stmt, kToken *tk)
+{
+	return kStmtToken_printMessage(kctx, stmt, tk, ErrTag, "undefined escape sequence: \"%s\"", S_text(tk->text));
+}
+
+#endif
 
 #ifdef __cplusplus
 }
