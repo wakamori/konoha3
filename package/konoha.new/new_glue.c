@@ -25,6 +25,9 @@
 #include <minikonoha/minikonoha.h>
 #include <minikonoha/sugar.h>
 
+#ifdef __cplusplus
+extern "C"{
+#endif
 // --------------------------------------------------------------------------
 
 static kbool_t new_initPackage(KonohaContext *kctx, kNameSpace *ns, int argc, const char**args, kfileline_t pline)
@@ -56,12 +59,12 @@ static KMETHOD ParseExpr_new(KonohaContext *kctx, KonohaStack *sfp)
 	kTokenVar *newToken = tokenList->tokenVarItems[beginIdx];   // new Class (
 	KonohaClass *foundClass = NULL;
 	kNameSpace *ns = Stmt_nameSpace(stmt);
-	int nextIdx = SUGAR kStmt_parseTypePattern(kctx, stmt, ns, tokenList, beginIdx + 1, endIdx, &foundClass);
+	int nextIdx = SUGAR TokenUtils_parseTypePattern(kctx, ns, tokenList, beginIdx + 1, endIdx, &foundClass);
 	if(nextIdx != -1 && nextIdx < kArray_size(tokenList)) {
 		kToken *nextTokenAfterClassName = tokenList->tokenItems[nextIdx];
 //		if (ct->typeId == TY_void) {
 //			RETURN_(SUGAR kStmt_printMessage2(kctx, stmt, tk1, ErrTag, "undefined class: %s", S_text(tk1->text)));
-//		} else if (CT_isVirtual(ct)) {
+//		} else if (CT_is(Virtual, ct)) {
 //			SUGAR kStmt_printMessage2(kctx, stmt, NULL, ErrTag, "invalid application of 'new' to incomplete class %s", CT_t(ct));
 //		}
 		if(nextTokenAfterClassName->resolvedSyntaxInfo->keyword == KW_ParenthesisGroup) {  // new C (...)
@@ -77,7 +80,7 @@ static KMETHOD ParseExpr_new(KonohaContext *kctx, KonohaStack *sfp)
 			kExpr *expr;
 			int hasGenerics = -1;
 			if (kArray_size(subTokenList) > 0) {
-				hasGenerics = SUGAR kStmt_parseTypePattern(kctx, stmt, ns, subTokenList, 0, kArray_size(subTokenList), &classT0);
+				hasGenerics = SUGAR TokenUtils_parseTypePattern(kctx, ns, subTokenList, 0, kArray_size(subTokenList), &classT0);
 			}
 			if (hasGenerics != -1) {
 				/* new Type1[Type2[]] => Type1<Type2>.new Or Type1<Type2>.newList */
@@ -105,8 +108,8 @@ static KMETHOD ParseExpr_new(KonohaContext *kctx, KonohaStack *sfp)
 static kbool_t new_initNameSpace(KonohaContext *kctx, kNameSpace *packageNameSpace, kNameSpace *ns, kfileline_t pline)
 {
 	KDEFINE_SYNTAX SYNTAX[] = {
-		{ .keyword = SYM_("new"), ParseExpr_(new), .precedence_op1 = C_PRECEDENCE_CALL},
-		{ .keyword = KW_END, },
+		{ SYM_("new"), 0, NULL, 0, Precedence_CStyleCALL, NULL, ParseExpr_new, NULL, NULL, NULL, },
+		{ KW_END, },
 	};
 	SUGAR kNameSpace_defineSyntax(kctx, ns, SYNTAX, packageNameSpace);
 	return true;
@@ -119,12 +122,15 @@ static kbool_t new_setupNameSpace(KonohaContext *kctx, kNameSpace *packageNameSp
 
 KDEFINE_PACKAGE* new_init(void)
 {
-	static KDEFINE_PACKAGE d = {
-		KPACKNAME("new", "1.0"),
-		.initPackage    = new_initPackage,
-		.setupPackage   = new_setupPackage,
-		.initNameSpace  = new_initNameSpace,
-		.setupNameSpace = new_setupNameSpace,
-	};
+	static KDEFINE_PACKAGE d = {0};
+	KSETPACKNAME(d, "new", "1.0");
+	d.initPackage    = new_initPackage;
+	d.setupPackage   = new_setupPackage;
+	d.initNameSpace  = new_initNameSpace;
+	d.setupNameSpace = new_setupNameSpace;
 	return &d;
 }
+
+#ifdef __cplusplus
+}
+#endif

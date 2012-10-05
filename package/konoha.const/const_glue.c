@@ -25,6 +25,10 @@
 #include <minikonoha/minikonoha.h>
 #include <minikonoha/sugar.h>
 
+#ifdef __cplusplus
+extern "C"{
+#endif
+
 // --------------------------------------------------------------------------
 
 static kbool_t const_initPackage(KonohaContext *kctx, kNameSpace *ns, int argc, const char**args, kfileline_t pline)
@@ -75,12 +79,11 @@ static KMETHOD StmtTyCheck_ConstDecl(KonohaContext *kctx, KonohaStack *sfp)
 	RETURNb_(result);
 }
 
-
 static kbool_t const_initNameSpace(KonohaContext *kctx, kNameSpace *packageNameSpace, kNameSpace *ns, kfileline_t pline)
 {
 	KDEFINE_SYNTAX SYNTAX[] = {
-		{ .keyword = SYM_("const"), TopStmtTyCheck_(ConstDecl), .rule = "\"const\" $Symbol \"=\" $Expr", },
-		{ .keyword = KW_END, },
+		{ SYM_("const"), 0, "\"const\" $Symbol \"=\" $Expr", 0, 0, NULL, NULL, StmtTyCheck_ConstDecl, NULL, NULL, },
+		{ KW_END, },
 	};
 	SUGAR kNameSpace_defineSyntax(kctx, ns, SYNTAX, packageNameSpace);
 	return true;
@@ -93,12 +96,15 @@ static kbool_t const_setupNameSpace(KonohaContext *kctx, kNameSpace *packageName
 
 KDEFINE_PACKAGE* const_init(void)
 {
-	static KDEFINE_PACKAGE d = {
-		KPACKNAME("konoha", "1.0"),
-		.initPackage = const_initPackage,
-		.setupPackage = const_setupPackage,
-		.initNameSpace = const_initNameSpace,
-		.setupNameSpace = const_setupNameSpace,
-	};
+	static KDEFINE_PACKAGE d = {0};
+	KSETPACKNAME(d, "const", "1.0");
+	d.initPackage    = const_initPackage;
+	d.setupPackage   = const_setupPackage;
+	d.initNameSpace  = const_initNameSpace;
+	d.setupNameSpace = const_setupNameSpace;
 	return &d;
 }
+
+#ifdef __cplusplus
+}
+#endif

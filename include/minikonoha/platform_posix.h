@@ -371,7 +371,7 @@ static const char* formatPackagePath(char *buf, size_t bufsiz, const char *packa
 		fclose(fp);
 		return (const char*)buf;
 	}
-	snprintf(buf, bufsiz, K_PREFIX "/minikonoha/package" "/%s/%s%s", packageName, packname(packageName), ext);
+	snprintf(buf, bufsiz, K_PREFIX "/lib/minikonoha/" K_VERSION "/package" "/%s/%s%s", packageName, packname(packageName), ext);
 #endif
 	fp = fopen(buf, "r");
 	if(fp != NULL) {
@@ -501,6 +501,10 @@ static void traceDataLog(void *logger, int logkey, logconf_t *logconf, ...)
 	va_end(ap);
 }
 
+static void diagnosis(void)
+{
+}
+
 static PlatformApi* KonohaUtils_getDefaultPlatformApi(void)
 {
 	static PlatformApiVar plat = {};
@@ -553,6 +557,7 @@ static PlatformApi* KonohaUtils_getDefaultPlatformApi(void)
 	plat.vsyslog_i           = vsyslog;
 	plat.logger              = NULL;
 	plat.traceDataLog        = traceDataLog;
+	plat.diagnosis           = diagnosis;
 	return (PlatformApi*)(&plat);
 }
 

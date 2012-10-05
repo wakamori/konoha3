@@ -7,6 +7,9 @@
 /* Define to 1 if you have the <syslog.h> header file. */
 #cmakedefine HAVE_SYSLOG_H 1
 
+/* Define to 1 if you have the <stdbool.h> header file. */
+#cmakedefine HAVE_STDBOOL_H 1
+
 /* Define to 1 if you have the `dl' library (-ldl). */
 #cmakedefine HAVE_LIBDL 1
 
@@ -23,7 +26,7 @@
 #cmakedefine K_CONFIG_OS "${K_CONFIG_OS}"
 
 /* build revision */
-#cmakedefine K_REVISION  ${K_REVISION}
+#cmakedefine K_REVISION  "${K_REVISION}"
 
 /* no debug opt */
 #cmakedefine K_NODEBUG  ${K_NODEBUG}

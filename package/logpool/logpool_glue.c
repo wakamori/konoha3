@@ -31,6 +31,10 @@
 #include <logpool/io.h>
 #include <logpool/message.idl.data.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef struct kRawPtr {
 	KonohaObjectHeader h;
 	void *rawptr;
@@ -61,7 +65,7 @@ static void Log_free(KonohaContext *kctx, kObject *po)
 	o->rawptr = NULL;
 }
 
-static void Log_p(KonohaContext *kctx, KonohaStack *sfp, int pos, KUtilsWriteBuffer *wb, int level)
+static void Log_p(KonohaContext *kctx, KonohaStack *sfp, int pos, KUtilsWriteBuffer *wb)
 {
 	kRawPtr *self = (kRawPtr *) sfp[0].asObject;
 	struct Log *log = (struct Log *) self->rawptr;
@@ -108,7 +112,7 @@ static KMETHOD LogPool_get(KonohaContext *kctx, KonohaStack *sfp)
 	char *ret = logpool_client_get(lp, buf, 256);
 	kObject *log = KLIB new_kObject(kctx, O_ct(sfp[K_RTNIDX].o), 0);
 	if (ret == NULL) {
-		kObject_setNullObject(log, 1);
+		kObject_set(NullObject, log, 1);
 		free(buf);
 	}
 	RawPtr_init(kctx, log, buf);
@@ -124,7 +128,7 @@ static KMETHOD Log_get_(KonohaContext *kctx, KonohaStack *sfp)
 	int   klen = S_size(sfp[1].asString);
 	int   vlen;
 	char *data = Log_get(log, key, klen, &vlen);
-	RETURN_(KLIB new_kString(kctx, data, vlen, SPOL_ASCII|SPOL_POOL));
+	RETURN_(KLIB new_kString(kctx, data, vlen, StringPolicy_ASCII|StringPolicy_POOL));
 }
 
 // --------------------------------------------------------------------------
@@ -460,11 +464,14 @@ KDEFINE_PACKAGE* logpool_init(void)
 	logpool_global_init(LOGPOOL_DEFAULT);
 	static KDEFINE_PACKAGE d = {
 		KPACKNAME("logpool", "1.0"),
-		.initPackage = logpool_initPackage,
-		.setupPackage = logpool_setupPackage,
-		.initNameSpace = logpool_initNameSpace,
+		.initPackage    = logpool_initPackage,
+		.setupPackage   = logpool_setupPackage,
+		.initNameSpace  = logpool_initNameSpace,
 		.setupNameSpace = logpool_setupNameSpace,
 	};
 	return &d;
 }
 
+#ifdef __cplusplus
+} /* extern "C" */
+#endif

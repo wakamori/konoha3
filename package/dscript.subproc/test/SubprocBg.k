@@ -4,12 +4,12 @@ import("konoha.new");
 import("dscript.subproc");
 
 void test() {
-	Subproc s = new Subproc("echo \"hi\"", false);
+	Subproc s = new Subproc("echo hi", false);
 	assert(s.bg());
 	assert(s.getPid() > 0);
 	assert(s.bg() == false);
 
-	s = new Subproc("echo \"hello\"", true);
+	s = new Subproc("echo hello", true);
 	assert(s.bg());
 	assert(s.getPid() > 0);
 	assert(s.bg() == false);

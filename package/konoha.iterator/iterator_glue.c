@@ -30,10 +30,10 @@
 #include <minikonoha/klib.h>
 #include <minikonoha/iterator.h>
 
+
 #ifdef __cplusplus
 extern "C" {
 #endif
-
 
 static kbool_t Nothing_hasNext(KonohaContext *kctx, KonohaStack* sfp)
 {
@@ -59,11 +59,6 @@ static void Iterator_init(KonohaContext *kctx, kObject *o, void *conf)
 	itr->current_pos = 0;
 	itr->hasNext = Nothing_hasNext;
 	itr->setNextResult = isUnboxEntry ? Nothing_setNextResultUnbox : Nothing_setNextResult;
-}
-
-static void Iterator_p(KonohaContext *kctx, KonohaStack *sfp, int pos, KUtilsWriteBuffer *wb, int level)
-{
-//	KLIB Kwb_printf(kctx, wb, KFLOAT_FMT, sfp[pos].floatValue);
 }
 
 /* ------------------------------------------------------------------------ */
@@ -149,7 +144,7 @@ static void String_setNextResult(KonohaContext *kctx, KonohaStack* sfp)
 	const char *t = S_text(s) + itr->current_pos;
 	size_t charsize = utf8len(t[0]);
 	itr->current_pos += charsize;
-	RETURN_(KLIB new_kString(kctx, t, charsize, (charsize == 1) ? SPOL_ASCII : SPOL_UTF8));
+	RETURN_(KLIB new_kString(kctx, t, charsize, (charsize == 1) ? StringPolicy_ASCII : StringPolicy_UTF8));
 }
 
 static KMETHOD String_toIterator(KonohaContext *kctx, KonohaStack *sfp)
@@ -179,17 +174,16 @@ static kbool_t iterator_initPackage(KonohaContext *kctx, kNameSpace *ns, int arg
 	base->h.free     = kmoditerator_free;
 	KLIB KonohaRuntime_setModule(kctx, MOD_iterator, &base->h, pline);
 
-	kparamtype_t IteratorParam = {
-		.ty = TY_Object,
-	};
-	KDEFINE_CLASS defIterator = {
-		STRUCTNAME(Iterator),
-		.cflag  = CFLAG_Iterator,
-		.init   = Iterator_init,
-		.p      = Iterator_p,
-		.cparamsize  = 1,
-		.cparamItems = &IteratorParam,
-	};
+	kparamtype_t IteratorParam = {0};
+	IteratorParam.ty = TY_Object;
+
+	KDEFINE_CLASS defIterator = {0};
+	SETSTRUCTNAME(defIterator, Iterator);
+	defIterator.cflag  = CFLAG_Iterator;
+	defIterator.init   = Iterator_init;
+	defIterator.cparamsize  = 1;
+	defIterator.cparamItems = &IteratorParam;
+
 	base->cIterator = KLIB kNameSpace_defineClass(kctx, ns, NULL, &defIterator, pline);
 	base->cStringIterator = CT_p0(kctx, base->cIterator, TY_String);
 	base->cGenericIterator = CT_p0(kctx, base->cIterator, TY_0);
@@ -221,13 +215,12 @@ static kbool_t iterator_setupNameSpace(KonohaContext *kctx, kNameSpace *packageN
 
 KDEFINE_PACKAGE* iterator_init(void)
 {
-	static KDEFINE_PACKAGE d = {
-		KPACKNAME("iterator", "1.0"),
-		.initPackage =iterator_initPackage,
-		.setupPackage = iterator_setupPackage,
-		.initNameSpace = iterator_initNameSpace,
-		.setupNameSpace = iterator_setupNameSpace,
-	};
+	static KDEFINE_PACKAGE d = {0};
+	KSETPACKNAME(d, "iterator", "1.0");
+	d.initPackage    = iterator_initPackage;
+	d.setupPackage   = iterator_setupPackage;
+	d.initNameSpace  = iterator_initNameSpace;
+	d.setupNameSpace = iterator_setupNameSpace;
 	return &d;
 }
 

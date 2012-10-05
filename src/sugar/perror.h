@@ -58,6 +58,7 @@ static kString* SugarContext_vprintMessage(KonohaContext *kctx, kinfotag_t tagle
 		}
 		else {
 			KLIB Kwb_printf(kctx, &wb, "%s" , msg);
+			DBG_ASSERT(uline > 0);
 		}
 		size_t len = wb.m->bytesize - pos;
 		KLIB Kwb_vprintf(kctx, &wb, fmt, ap);
@@ -178,10 +179,10 @@ static const char *kToken_t_(KonohaContext *kctx, kToken *tk)
 
 static kExpr* ERROR_SyntaxErrorToken(KonohaContext *kctx, kStmt *stmt, kToken *tk)
 {
-	return kStmtToken_printMessage(kctx, stmt, tk, ErrTag, "syntax error at %s", Token_text(kctx, tk));
+	return kStmtToken_printMessage(kctx, stmt, tk, ErrTag, "syntax error at %s", Token_text(tk));
 }
 
-#define ERROR_UndefinedEscapeSequence(kctx, stmt, tk) ERROR_SyntaxError(kctx, stmt, tk)
+#define ERROR_UndefinedEscapeSequence(kctx, stmt, tk) ERROR_SyntaxErrorToken(kctx, stmt, tk)
 
 #else
 

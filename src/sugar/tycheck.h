@@ -53,7 +53,7 @@ static kExpr *ExprTyCheck(KonohaContext *kctx, kStmt *stmt, kExpr *expr, kGamma 
 {
 	int callCount = 0;
 	SugarSyntax *syn = expr->syn;
-	DBG_P("syn=%p, parent=%p, syn->keyword='%s%s'", syn, syn->parentSyntaxNULL, PSYM_t(syn->keyword));
+	//DBG_P("syn=%p, parent=%p, syn->keyword='%s%s'", syn, syn->parentSyntaxNULL, PSYM_t(syn->keyword));
 	while(true) {
 		kFunc *fo = syn->sugarFuncTable[SUGARFUNC_ExprTyCheck];
 		if(fo != NULL) {
@@ -297,10 +297,11 @@ static kBlock* kMethod_newBlock(KonohaContext *kctx, kMethod *mtd, kNameSpace *n
 		script = S_text(mtd->sourceCodeToken->text);
 		uline = mtd->sourceCodeToken->uline;
 	}
-	TokenRange rangeBuf, *range = new_TokenListRange(kctx, ns, KonohaContext_getSugarContext(kctx)->preparedTokenList, &rangeBuf);
-	TokenRange_tokenize(kctx, range, script, uline);
-	kBlock *bk = new_kBlock(kctx, NULL/*parentStmt*/, range, SemiColon);
-	TokenRange_pop(kctx, range);
+	TokenSequence tokens = {ns, KonohaContext_getSugarContext(kctx)->preparedTokenList, 0};
+	TokenSequence_push(kctx, tokens);
+	TokenSequence_tokenize(kctx, &tokens, script, uline);
+	kBlock *bk = new_kBlock2(kctx, NULL/*parentStmt*/, NULL/*macro*/, &tokens);
+	TokenSequence_pop(kctx, tokens);
 	return bk;
 }
 
@@ -325,11 +326,14 @@ static kbool_t kMethod_compile(KonohaContext *kctx, kMethod *mtd, kNameSpace *ns
 	kBlock *bk = kMethod_newBlock(kctx, mtd, ns, text, uline);
 	DBG_P("@@@@@@@@@ NS=%p", ns);
 	GammaStackDecl lvarItems[32] = {};
-	GammaAllocaData newgma = {
-		.currentWorkingMethod = mtd,
-		.this_cid = (mtd)->typeId,
-		.localScope.varItems = lvarItems, .localScope.capacity = 32, .localScope.varsize = 0, .localScope.allocsize = 0,
-	};
+	GammaAllocaData newgma = {0};
+	newgma.currentWorkingMethod = mtd;
+	newgma.this_cid = (mtd)->typeId;
+	newgma.localScope.varItems = lvarItems;
+	newgma.localScope.capacity = 32;
+	newgma.localScope.varsize = 0;
+	newgma.localScope.allocsize = 0;
+
 	GAMMA_PUSH(gma, &newgma);
 	kGamma_initParam(kctx, &newgma, Method_param(mtd));
 	kBlock_tyCheckAll(kctx, bk, gma);
@@ -373,12 +377,15 @@ static kstatus_t kBlock_genEvalCode(KonohaContext *kctx, kBlock *bk, kMethod *mt
 {
 	kGamma *gma = KonohaContext_getSugarContext(kctx)->preparedGamma;
 	GammaStackDecl lvarItems[32] = {};
-	GammaAllocaData newgma = {
-		.flag = kGamma_TopLevel,
-		.currentWorkingMethod = mtd,
-		.this_cid     = TY_NameSpace,
-		.localScope.varItems = lvarItems, .localScope.capacity = 32, .localScope.varsize = 0, .localScope.allocsize = 0,
-	};
+	GammaAllocaData newgma = {0};
+	newgma.flag = kGamma_TopLevel;
+	newgma.currentWorkingMethod = mtd;
+	newgma.this_cid     = TY_NameSpace;
+	newgma.localScope.varItems = lvarItems;
+	newgma.localScope.capacity = 32;
+	newgma.localScope.varsize = 0;
+	newgma.localScope.allocsize = 0;
+
 	GAMMA_PUSH(gma, &newgma);
 	kGamma_initIt(kctx, &newgma, Method_param(mtd));
 	kBlock_tyCheckAll(kctx, bk, gma);
@@ -422,26 +429,56 @@ static kstatus_t kMethod_runEval(KonohaContext *kctx, kMethod *mtd, ktype_t rtyp
 	return result;
 }
 
-static kstatus_t TokenRange_eval(KonohaContext *kctx, TokenRange *sourceRange)
+static void TokenSequence_selectStatement(KonohaContext *kctx, TokenSequence *tokens, TokenSequence *source)
+{
+	int currentIdx, sourceEndIdx = source->endIdx, isPreviousIndent = false;
+	for(currentIdx = source->beginIdx; currentIdx < sourceEndIdx; currentIdx++) {
+		kToken *tk = source->tokenList->tokenItems[currentIdx];
+		if(kToken_is(StatementSeparator, tk)) {
+			source->endIdx = currentIdx + 1;
+			break;
+		}
+		if(isPreviousIndent && kToken_isIndent(tk)) {
+			source->endIdx = currentIdx;
+			break;
+		}
+		isPreviousIndent = (kToken_isIndent(tk));
+	}
+	KLIB kArray_clear(kctx, tokens->tokenList, tokens->beginIdx);
+	tokens->endIdx = 0;
+	TokenSequence_resolved2(kctx, tokens, NULL, source, source->beginIdx);
+	KdumpTokenArray(kctx, tokens->tokenList, tokens->beginIdx, tokens->endIdx);
+	source->beginIdx = source->endIdx;
+	source->endIdx = sourceEndIdx;
+}
+
+static kstatus_t TokenSequence_eval(KonohaContext *kctx, TokenSequence *source)
 {
 	kstatus_t status = K_CONTINUE;
 	kMethod *mtd = KLIB new_kMethod(kctx, kMethod_Static, 0, 0, NULL);
 	PUSH_GCSTACK(mtd);
 	KLIB kMethod_setParam(kctx, mtd, TY_Object, 0, NULL);
-	int i = sourceRange->beginIdx, indent = 0;
-	kBlock *singleBlock = GCSAFE_new(Block, sourceRange->ns);
-	while(i < sourceRange->endIdx) {
-		TokenRange rangeBuf, *range = new_TokenStackRange(kctx, sourceRange, &rangeBuf);
-		sourceRange->beginIdx = i;
-		i = TokenRange_selectStmtToken(kctx, range, sourceRange, SemiColon, &indent);
-		if(range->errToken != NULL) return K_BREAK;
-		if(range->endIdx > range->beginIdx) {
-			KLIB kArray_clear(kctx, singleBlock->stmtList, 0);
-			kBlock_addNewStmt(kctx, singleBlock, range);
-			TokenRange_pop(kctx, range);
-			status = kBlock_genEvalCode(kctx, singleBlock, mtd);
-			if(status != K_CONTINUE) break;
+	kBlock *singleBlock = GCSAFE_new(Block, source->ns);
+	TokenSequence tokens = {source->ns, source->tokenList};
+
+	while(source->beginIdx < source->endIdx) {
+		TokenSequence_push(kctx, tokens);
+		TokenSequence_selectStatement(kctx, &tokens, source);
+		if(source->SourceConfig.foundErrorToken != NULL) {
+			return K_BREAK;
 		}
+		while(tokens.beginIdx < tokens.endIdx) {
+			KLIB kArray_clear(kctx, singleBlock->stmtList, 0);
+			if(!kBlock_addNewStmt2(kctx, singleBlock, &tokens)) {
+				return K_BREAK;
+			}
+			if(kArray_size(singleBlock->stmtList) > 0) {
+				status = kBlock_genEvalCode(kctx, singleBlock, mtd);
+				if(status != K_CONTINUE) break;
+			}
+		}
+		TokenSequence_pop(kctx, tokens);
+		if(status != K_CONTINUE) break;
 	}
 	return status;
 }

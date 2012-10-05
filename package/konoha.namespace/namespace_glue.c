@@ -54,9 +54,9 @@ static KMETHOD StmtTyCheck_namespace(KonohaContext *kctx, KonohaStack *sfp)
 		INIT_GCSTACK();
 		kNameSpace *ns = GCSAFE_new(NameSpace, Stmt_nameSpace(stmt));
 		kArray *a = KonohaContext_getSugarContext(kctx)->preparedTokenList;
-		TokenRange range = {ns, a, kArray_size(a), kArray_size(a)};
-		SUGAR TokenRange_tokenize(kctx, &range, S_text(tk->text), tk->uline);
-		result = SUGAR TokenRange_eval(kctx, &range);
+		TokenSequence range = {ns, a, kArray_size(a), kArray_size(a)};
+		SUGAR TokenSequence_tokenize(kctx, &range, S_text(tk->text), tk->uline);
+		result = SUGAR TokenSequence_eval(kctx, &range);
 		RESET_GCSTACK();
 		kStmt_done(kctx, stmt);
 	}
@@ -66,8 +66,8 @@ static KMETHOD StmtTyCheck_namespace(KonohaContext *kctx, KonohaStack *sfp)
 static kbool_t namespace_initNameSpace(KonohaContext *kctx, kNameSpace *packageNameSpace, kNameSpace *ns, kfileline_t pline)
 {
 	KDEFINE_SYNTAX SYNTAX[] = {
-		{ .keyword = SYM_("namespace"), TopStmtTyCheck_(namespace), .rule = "\"namespace\" $Block",},
-		{ .keyword = KW_END, },
+		{ SYM_("namespace"), 0, "\"namespace\" $Block", 0, 0, NULL, NULL, StmtTyCheck_namespace, NULL, NULL, },
+		{ KW_END, },
 	};
 	SUGAR kNameSpace_defineSyntax(kctx, ns, SYNTAX, packageNameSpace);
 	return true;
@@ -80,13 +80,12 @@ static kbool_t namespace_setupNameSpace(KonohaContext *kctx, kNameSpace *package
 
 KDEFINE_PACKAGE* namespace_init(void)
 {
-	static KDEFINE_PACKAGE d = {
-		KPACKNAME("namespace", "1.0"),
-		.initPackage      = namespace_initPackage,
-		.setupPackage     = namespace_setupPackage,
-		.initNameSpace  = namespace_initNameSpace,
-		.setupNameSpace = namespace_setupNameSpace,
-	};
+	static KDEFINE_PACKAGE d = {0};
+	KSETPACKNAME(d, "namespace", "1.0");
+	d.initPackage    = namespace_initPackage;
+	d.setupPackage   = namespace_setupPackage;
+	d.initNameSpace  = namespace_initNameSpace;
+	d.setupNameSpace = namespace_setupNameSpace;
 	return &d;
 }
 

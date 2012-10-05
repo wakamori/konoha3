@@ -26,7 +26,13 @@
 #include <minikonoha/sugar.h>
 #include <minikonoha/klib.h>
 
-typedef struct kMapVar kMap;
+#ifdef __cplusplus
+extern "C"{
+#endif
+
+//typedef struct kMapVar kMap;
+#define kMap struct kMapVar
+
 struct kMapVar {
 	KonohaObjectHeader h;
 	KUtilsHashMap *map;
@@ -78,10 +84,10 @@ static void kMap_free(KonohaContext *kctx, kObject *o)
 	}
 }
 
-static void kMap_p(KonohaContext *kctx, KonohaStack *sfp, int pos, KUtilsWriteBuffer *wb, int level)
-{
-	// TODO
-}
+//static void kMap_p(KonohaContext *kctx, KonohaStack *sfp, int pos, KUtilsWriteBuffer *wb)
+//{
+//	// TODO
+//}
 
 /* ------------------------------------------------------------------------ */
 /* method */
@@ -200,16 +206,15 @@ static KMETHOD Map_new(KonohaContext *kctx, KonohaStack *sfp)
 static kbool_t map_initPackage(KonohaContext *kctx, kNameSpace *ns, int argc, const char**args, kfileline_t pline)
 {
 	kparamtype_t cparam = {TY_Object};
-	KDEFINE_CLASS defMap = {
-		STRUCTNAME(Map),
-		.cflag     = kClass_Final,
-		.cparamsize = 1,
-		.cparamItems = &cparam,
-		.init      = kMap_init,
-		.reftrace  = kMap_reftrace,
-		.free      = kMap_free,
-		.p         = kMap_p,
-	};
+	KDEFINE_CLASS defMap = {0};
+	SETSTRUCTNAME(defMap, Map);
+	defMap.cflag     = kClass_Final;
+	defMap.cparamsize = 1;
+	defMap.cparamItems = &cparam;
+	defMap.init      = kMap_init;
+	defMap.reftrace  = kMap_reftrace;
+	defMap.free      = kMap_free;
+
 	KonohaClass *cMap = KLIB kNameSpace_defineClass(kctx, ns, NULL, &defMap, pline);
 	int FN_key = MN_("key");
 	int TY_Array0 = CT_p0(kctx, CT_Array, TY_0)->typeId;
@@ -256,14 +261,15 @@ static kbool_t map_setupNameSpace(KonohaContext *kctx, kNameSpace *packageNameSp
 
 KDEFINE_PACKAGE* map_init(void)
 {
-	static KDEFINE_PACKAGE d = {
-		KPACKNAME("map", "1.0"),
-		.initPackage = map_initPackage,
-		.setupPackage = map_setupPackage,
-		.initNameSpace = map_initNameSpace,
-		.setupNameSpace = map_setupNameSpace,
-	};
+	static KDEFINE_PACKAGE d = {0};
+	KSETPACKNAME(d, "map", "1.0");
+	d.initPackage    = map_initPackage;
+	d.setupPackage   = map_setupPackage;
+	d.initNameSpace  = map_initNameSpace;
+	d.setupNameSpace = map_setupNameSpace;
 	return &d;
 }
 
-// --------------------------------------------------------------------------
+#ifdef __cplusplus
+}
+#endif

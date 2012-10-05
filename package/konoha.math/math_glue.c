@@ -22,12 +22,20 @@
  * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  ***************************************************************************/
 
+#ifdef _MSC_VER
+#define _USE_MATH_DEFINES
+#endif
+
 #include <math.h>
 
 #include <minikonoha/minikonoha.h>
 #include <minikonoha/sugar.h>
 #include <minikonoha/float.h>
 #include "mt19937ar.h"
+
+#ifdef __cplusplus
+extern "C"{
+#endif
 
 #define Int_to(T, a)               ((T)a.intValue)
 #define Float_to(T, a)             ((T)a.floatValue)
@@ -201,10 +209,10 @@ static KMETHOD Math_random(KonohaContext *kctx, KonohaStack *sfp)
 static kbool_t math_initPackage(KonohaContext *kctx, kNameSpace *ns, int argc, const char**args, kfileline_t pline)
 {
 	KRequirePackage("konoha.float", pline);
-	static KDEFINE_CLASS MathDef = {
-			.structname = "Math"/*structname*/,
-			.typeId = TY_newid/*cid*/,
-	};
+	static KDEFINE_CLASS MathDef = {0};
+	MathDef.structname = "Math"; /*structname*/
+	MathDef.typeId = TY_newid; /*cid*/
+
 	KonohaClass *cMath = KLIB kNameSpace_defineClass(kctx, ns, NULL, &MathDef, pline);
 	int FN_x = FN_("x");
 	int FN_y = FN_("y");
@@ -277,12 +285,15 @@ static kbool_t math_setupNameSpace(KonohaContext *kctx, kNameSpace *packageNameS
 }
 KDEFINE_PACKAGE* math_init(void)
 {
-	static KDEFINE_PACKAGE d = {
-		KPACKNAME("konoha", "1.0"),
-		.initPackage = math_initPackage,
-		.setupPackage = math_setupPackage,
-		.initNameSpace = math_initNameSpace,
-		.setupNameSpace = math_setupNameSpace,
-	};
+	static KDEFINE_PACKAGE d = {0};
+	KSETPACKNAME(d, "math", "1.0");
+	d.initPackage    = math_initPackage;
+	d.setupPackage   = math_setupPackage;
+	d.initNameSpace  = math_initNameSpace;
+	d.setupNameSpace = math_setupNameSpace;
 	return &d;
 }
+
+#ifdef __cplusplus
+}
+#endif

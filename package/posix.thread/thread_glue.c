@@ -33,8 +33,6 @@ extern "C" {
 #endif
 
 /* ------------------------------------------------------------------------ */
-// [private functions]
-
 typedef struct {
 	KonohaObjectHeader h;
 	KonohaContext *kctx;
@@ -342,16 +340,16 @@ static kbool_t thread_setupNameSpace(KonohaContext *kctx, kNameSpace *packageNam
 
 KDEFINE_PACKAGE* thread_init(void)
 {
-	static const KDEFINE_PACKAGE d = {
+	static KDEFINE_PACKAGE d = {
 		KPACKNAME("thread", "1.0"),
-		.initPackage = thread_initPackage,
-		.setupPackage = thread_setupPackage,
-		.initNameSpace = thread_initNameSpace,
+		.initPackage    = thread_initPackage,
+		.setupPackage   = thread_setupPackage,
+		.initNameSpace  = thread_initNameSpace,
 		.setupNameSpace = thread_setupNameSpace,
 	};
 	return &d;
 }
+
 #ifdef __cplusplus
 }
 #endif
-

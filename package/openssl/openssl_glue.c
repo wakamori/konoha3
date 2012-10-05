@@ -2,6 +2,10 @@
 #include "openssl/md5.h"
 #include "openssl/sha.h"
 
+#ifdef __cplusplus
+extern "C"{
+#endif
+
 static void RawPtr_free(KonohaContext *kctx, kObject *po)
 {
 	kRawPtr *o = (kRawPtr*)(po);
@@ -41,7 +45,7 @@ static KMETHOD kMD5_Final(KonohaContext *kctx, KonohaStack *sfp)
 	for (i = 0; i < MD5_DIGEST_LENGTH; i++) {
 		snprintf(MD_S+i*2, MD5_DIGEST_LENGTH*2+1, "%02x", MD[i]);
 	}
-	RETURN_(KLIB new_kString(kctx, MD_S, MD5_DIGEST_LENGTH*2, SPOL_ASCII));
+	RETURN_(KLIB new_kString(kctx, MD_S, MD5_DIGEST_LENGTH*2, StringPolicy_ASCII));
 }
 static KMETHOD kSHA1_Init(KonohaContext *kctx, KonohaStack *sfp)
 {
@@ -68,7 +72,7 @@ static KMETHOD kSHA1_Final(KonohaContext *kctx, KonohaStack *sfp)
 	for (i = 0; i < SHA_DIGEST_LENGTH; i++) {
 		snprintf(SHA_S+i*2, SHA_DIGEST_LENGTH*2+1, "%02x", SHA[i]);
 	}
-	RETURN_(KLIB new_kString(kctx, SHA_S, SHA_DIGEST_LENGTH*2, SPOL_ASCII));
+	RETURN_(KLIB new_kString(kctx, SHA_S, SHA_DIGEST_LENGTH*2, StringPolicy_ASCII));
 }
 // --------------------------------------------------------------------------
 
@@ -133,11 +137,14 @@ KDEFINE_PACKAGE* openssl_init(void)
 {
 	static KDEFINE_PACKAGE d = {
 		KPACKNAME("openssl", "1.0"),
-		.initPackage = openssl_initPackage,
-		.setupPackage = openssl_setupPackage,
-		.initNameSpace = openssl_initNameSpace,
+		.initPackage    = openssl_initPackage,
+		.setupPackage   = openssl_setupPackage,
+		.initNameSpace  = openssl_initNameSpace,
 		.setupNameSpace = openssl_setupNameSpace,
 	};
 	return &d;
 }
 
+#ifdef __cplusplus
+}
+#endif

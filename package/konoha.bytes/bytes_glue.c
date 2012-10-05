@@ -30,6 +30,10 @@
 
 #include <errno.h> // include this because of E2BIG
 
+#ifdef __cplusplus
+extern "C"{
+#endif
+
 /* ------------------------------------------------------------------------ */
 
 // Bytes_init
@@ -53,38 +57,32 @@ static void Bytes_free(KonohaContext *kctx, kObject *o)
 	}
 }
 
-static void Bytes_p(KonohaContext *kctx, KonohaStack *sfp, int pos, KUtilsWriteBuffer *wb, int level)
+static void Bytes_p(KonohaContext *kctx, KonohaValue *v, int pos, KUtilsWriteBuffer *wb)
 {
-	kBytes *ba = (kBytes*)sfp[pos].o;
-	DBG_P("level:%d", level);
-	if(level == 0) {
-		KLIB Kwb_printf(kctx, wb, "byte[%d]", ba->bytesize);
-	}
-	else if(level == 1) {
-		size_t i, j, n;
-		for(j = 0; j * 16 < ba->bytesize; j++) {
-			KLIB Kwb_printf(kctx, wb, "%08x", (int)(j*16));
-			for(i = 0; i < 16; i++) {
-				n = j * 16 + i;
-				if(n < ba->bytesize) {
-					KLIB Kwb_printf(kctx, wb, " %2x", (int)ba->utext[n]);
-				}
-				else {
-					KLIB Kwb_printf(kctx, wb, "%s", "   ");
-				}
+	kBytes *ba = (kBytes*)v[pos].o;
+	size_t i, j, n;
+	for(j = 0; j * 16 < ba->bytesize; j++) {
+		KLIB Kwb_printf(kctx, wb, "%08x", (int)(j*16));
+		for(i = 0; i < 16; i++) {
+			n = j * 16 + i;
+			if(n < ba->bytesize) {
+				KLIB Kwb_printf(kctx, wb, " %2x", (int)ba->utext[n]);
 			}
-			KLIB Kwb_printf(kctx, wb, "%s", "    ");
-			for(i = 0; i < 16; i++) {
-				n = j * 16 + i;
-				if(n < ba->bytesize && isprint(ba->utext[n])) {
-					KLIB Kwb_printf(kctx, wb, "%c", (int)ba->utext[n]);
-				}
-				else {
-					KLIB Kwb_printf(kctx, wb, "%s", " ");
-				}
+			else {
+				KLIB Kwb_printf(kctx, wb, "%s", "   ");
 			}
-			KLIB Kwb_printf(kctx, wb, "\n");
 		}
+		KLIB Kwb_printf(kctx, wb, "%s", "    ");
+		for(i = 0; i < 16; i++) {
+			n = j * 16 + i;
+			if(n < ba->bytesize && isprint(ba->utext[n])) {
+				KLIB Kwb_printf(kctx, wb, "%c", (int)ba->utext[n]);
+			}
+			else {
+				KLIB Kwb_printf(kctx, wb, "%s", " ");
+			}
+		}
+		KLIB Kwb_printf(kctx, wb, "\n");
 	}
 }
 
@@ -189,8 +187,12 @@ static KMETHOD Bytes_encodeTo(KonohaContext *kctx, KonohaStack *sfp)
 
 static kString *toString(KonohaContext *kctx, kBytes *ba)
 {
-	// At this point, we assuem 'ba' is null terminated.
-	return KLIB new_kString(kctx, ba->buf, ba->bytesize-1, 0);
+	if (ba->buf == NULL || ba->bytesize == 0) {
+		return TS_EMPTY;
+	} else {
+		// At this point, we assuem 'ba' is null terminated.
+		return KLIB new_kString(kctx, ba->buf, ba->bytesize-1, 0);
+	}
 }
 
 //## @Const method String Bytes.decodeFrom(String fromEncoding);
@@ -226,10 +228,6 @@ static KMETHOD String_asBytes(KonohaContext *kctx, KonohaStack *sfp)
 	}
 	RETURN_(ba);
 }
-
-// this method is same as Bytes.decodeFrom(defaultencoding);
-// this methodList needs string_glue.h for counting mlen...
-//#include "../konoha.string/string_glue.h"
 
 //## @Const method String Bytes.asString();
 static KMETHOD Bytes_asString(KonohaContext *kctx, KonohaStack *sfp)
@@ -296,13 +294,13 @@ static kbool_t bytes_initPackage(KonohaContext *kctx, kNameSpace *ns, int argc, 
 	base->h.free     = kmodiconv_free;
 	KLIB KonohaRuntime_setModule(kctx, MOD_iconv, &base->h, pline);
 
-	KDEFINE_CLASS defBytes = {
-		STRUCTNAME(Bytes),
-		.cflag   = kClass_Final,
-		.free    = Bytes_free,
-		.init    = Bytes_init,
-		.p       = Bytes_p,
-	};
+	KDEFINE_CLASS defBytes = {0};
+	SETSTRUCTNAME(defBytes, Bytes);
+	defBytes.cflag   = kClass_Final;
+	defBytes.free    = Bytes_free;
+	defBytes.init    = Bytes_init;
+	defBytes.p       = Bytes_p;
+
 	base->cBytes = KLIB kNameSpace_defineClass(kctx, ns, NULL, &defBytes, pline);
 	int FN_encoding = FN_("encoding");
 	int FN_x = FN_("x");
@@ -371,8 +369,8 @@ static kbool_t bytes_initNameSpace(KonohaContext *kctx, kNameSpace *packageNameS
 {
 	SUGAR kNameSpace_setTokenizeFunc(kctx, ns, '\'', parseSQUOTE, NULL, 0);
 	KDEFINE_SYNTAX SYNTAX[] = {
-		{ .keyword = SYM_("$SingleQuote"),  ExprTyCheck_(Squote)},
-		{ .keyword = KW_END, },
+		{ SYM_("$SingleQuote"), 0, NULL, 0, 0, NULL, NULL, NULL, NULL, ExprTyCheck_Squote, },
+		{ KW_END, },
 	};
 	SUGAR kNameSpace_defineSyntax(kctx, ns, SYNTAX, packageNameSpace);
 	return true;
@@ -385,12 +383,15 @@ static kbool_t bytes_setupNameSpace(KonohaContext *kctx, kNameSpace *packageName
 
 KDEFINE_PACKAGE* bytes_init(void)
 {
-	static KDEFINE_PACKAGE d = {
-		KPACKNAME("bytes", "1.0"),
-		.initPackage = bytes_initPackage,
-		.setupPackage = bytes_setupPackage,
-		.initNameSpace = bytes_initNameSpace,
-		.setupNameSpace = bytes_setupNameSpace,
-	};
+	static KDEFINE_PACKAGE d = {0};
+	KSETPACKNAME(d, "bytes", "1.0");
+	d.initPackage    = bytes_initPackage;
+	d.setupPackage   = bytes_setupPackage;
+	d.initNameSpace  = bytes_initNameSpace;
+	d.setupNameSpace = bytes_setupNameSpace;
 	return &d;
 }
+
+#ifdef __cplusplus
+}
+#endif

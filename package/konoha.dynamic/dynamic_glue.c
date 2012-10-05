@@ -25,6 +25,10 @@
 #include <minikonoha/minikonoha.h>
 #include <minikonoha/sugar.h>
 
+#ifdef __cplusplus
+extern "C"{
+#endif
+
 typedef const struct _kDynamic kDynamic;
 struct _kDynamic {
 	KonohaObjectHeader h;
@@ -34,7 +38,7 @@ struct _kDynamic {
 //{
 //}
 //
-//static void Dynamic_p(KonohaContext *kctx, KonohaStack *sfp, int pos, KUtilsWriteBuffer *wb, int level)
+//static void Dynamic_p(KonohaContext *kctx, KonohaValue *v, int pos, KUtilsWriteBuffer *wb)
 //{
 //}
 //
@@ -94,10 +98,10 @@ static KMETHOD Dynamic_(KonohaContext *kctx, KonohaStack *sfp)
 static kbool_t dynamic_initPackage(KonohaContext *kctx, kNameSpace *ns, int argc, const char**args, kfileline_t pline)
 {
 
-	static KDEFINE_CLASS defDynamic = {
-			.structname = "dynamic",
-			.cflag = kClass_Final|kClass_TypeVar,
-	};
+	static KDEFINE_CLASS defDynamic = {0};
+	defDynamic.structname = "dynamic";
+	defDynamic.cflag = kClass_Final|kClass_TypeVar;
+	
 	KonohaClass *cDynamic = KLIB kNameSpace_defineClass(kctx, ns, NULL, &defDynamic, pline);
 //	KDEFINE_INT_CONST ClassData[] = {   // add Array as available
 //		{"Array", TY_TYPE, (uintptr_t)CT_(TY_Array)},
@@ -139,12 +143,15 @@ static kbool_t dynamic_setupNameSpace(KonohaContext *kctx, kNameSpace *packageNa
 
 KDEFINE_PACKAGE* dynamic_init(void)
 {
-	static KDEFINE_PACKAGE d = {
-		KPACKNAME("konoha", "1.0"),
-		.initPackage = dynamic_initPackage,
-		.setupPackage = dynamic_setupPackage,
-		.initNameSpace = dynamic_initNameSpace,
-		.setupNameSpace = dynamic_setupNameSpace,
-	};
+	static KDEFINE_PACKAGE d = {0};
+	KSETPACKNAME(d, "dynamic", "1.0");
+	d.initPackage    = dynamic_initPackage;
+	d.setupPackage   = dynamic_setupPackage;
+	d.initNameSpace  = dynamic_initNameSpace;
+	d.setupNameSpace = dynamic_setupNameSpace;
 	return &d;
 }
+
+#ifdef __cplusplus
+}
+#endif

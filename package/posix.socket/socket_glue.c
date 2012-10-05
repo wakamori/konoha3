@@ -22,13 +22,6 @@
  * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  ***************************************************************************/
 
-// **************************************************************************
-// LIST OF CONTRIBUTERS
-//  shinpei - Shinpei Nakata, Yokohama National University, Japan
-//  kimio - Kimio Kuramitsu, Yokohama National University, Japan
-//  goccy - Masaaki Goshima, Yokohama National University, Japan
-// **************************************************************************
-
 #include <minikonoha/minikonoha.h>
 #include <minikonoha/sugar.h>
 #include <minikonoha/bytes.h>
@@ -45,13 +38,6 @@ extern "C" {
 
 #define WORD2INT(val) (sizeof(val)==8) ? (val&0x7FFFFFFF)|((val>>32)&0x80000000) : val
 
-/*
- #define KNH_TODO(msg) do {\
-	fprintf(stderr, "TODO(%s) : %s at %s:%d",\
-			msg, __FUNCTION__, __FILE__, __LINE__);\
-	abort();\
-} while (0)
-*/
 #define KNH_NTRACE2(...) KNH_TODO("ntrace")
 
 typedef const struct _kSockAddr kSockAddr;
@@ -659,22 +645,14 @@ static kbool_t socket_initPackage(KonohaContext *kctx, kNameSpace *ns, int argc,
 		_Public|_Static|_Const|_Im, _F(System_socket), TY_int, TY_System, MN_("socket"), 3, TY_int, FN_("family"), TY_int, FN_("type"), TY_int, FN_("protocol"),
 		_Public|_Static|_Const|_Im, _F(System_socketpair), TY_int, TY_System, MN_("socketpair"), 4, TY_int, FN_("family"), TY_int, FN_("type"), TY_int, FN_("protocol"), TY_intArray, FN_("pairsock"),
 		_Public|_Const|_Im, _F(SockAddr_new), TY_SockAddr, TY_SockAddr, MN_("new"), 0,
+		// the function below uses Bytes
+		_Public|_Static|_Const|_Im, _F(System_sendto), TY_int, TY_System, MN_("sendto"), 6, TY_int, FN_("socket"), TY_Bytes, FN_("msg"), TY_int, FN_("flag"), TY_String, FN_("dstIP"), TY_int, FN_("dstPort"), TY_int, FN_("family"),
+		_Public|_Static|_Const|_Im, _F(System_recv), TY_int, TY_System, MN_("recv"), 3, TY_int, FN_("fd"), TY_Bytes, FN_("buf"), TY_int, FN_("flags"),
+//		_Public|_Static|_Const|_Im, _F(System_recvfrom), TY_int, TY_System, MN_("recvfrom"), 4, TY_int, FN_x, TY_Bytes, FN_y, TY_int, FN_z, TY_Map, FN_v,
+		_Public|_Static|_Const|_Im, _F(System_send), TY_int, TY_System, MN_("send"), 3, TY_int, FN_("fd"), TY_Bytes, FN_("msg"), TY_int, FN_("flags"),
 		DEND,
 	};
 	KLIB kNameSpace_loadMethodData(kctx, ns, MethodData);
-	if(IS_defineBytes()) {
-		KDEFINE_METHOD MethodData2[] = {
-				_Public|_Static|_Const|_Im, _F(System_sendto), TY_int, TY_System, MN_("sendto"), 6, TY_int, FN_("socket"), TY_Bytes, FN_("msg"), TY_int, FN_("flag"), TY_String, FN_("dstIP"), TY_int, FN_("dstPort"), TY_int, FN_("family"),
-				_Public|_Static|_Const|_Im, _F(System_recv), TY_int, TY_System, MN_("recv"), 3, TY_int, FN_("fd"), TY_Bytes, FN_("buf"), TY_int, FN_("flags"),
-//				_Public|_Static|_Const|_Im, _F(System_recvfrom), TY_int, TY_System, MN_("recvfrom"), 4, TY_int, FN_x, TY_Bytes, FN_y, TY_int, FN_z, TY_Map, FN_v,
-				_Public|_Static|_Const|_Im, _F(System_send), TY_int, TY_System, MN_("send"), 3, TY_int, FN_("fd"), TY_Bytes, FN_("msg"), TY_int, FN_("flags"),
-				DEND,
-			};
-		KLIB kNameSpace_loadMethodData(kctx, ns, MethodData2);
-	}
-	else {
-		kreportf(InfoTag, pline, "konoha.bytes package hasn't imported. Some features are still disabled.");
-	}
 	KDEFINE_INT_CONST IntData[] = {
 			{_KVi(PF_LOCAL)},
 			{_KVi(PF_UNIX)},
@@ -755,9 +733,9 @@ KDEFINE_PACKAGE* socket_init(void)
 {
 	static KDEFINE_PACKAGE d = {
 		KPACKNAME("socket", "1.0"),
-		.initPackage = socket_initPackage,
-		.setupPackage = socket_setupPackage,
-		.initNameSpace = socket_initNameSpace,
+		.initPackage    = socket_initPackage,
+		.setupPackage   = socket_setupPackage,
+		.initNameSpace  = socket_initNameSpace,
 		.setupNameSpace = socket_setupNameSpace,
 	};
 	return &d;
@@ -766,4 +744,3 @@ KDEFINE_PACKAGE* socket_init(void)
 #ifdef __cplusplus
 }
 #endif
-

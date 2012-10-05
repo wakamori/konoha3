@@ -27,6 +27,10 @@
 #include <minikonoha/sugar.h>
 #include <minikonoha/klib.h>
 
+#ifdef __cplusplus
+extern "C"{
+#endif
+
 //struct fn {
 //	uintptr_t  flag;
 //	const char *aname;
@@ -172,12 +176,15 @@ static kbool_t i_setupNameSpace(KonohaContext *kctx, kNameSpace *packageNameSpac
 
 KDEFINE_PACKAGE* i_init(void)
 {
-	static KDEFINE_PACKAGE d = {
-		KPACKNAME("konoha.i", "1.0"),
-		.initPackage = i_initPackage,
-		.setupPackage = i_setupPackage,
-		.initNameSpace = i_initNameSpace,
-		.setupNameSpace = i_setupNameSpace,
-	};
+	static KDEFINE_PACKAGE d = {0};
+	KSETPACKNAME(d, "konoha.i", "1.0");
+	d.initPackage    = i_initPackage;
+	d.setupPackage   = i_setupPackage;
+	d.initNameSpace  = i_initNameSpace;
+	d.setupNameSpace = i_setupNameSpace;
 	return &d;
 }
+
+#ifdef __cplusplus
+}
+#endif

@@ -29,7 +29,19 @@
 #error Do not include platform.h without minikonoha.h.
 #endif
 
-#ifdef __MINGW32__
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+extern int verbose_debug;
+
+#ifdef __cplusplus
+} /* extern "C" */
+#endif
+
+#if defined(_MSC_VER)
+#include <minikonoha/platform_msvc.h>
+#elif defined(__MINGW32__)
 #include <minikonoha/platform_mingw.h>
 #else
 #include <minikonoha/platform_posix.h>

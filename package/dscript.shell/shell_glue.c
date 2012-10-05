@@ -25,6 +25,9 @@
 #include <minikonoha/minikonoha.h>
 #include <minikonoha/sugar.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
 // --------------------------------------------------------------------------
 
 static kbool_t shell_initPackage(KonohaContext *kctx, kNameSpace *ns, int argc, const char**args, kfileline_t pline)
@@ -54,7 +57,7 @@ static KMETHOD StmtTyCheck_dsh(KonohaContext *kctx, KonohaStack *sfp)
 	for(i = 0; i < kArray_size(tokenList); i++) {
 		kToken *token = tokenList->tokenItems[i];
 		KLIB Kwb_write(kctx, &wb, S_text(token->text), S_size(token->text));
-		if(Token_isBeforeWhiteSpace(token)) {
+		if(kToken_is(BeforeWhiteSpace, token)) {
 			KLIB Kwb_write(kctx, &wb, " ", 1);
 		}
 	}
@@ -86,8 +89,8 @@ static kbool_t shell_initNameSpace(KonohaContext *kctx, kNameSpace *packageNameS
 	//KImportPackage(ns, "dscript.dollar", pline);
 	KImportPackage(ns, "dscript.subproc", pline);
 	KDEFINE_SYNTAX SYNTAX[] = {
-		{ .keyword = SYM_("dsh"), .rule = "\"dsh\" $Token", TopStmtTyCheck_(dsh), StmtTyCheck_(dsh)},
-		{ .keyword = KW_END, },
+		{ SYM_("dsh"), 0, "\"dsh\" $Token", 0, 0, NULL, NULL, StmtTyCheck_dsh, StmtTyCheck_dsh, NULL, },
+		{ KW_END, },
 	};
 	SUGAR kNameSpace_defineSyntax(kctx, ns, SYNTAX, packageNameSpace);
 	return true;
@@ -100,12 +103,15 @@ static kbool_t shell_setupNameSpace(KonohaContext *kctx, kNameSpace *packageName
 
 KDEFINE_PACKAGE* shell_init(void)
 {
-	static KDEFINE_PACKAGE d = {
-		KPACKNAME("dscript.shell", "1.0"),
-		.initPackage    = shell_initPackage,
-		.setupPackage   = shell_setupPackage,
-		.initNameSpace  = shell_initNameSpace,
-		.setupNameSpace = shell_setupNameSpace,
-	};
+	static KDEFINE_PACKAGE d = {0};
+	KSETPACKNAME(d, "dscript.shell", "1.0");
+	d.initPackage    = shell_initPackage;
+	d.setupPackage   = shell_setupPackage;
+	d.initNameSpace  = shell_initNameSpace;
+	d.setupNameSpace = shell_setupNameSpace;
 	return &d;
 }
+
+#ifdef __cplusplus
+} /* extern "C" */
+#endif

@@ -22,6 +22,10 @@
  * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  ***************************************************************************/
 
+#ifdef _MSC_VER
+#define typeof decltype
+#endif
+
 static void Karray_init(KonohaContext *kctx, KUtilsGrowingArray *m, size_t bytemax)
 {
 	m->bytesize = 0;
@@ -86,7 +90,11 @@ static void Kwb_write(KonohaContext *kctx, KUtilsWriteBuffer *wb, const char *da
 static void Kwb_vprintf(KonohaContext *kctx, KUtilsWriteBuffer *wb, const char *fmt, va_list ap)
 {
 	va_list ap2;
+#ifdef _MSC_VER
+	ap2 = ap;
+#else
 	va_copy(ap2, ap);
+#endif
 	KUtilsGrowingArray *m = wb->m;
 	size_t s = m->bytesize;
 	size_t n = PLATAPI vsnprintf_i( m->bytebuf + s, m->bytemax - s, fmt, ap);
@@ -179,7 +187,7 @@ static KUtilsHashMapEntry *Kmap_newEntry(KonohaContext *kctx, KUtilsHashMap *kma
 		size_t oarenasize = kmap->arenasize;
 		char *oarena = (char*)kmap->arena;
 		kmap->arenasize *= 2;
-		kmap->arena = KMALLOC(kmap->arenasize * sizeof(KUtilsHashMapEntry));
+		kmap->arena = (KUtilsHashMapEntry*)KMALLOC(kmap->arenasize * sizeof(KUtilsHashMapEntry));
 		memcpy(kmap->arena, oarena, oarenasize * sizeof(KUtilsHashMapEntry));
 		kmap_shiftptr(kmap, (char*)kmap->arena - oarena);
 		kmap_makeFreeList(kmap, oarenasize, kmap->arenasize);
@@ -321,7 +329,7 @@ static kpackage_t KpackageId(KonohaContext *kctx, const char *name, size_t len, 
 {
 	uintptr_t hcode = strhash(name, len);
 	KLock(kctx->share->filepackMutex);
-	kpackage_t packid = Kmap_getcode(kctx, kctx->share->packageIdMapNN, kctx->share->packageIdList, name, len, hcode, spol | SPOL_ASCII, def);
+	kpackage_t packid = Kmap_getcode(kctx, kctx->share->packageIdMapNN, kctx->share->packageIdList, name, len, hcode, spol | StringPolicy_ASCII, def);
 	KUnlock(kctx->share->filepackMutex);
 	return packid;
 }
@@ -363,7 +371,7 @@ static ksymbol_t Ksymbol(KonohaContext *kctx, const char *name, size_t len, int 
 	}
 	uintptr_t hcode = strhash(name, len);
 	KLock(kctx->share->symbolMutex);
-	ksymbol_t sym = Kmap_getcode(kctx, kctx->share->symbolMapNN, kctx->share->symbolList, name, len, hcode, spol | SPOL_ASCII, def);
+	ksymbol_t sym = Kmap_getcode(kctx, kctx->share->symbolMapNN, kctx->share->symbolList, name, len, hcode, spol | StringPolicy_ASCII, def);
 	KUnlock(kctx->share->symbolMutex);
 	return (sym == def) ? def : (sym | mask);
 }

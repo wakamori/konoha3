@@ -25,8 +25,6 @@
 #include <stdio.h>
 #include "minikonoha/minikonoha.h"
 #include "minikonoha/gc.h"
-
-extern int verbose_debug;
 #include <minikonoha/platform.h>
 
 void test_kString(KonohaContext *kctx)
@@ -47,7 +45,7 @@ void test_kString(KonohaContext *kctx)
     }
     for (i = 0; i < 100; ++i) {
         static const char *text = "12345678901234567890";
-        s = KLIB new_kString(kctx, text, 20, SPOL_TEXT | SPOL_UTF8);
+        s = KLIB new_kString(kctx, text, 20, StringPolicy_TEXT | StringPolicy_UTF8);
         assert(strcmp(S_text(s), text) == 0);
         assert(S_size(s) == 20);
         assert(S_text(s) == text);

@@ -7,7 +7,7 @@ cmake_minimum_required(VERSION 2.6)
 
 project(minikonoha)
 set(VERSION_MAJOR "0")
-set(VERSION_MINOR "1")
+set(VERSION_MINOR "2")
 set(VERSION_PATCH "0")
 
 set(PACKAGE_NAME    ${PROJECT_NAME})
@@ -20,6 +20,7 @@ set(K_CONFIG_ARCH ${CMAKE_SYSTEM})
 set(K_CONFIG_OS   ${CMAKE_SYSTEM_NAME})
 set(K_CONFIG_CPU  ${CMAKE_SYSTEM_PROCESSOR})
 set(K_PREFIX ${CMAKE_INSTALL_PREFIX})
+
 if(UNIX)
 	set(K_OSDLLEXT ".so")
 endif(UNIX)
@@ -41,7 +42,7 @@ if(MINGW)
 endif(MINGW)
 
 set(INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}
-        ${CMAKE_CURRENT_SOURCE_DIR}/include ${CMAKE_CURRENT_BINARY_DIR})
+	${CMAKE_CURRENT_SOURCE_DIR}/include ${CMAKE_CURRENT_BINARY_DIR})
 include_directories(${INCLUDE_DIRS})
 
 if(NOT CMAKE_BUILD_TYPE)
@@ -151,7 +152,7 @@ set(PACKAGES
 	python
 	apache
 #	openssl
-	logpool
+#	logpool
 )
 
 find_library(HAVE_LIBDL NAMES dl)
@@ -181,12 +182,6 @@ if(APPLE)
 	set(_HEADERS ${_HEADERS} mach-o/dyld.h)
 endif(APPLE)
 
-if(CYGWIN)
-endif(CYGWIN)
-
-if(MSVC)
-endif(MSVC)
-
 check_symbol_exists(posix_memalign "${_HEADERS}" HAVE_POSIX_MEMALIGN)
 check_symbol_exists(memalign       "${_HEADERS}" HAVE_MEMALIGN)
 check_symbol_exists(__builtin_ctzl "${_HEADERS}" HAVE_BUILTIN_CTZL)
@@ -197,22 +192,16 @@ if("${HAS_DOTGIT}" MATCHES ".git")
 	find_package(Git)
 	if(GIT_EXECUTABLE)
 		execute_process(
-				COMMAND ${GIT_EXECUTABLE} rev-parse -q --short=8 HEAD
+			COMMAND ${GIT_EXECUTABLE} rev-parse -q --short=8 HEAD
 			OUTPUT_VARIABLE GIT_SHA1
-				OUTPUT_STRIP_TRAILING_WHITESPACE
-				)
-	set(K_REVISION "0x${GIT_SHA1}")
+			OUTPUT_STRIP_TRAILING_WHITESPACE
+		)
+	set(K_REVISION "${GIT_SHA1}")
 	set(K_REVISION_PREFIX "git:")
 	endif(GIT_EXECUTABLE)
 else()
-find_package(Subversion)
-if(Subversion_FOUND)
-	set(_PATH)
-	get_filename_component(_PATH ${CMAKE_CURRENT_SOURCE_DIR} REALPATH)
-	Subversion_WC_INFO(${_PATH} ER)
-	set(K_REVISION ${ER_WC_REVISION})
-	set(K_REVISION_PREFIX "svn:")
-endif(Subversion_FOUND)
+	set(K_REVISION "${PACKAGE_VERSION}")
+	set(K_REVISION_PREFIX "release:")
 endif()
 
 add_definitions(-DHAVE_CONFIG_H)
@@ -277,16 +266,22 @@ foreach(f ${test_files})
 endforeach(f ${test_files})
 
 add_library(minikonoha SHARED ${RUNTIME} ${GC} ${PARSER} ${VM})
-if(MSVC)
-	set_target_properties (minikonoha PROPERTIES LINKER_LANGUAGE CXX )
-endif(MSVC)
+
+macro(SET_CXX_PROPERTY TARGET)
+	if(MSVC)
+		foreach(arg ${ARGN})
+			set_source_files_properties(${arg} PROPERTIES LANGUAGE CXX )
+		endforeach(arg ${ARGN})
+		set_target_properties(${TARGET} PROPERTIES LINKER_LANGUAGE CXX )
+	endif(MSVC)
+endmacro(SET_CXX_PROPERTY TARGET)
+
+SET_CXX_PROPERTY(minikonoha ${RUNTIME} ${GC} ${PARSER} ${VM})
 target_link_libraries(minikonoha ${ExtraLibs})
 set(ExtraLibs ${ExtraLibs} minikonoha)
 
 add_executable(minikonoha_bin platform/shell/command.c)
-if(MSVC)
-	set_target_properties (minikonoha_bin PROPERTIES LINKER_LANGUAGE CXX )
-endif(MSVC)
+SET_CXX_PROPERTY(minikonoha_bin platform/shell/command.c)
 target_link_libraries(minikonoha_bin ${ExtraLibs})
 set_target_properties(minikonoha_bin PROPERTIES OUTPUT_NAME minikonoha)
 
@@ -301,8 +296,8 @@ endmacro()
 macro(create_package_project _PKGNAME)
 	project(${_PKGNAME})
 	if(TEST_COVERAGE)
-	add_definitions(-fprofile-arcs -ftest-coverage)
-	set(PACKAGE_EXTRA_LIBRARY ${PACKAGE_EXTRA_LIBRARY} -fprofile-arcs -ftest-coverage)
+		add_definitions(-fprofile-arcs -ftest-coverage)
+		set(PACKAGE_EXTRA_LIBRARY ${PACKAGE_EXTRA_LIBRARY} -fprofile-arcs -ftest-coverage)
 	endif(TEST_COVERAGE)
 	file(GLOB_RECURSE test_files ${CMAKE_CURRENT_SOURCE_DIR}/test/*.k)
 	foreach(f ${test_files})
@@ -319,7 +314,7 @@ macro(create_package_project _PKGNAME)
 	set(LIB  "${_PACKAGE_NAME}_glue")
 	set(_PACKAGE_VERSION ${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_PATCH})
 	set(_PACKAGE_STRING  ${CMAKE_PROJECT_NAME}-${_PACKAGE_VERSION})
-	set(_KONOHA_PACKAGE_DIR minikonoha/package/${KONOHA_VERSION}/${PROJECT_NAME})
+	set(_KONOHA_PACKAGE_DIR lib/minikonoha/${SO_VERSION}/package/${KONOHA_VERSION}/${PROJECT_NAME})
 	set(CMAKE_C_FLAGS_${uppercase_CMAKE_BUILD_TYPE}
 		"${CMAKE_C_FLAGS_${uppercase_CMAKE_BUILD_TYPE}} ${PACKAGE_C_FLAGS}")
 	set(CMAKE_CXX_FLAGS_${uppercase_CMAKE_BUILD_TYPE}
@@ -332,9 +327,7 @@ macro(create_package_project _PKGNAME)
 	list(LENGTH PACKAGE_SOURCE_CODE LEN)
 	if(${LEN} GREATER 0)
 		add_library(${LIB} SHARED ${PACKAGE_SOURCE_CODE})
-		if(MSVC)
-			set_target_properties (${LIB} PROPERTIES LINKER_LANGUAGE CXX )
-		endif(MSVC)
+		SET_CXX_PROPERTY(${LIB} ${PACKAGE_SOURCE_CODE})
 		set_target_properties(${LIB} PROPERTIES PREFIX "")
 		if(PACKAGE_EXTRA_LIBRARY)
 		target_link_libraries(${LIB} ${PACKAGE_EXTRA_LIBRARY})
@@ -373,9 +366,7 @@ endforeach()
 
 macro(add_clib_test test_name)
 	add_executable(${test_name} ${ARGN})
-	if(MSVC)
-		set_target_properties (${test_name} PROPERTIES LINKER_LANGUAGE CXX )
-	endif(MSVC)
+	SET_CXX_PROPERTY(${test_name} ${ARGN})
 	target_link_libraries(${test_name} ${ExtraLibs})
 	add_test(Clib/Release/${test_name} ${test_name})
 	set_tests_properties(Clib/Release/${test_name} PROPERTIES TIMEOUT 5)
@@ -399,12 +390,20 @@ add_builtin_test(Release/Logger  --builtin-test=test_logger)
 add_builtin_test(Release/Kwb     --builtin-test=test_kwb)
 add_builtin_test(Release/Kvproto --builtin-test=test_kvproto)
 
+macro(set_package_path test_name)
+set_tests_properties(${test_name} PROPERTIES ENVIRONMENT
+	"KONOHA_PACKAGEPATH=${PARENT_BINARY_DIR}/package")
+endmacro(set_package_path test_name)
+
 add_test(Shell/Release/Oneline
 	${CMAKE_CURRENT_SOURCE_DIR}/test/test-oneline.sh ${TEST_BIN}
 	"System.p(\"hi\");")
+set_package_path(Shell/Release/Oneline)
+
 add_test(Shell/Release/Multiline
 	${CMAKE_CURRENT_SOURCE_DIR}/test/test-multiline.sh ${TEST_BIN}
 	${CMAKE_CURRENT_SOURCE_DIR}/test/Release/Fibonacci.k)
+set_package_path(Shell/Release/Multiline)
 
 file(GLOB_RECURSE test_files ${CMAKE_CURRENT_SOURCE_DIR}/test/Shell/*.sh)
 foreach(f ${test_files})
@@ -423,14 +422,25 @@ endforeach(f ${test_files})
 
 add_subdirectory(platform/dse)
 add_subdirectory(platform/apache)
+add_subdirectory(platform/logger-shell)
+
+include(${CMAKE_CURRENT_SOURCE_DIR}/cpack.cmake)
 
 # for konoha command
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/platform/shell/konoha.sh.cmake
 		${CMAKE_CURRENT_BINARY_DIR}/konoha.sh)
+
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/konoha.sh
 	DESTINATION bin
 	RENAME konoha
 	PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE)
+
+# Install files
+# ${CMAKE_INSTALL_PREFIX}/bin/konoha
+# ${CMAKE_INSTALL_PREFIX}/bin/minikonoha
+# ${CMAKE_INSTALL_PREFIX}/lib/libminikonoha.dylib
+# ${CMAKE_INSTALL_PREFIX}/lib/minikonoha/${SO_VERSION}/package/konoha.while/while_glue.{k,dylib}
+# ${CMAKE_INSTALL_PREFIX}/include/minikonoha/*.h
 
 install(TARGETS minikonoha minikonoha_bin
 		RUNTIME DESTINATION bin

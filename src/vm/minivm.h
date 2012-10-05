@@ -25,7 +25,6 @@
 #define MINIVM_H
 // THIS FILE WAS AUTOMATICALLY GENERATED
 
-
 #define OPCODE_NOP ((kopcode_t)0)
 typedef struct OPNOP {
 	KCODE_HEAD;

@@ -26,6 +26,10 @@
 #include <minikonoha/minikonoha.h>
 #include <minikonoha/sugar.h>
 
+#ifdef __cplusplus
+extern "C"{
+#endif
+
 static KMETHOD MethodFunc_ObjectFieldGetter(KonohaContext *kctx, KonohaStack *sfp)
 {
 	size_t delta = sfp[K_MTDIDX].mtdNC->delta;
@@ -243,7 +247,7 @@ static kbool_t KonohaClass_setClassFieldUnboxValue(KonohaContext *kctx, KonohaCl
 //{
 //	ktype_t superTypeId = sfp[3].intValue == 0 ? TY_Object :(ktype_t)sfp[3].intValue;
 //	KonohaClass *supct = kclass(superTypeId, sfp[K_RTNIDX].uline);
-//	if(CT_isFinal(supct)) {
+//	if(CT_is(Final, supct)) {
 //		kreportf(CritTag, sfp[K_RTNIDX].uline, "%s is final", TY_t(superTypeId));
 //	}
 //	if(!CT_isDefined(supct)) {
@@ -342,13 +346,13 @@ static kshortflag_t kStmt_parseClassFlag(KonohaContext *kctx, kStmt *stmt, kshor
 
 static KonohaClassVar* kNameSpace_defineClassName(KonohaContext *kctx, kNameSpace *ns, kshortflag_t cflag, kString *name, kfileline_t pline)
 {
-	KDEFINE_CLASS defNewClass = {
-		.cflag         = cflag,
-		.typeId       = TY_newid,
-		.baseTypeId   = TY_Object,
-		.superTypeId  = TY_Object, //superClass->typeId,
-		.init = Object_initToMakeDefaultValueAsNull, // dummy for first generation of DefaultValueAsNull
-	};
+	KDEFINE_CLASS defNewClass = {0};
+	defNewClass.cflag         = cflag | kClass_Nullable;
+	defNewClass.typeId       = TY_newid;
+	defNewClass.baseTypeId   = TY_Object;
+	defNewClass.superTypeId  = TY_Object; //superClass->typeId;
+	defNewClass.init = Object_initToMakeDefaultValueAsNull; // dummy for first generation of DefaultValueAsNull
+
 	KonohaClassVar *definedClass = (KonohaClassVar*)KLIB kNameSpace_defineClass(kctx, ns, name, &defNewClass, pline);
 	KDEFINE_CLASS_CONST ClassData[] = {
 		{S_text(name), TY_TYPE, definedClass},
@@ -390,27 +394,28 @@ static kBlock* kStmt_parseClassBlockNULL(KonohaContext *kctx, kStmt *stmt, kToke
 	kToken *blockToken = (kToken*)kStmt_getObject(kctx, stmt, KW_BlockPattern, NULL);
 	if(blockToken != NULL && blockToken->resolvedSyntaxInfo->keyword == KW_BlockPattern) {
 		const char *cname = S_text(tokenClassName->text);
-		TokenRange rangeBuf, *range = SUGAR new_TokenListRange(kctx, Stmt_nameSpace(stmt), KonohaContext_getSugarContext(kctx)->preparedTokenList, &rangeBuf);
-		SUGAR TokenRange_tokenize(kctx, range,  S_text(blockToken->text), blockToken->uline);
+		TokenSequence range = {Stmt_nameSpace(stmt), KonohaContext_getSugarContext(kctx)->preparedTokenList};
+		TokenSequence_push(kctx, range);
+		SUGAR TokenSequence_tokenize(kctx, &range,  S_text(blockToken->text), blockToken->uline);
 		{
+			TokenSequence sourceRange = {range.ns, range.tokenList, range.endIdx};
 			kToken *prevToken = blockToken;
-			TokenRange sourceBuf, *sourceRange = SUGAR new_TokenStackRange(kctx, range, &sourceBuf);
 			int i;
-			for(i = range->beginIdx; i < range->endIdx; i++) {
-				kToken *tk = range->tokenList->tokenItems[i];
+			for(i = range.beginIdx; i < range.endIdx; i++) {
+				kToken *tk = range.tokenList->tokenItems[i];
 				if(tk->topCharHint == '(' && prevToken->unresolvedTokenType == TokenType_SYMBOL && strcmp(cname, S_text(prevToken->text)) == 0) {
 					kTokenVar *newToken = GCSAFE_new(TokenVar, TokenType_SYMBOL);
-					KLIB kArray_add(kctx, sourceRange->tokenList, newToken);
+					KLIB kArray_add(kctx, sourceRange.tokenList, newToken);
 					KSETv(newToken, newToken->text, SYM_s(MN_new));
 				}
-				KLIB kArray_add(kctx, sourceRange->tokenList, tk);
+				KLIB kArray_add(kctx, sourceRange.tokenList, tk);
 				prevToken = tk;
 			}
-			TokenRange_end(kctx, sourceRange);
-			bk = SUGAR new_kBlock(kctx, stmt/*parent*/, sourceRange, NULL);
+			TokenSequence_end(kctx, (&sourceRange));
+			bk = SUGAR new_kBlock(kctx, stmt/*parent*/, NULL, &sourceRange);
 			KLIB kObject_setObject(kctx, stmt, KW_BlockPattern, TY_Block, bk);
 		}
-		TokenRange_pop(kctx, range);
+		TokenSequence_pop(kctx, range);
 	}
 	return bk;
 }
@@ -422,7 +427,7 @@ static size_t kBlock_countFieldSize(KonohaContext *kctx, kBlock *bk)
 		for(i = 0; i < kArray_size(bk->stmtList); i++) {
 			kStmt *stmt = bk->stmtList->stmtItems[i];
 			DBG_P("stmt->keyword=%s%s", PSYM_t(stmt->syn->keyword));
-			if(stmt->syn->keyword == KW_StmtTypeDecl) {
+			if(stmt->syn->keyword == KW_TypeDeclPattern) {
 				kExpr *expr = SUGAR kStmt_getExpr(kctx, stmt, KW_ExprPattern, NULL);
 				if(expr->syn->keyword == KW_COMMA) {
 					c += (kArray_size(expr->cons) - 1);
@@ -485,7 +490,7 @@ static kbool_t kBlock_declClassField(KonohaContext *kctx, kBlock *bk, kGamma *gm
 	kbool_t failedOnce = false;
 	for(i = 0; i < kArray_size(bk->stmtList); i++) {
 		kStmt *stmt = bk->stmtList->stmtItems[i];
-		if(stmt->syn->keyword == KW_StmtTypeDecl) {
+		if(stmt->syn->keyword == KW_TypeDeclPattern) {
 			kshortflag_t flag = kField_Getter | kField_Setter;
 			kToken *tk  = SUGAR kStmt_getToken(kctx, stmt, KW_TypePattern, NULL);
 			kExpr *expr = SUGAR kStmt_getExpr(kctx, stmt,  KW_ExprPattern, NULL);
@@ -503,8 +508,8 @@ static void kBlock_addMethodDeclStmt(KonohaContext *kctx, kBlock *bk, kToken *to
 		size_t i;
 		for(i = 0; i < kArray_size(bk->stmtList); i++) {
 			kStmt *stmt = bk->stmtList->stmtItems[i];
-			if(stmt->syn->keyword == KW_StmtTypeDecl) continue;
-			if(stmt->syn->keyword == KW_StmtMethodDecl) {
+			if(stmt->syn->keyword == KW_TypeDeclPattern) continue;
+			if(stmt->syn->keyword == KW_MethodDeclPattern) {
 				kStmt *lastStmt = classStmt;
 				KLIB kObject_setObject(kctx, stmt, SYM_("ClassName"), TY_Token, tokenClassName);
 				SUGAR kBlock_insertAfter(kctx, lastStmt->parentBlockNULL, lastStmt, stmt);
@@ -542,11 +547,11 @@ static KMETHOD StmtTyCheck_class(KonohaContext *kctx, KonohaStack *sfp)
 		if (tokenSuperClass != NULL) {
 			DBG_ASSERT(Token_isVirtualTypeLiteral(tokenSuperClass));
 			superClass = CT_(Token_typeLiteral(tokenSuperClass));
-			if(CT_isFinal(superClass)) {
+			if(CT_is(Final, superClass)) {
 				SUGAR kStmt_printMessage2(kctx, stmt, NULL, ErrTag, "%s is final", CT_t(superClass));
 				RETURNb_(false);
 			}
-			if(CT_isVirtual(superClass)) {
+			if(CT_is(Virtual, superClass)) {
 				SUGAR kStmt_printMessage2(kctx, stmt, NULL, ErrTag, "%s is still virtual", CT_t(superClass));
 				RETURNb_(false);
 			}
@@ -555,7 +560,7 @@ static KMETHOD StmtTyCheck_class(KonohaContext *kctx, KonohaStack *sfp)
 		KonohaClass_initField(kctx, definedClass, superClass, initsize);
 	}
 	else {
-		if(declsize > 0 && !CT_isVirtual(definedClass)) {
+		if(declsize > 0 && !CT_is(Virtual, definedClass)) {
 			SUGAR kStmt_printMessage2(kctx, stmt, NULL, ErrTag, "%s has already defined", CT_t(definedClass));
 			RETURNb_(false);
 		}
@@ -564,7 +569,7 @@ static KMETHOD StmtTyCheck_class(KonohaContext *kctx, KonohaStack *sfp)
 		if(!kBlock_declClassField(kctx, bk, gma, definedClass)) {
 			RETURNb_(false);
 		}
-		CT_setVirtual(definedClass, false);
+		CT_set(Virtual, definedClass, false);
 	}
 	kToken_setTypeId(kctx, tokenClassName, ns, definedClass->typeId);
 	kBlock_addMethodDeclStmt(kctx, bk, tokenClassName, stmt);
@@ -607,10 +612,10 @@ static kbool_t class_initNameSpace(KonohaContext *kctx, kNameSpace *packageNameS
 {
 	KImportPackage(ns, "konoha.new", pline);
 	KDEFINE_SYNTAX SYNTAX[] = {
-		{ .keyword = SYM_("$ClassName"), PatternMatch_(ClassName), },
-		{ .keyword = SYM_("class"), .rule = "\"class\" $ClassName [\"extends\" extends: $Type] [$Block]", TopStmtTyCheck_(class), },
-		{ .keyword = SYM_("."), ExprTyCheck_(Getter), .precedence_op2 = -1, },
-		{ .keyword = KW_END, },
+		{ SYM_("$ClassName"), 0, NULL, 0, 0, PatternMatch_ClassName, NULL, NULL, NULL, NULL, },
+		{ SYM_("class"), 0, "\"class\" $ClassName [\"extends\" extends: $Type] [$Block]", 0, 0, NULL, NULL, StmtTyCheck_class, NULL, NULL, },
+		{ SYM_("."), 0, NULL, -1, 0, NULL, NULL, NULL, NULL, ExprTyCheck_Getter, },
+		{ KW_END, },
 	};
 	SUGAR kNameSpace_defineSyntax(kctx, ns, SYNTAX, packageNameSpace);
 	return true;
@@ -625,12 +630,15 @@ static kbool_t class_setupNameSpace(KonohaContext *kctx, kNameSpace *packageName
 
 KDEFINE_PACKAGE* class_init(void)
 {
-	static KDEFINE_PACKAGE d = {
-		KPACKNAME("class", "1.0"),
-		.initPackage = class_initPackage,
-		.setupPackage = class_setupPackage,
-		.initNameSpace = class_initNameSpace,
-		.setupNameSpace = class_setupNameSpace,
-	};
+	static KDEFINE_PACKAGE d = {0};
+	KSETPACKNAME(d, "class", "1.0");
+	d.initPackage    = class_initPackage;
+	d.setupPackage   = class_setupPackage;
+	d.initNameSpace  = class_initNameSpace;
+	d.setupNameSpace = class_setupNameSpace;
 	return &d;
 }
+
+#ifdef __cplusplus
+}
+#endif

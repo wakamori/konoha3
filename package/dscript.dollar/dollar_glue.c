@@ -25,6 +25,9 @@
 #include <minikonoha/minikonoha.h>
 #include <minikonoha/sugar.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
 // --------------------------------------------------------------------------
 
 static kbool_t dollar_initPackage(KonohaContext *kctx, kNameSpace *ns, int argc, const char**args, kfileline_t pline)
@@ -58,12 +61,12 @@ static KMETHOD ParseExpr_dollar(KonohaContext *kctx, KonohaStack *sfp)
 
 	}
 //	KonohaClass *foundClass = NULL;
-//	int nextIdx = SUGAR kStmt_parseTypePattern(kctx, stmt, Stmt_nameSpace(stmt), tokenList, beginIdx + 1, endIdx, &foundClass);
+//	int nextIdx = SUGAR TokenUtils_parseTypePattern(kctx, stmt, Stmt_nameSpace(stmt), tokenList, beginIdx + 1, endIdx, &foundClass);
 //	if(nextIdx != -1 && nextIdx < kArray_size(tokenList)) {
 //		kToken *nextTokenAfterClassName = tokenList->tokenItems[nextIdx];
 ////		if (ct->typeId == TY_void) {
 ////			RETURN_(SUGAR kStmt_printMessage2(kctx, stmt, tk1, ErrTag, "undefined class: %s", S_text(tk1->text)));
-////		} else if (CT_isVirtual(ct)) {
+////		} else if (CT_is(Virtual, ct)) {
 ////			SUGAR kStmt_printMessage2(kctx, stmt, NULL, ErrTag, "invalid application of 'dollar' to incomplete class %s", CT_t(ct));
 ////		}
 //		if(nextTokenAfterClassName->resolvedSyntaxInfo->keyword == KW_ParenthesisGroup) {  // dollar C (...)
@@ -88,8 +91,8 @@ static KMETHOD ParseExpr_dollar(KonohaContext *kctx, KonohaStack *sfp)
 static kbool_t dollar_initNameSpace(KonohaContext *kctx, kNameSpace *packageNameSpace, kNameSpace *ns, kfileline_t pline)
 {
 	KDEFINE_SYNTAX SYNTAX[] = {
-		{ .keyword = SYM_("$"), ParseExpr_(dollar), .precedence_op1 = C_PRECEDENCE_CALL},
-		{ .keyword = KW_END, },
+		{ SYM_("$"), 0, NULL, 0, Precedence_CStyleCALL, NULL, ParseExpr_dollar, NULL, NULL, NULL, },
+		{ KW_END, },
 	};
 	SUGAR kNameSpace_defineSyntax(kctx, ns, SYNTAX, packageNameSpace);
 	return true;
@@ -102,12 +105,15 @@ static kbool_t dollar_setupNameSpace(KonohaContext *kctx, kNameSpace *packageNam
 
 KDEFINE_PACKAGE* dollar_init(void)
 {
-	static KDEFINE_PACKAGE d = {
-		KPACKNAME("dscript", "1.0"),
-		.initPackage    = dollar_initPackage,
-		.setupPackage   = dollar_setupPackage,
-		.initNameSpace  = dollar_initNameSpace,
-		.setupNameSpace = dollar_setupNameSpace,
-	};
+	static KDEFINE_PACKAGE d = {0};
+	KSETPACKNAME(d, "dscript", "1.0");
+	d.initPackage    = dollar_initPackage;
+	d.setupPackage   = dollar_setupPackage;
+	d.initNameSpace  = dollar_initNameSpace;
+	d.setupNameSpace = dollar_setupNameSpace;
 	return &d;
 }
+
+#ifdef __cplusplus
+} /* extern "C" */
+#endif

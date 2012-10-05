@@ -26,7 +26,11 @@
 #include <minikonoha/sugar.h>
 #include <stdio.h>
 
-////## void Token.setKeyword(String keywork);
+#ifdef __cplusplus
+extern "C"{
+#endif
+
+//## void Token.setKeyword(String keywork);
 static KMETHOD Token_setUnresolvedTokenType(KonohaContext *kctx, KonohaStack *sfp)
 {
 	kTokenVar *tk = (kTokenVar *) sfp[0].asToken;
@@ -279,7 +283,7 @@ static KMETHOD Stmt_newExpr(KonohaContext *kctx, KonohaStack *sfp)
 //	kToken *tk     = sfp[2].asToken;
 //	if(tk->tt != KW_ParenthesisGroup || tk->tt != KW_BracketGroup) {
 //		SUGAR p(kctx, WarnTag, tk->uline, tk->lpos, "not parameter token");
-//		kObject_setNullObject(expr, 1);
+//		kObject_set(NullObject, expr, 1);
 //	}
 //	if(IS_NOTNULL(expr)) {
 //		assert(IS_Array(tk->subTokenList));
@@ -294,7 +298,7 @@ static KMETHOD Stmt_newExpr(KonohaContext *kctx, KonohaStack *sfp)
 //	kExpr *expr  = sfp[0].asExpr;
 //	kExpr *o     = sfp[1].asExpr;
 //	if(IS_NULL(o) && IS_Array(expr->cons)) {
-//		kObject_setNullObject(expr, 1);
+//		kObject_set(NullObject, expr, 1);
 //	}
 //	if(IS_NOTNULL(expr)) {
 //		KLIB kArray_add(kctx, expr->cons, o);
@@ -434,7 +438,7 @@ static KMETHOD StmtTyCheck_sugar(KonohaContext *kctx, KonohaStack *sfp)
 			else {
 				KINITv(syn->syntaxRuleNULL, new_(Array, 8));
 			}
-			TokenRange rangebuf = {Stmt_nameSpace(stmt), tokenList, 0, kArray_size(tokenList)};
+			TokenSequence rangebuf = {Stmt_nameSpace(stmt), tokenList, 0, kArray_size(tokenList)};
 			if(SUGAR kArray_addSyntaxRule(kctx, syn->syntaxRuleNULL, &rangebuf)) {
 				r = 1;
 			}
@@ -489,8 +493,8 @@ static kbool_t sugar_initNameSpace(KonohaContext *kctx, kNameSpace *packageNameS
 	};
 	KLIB kNameSpace_loadConstData(kctx, ns, KonohaConst_(IntData), pline);
 	KDEFINE_SYNTAX SYNTAX[] = {
-		{ .keyword = SYM_("sugar"), .rule ="\"sugar\" $Token", TopStmtTyCheck_(sugar), },
-		{ .keyword = KW_END, },
+		{ SYM_("syntax"), 0, "\"syntax\" $Token", 0, 0, NULL, NULL, StmtTyCheck_sugar, NULL, NULL, },
+		{ KW_END, },
 	};
 	SUGAR kNameSpace_defineSyntax(kctx, ns, SYNTAX, packageNameSpace);
 	return true;
@@ -503,12 +507,15 @@ static kbool_t sugar_setupNameSpace(KonohaContext *kctx, kNameSpace *packageName
 
 KDEFINE_PACKAGE* sugar_init(void)
 {
-	static KDEFINE_PACKAGE d = {
-		KPACKNAME("sugar", "1.0"),
-		.initPackage = sugar_initPackage,
-		.setupPackage = sugar_setupPackage,
-		.initNameSpace = sugar_initNameSpace,
-		.setupNameSpace = sugar_setupNameSpace,
-	};
+	static KDEFINE_PACKAGE d = {0};
+	KSETPACKNAME(d, "sugar", "1.0");
+	d.initPackage    = sugar_initPackage;
+	d.setupPackage   = sugar_setupPackage;
+	d.initNameSpace  = sugar_initNameSpace;
+	d.setupNameSpace = sugar_setupNameSpace;
 	return &d;
 }
+
+#ifdef __cplusplus
+}
+#endif

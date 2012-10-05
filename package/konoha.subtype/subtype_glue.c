@@ -26,6 +26,10 @@
 #include <minikonoha/minikonoha.h>
 #include <minikonoha/sugar.h>
 
+#ifdef __cplusplus
+extern "C"{
+#endif
+
 // Object.getTypeId()
 static KMETHOD Object_getTypeId(KonohaContext *kctx, KonohaStack *sfp)
 {
@@ -87,7 +91,7 @@ static KMETHOD ExprTyCheck_InstanceOf(KonohaContext *kctx, KonohaStack *sfp)
 	kExpr *targetExpr = SUGAR kStmt_tyCheckExprAt(kctx, stmt, expr, 2, gma, TY_var, 0);
 	if(selfExpr != K_NULLEXPR && targetExpr != K_NULLEXPR) {
 		KonohaClass *selfClass = CT_(selfExpr->ty), *targetClass = CT_(targetExpr->ty);
-		if(CT_isFinal(selfClass)) {
+		if(CT_is(Final, selfClass)) {
 			kbool_t staticSubType = (selfClass == targetClass || selfClass->isSubType(kctx, selfClass, targetClass));
 			RETURN_(SUGAR kExpr_setUnboxConstValue(kctx, expr, TY_boolean, staticSubType));
 		}
@@ -128,9 +132,9 @@ static KMETHOD ExprTyCheck_As(KonohaContext *kctx, KonohaStack *sfp)
 static kbool_t subtype_initNameSpace(KonohaContext *kctx, kNameSpace *packageNameSpace, kNameSpace *ns, kfileline_t pline)
 {
 	KDEFINE_SYNTAX SYNTAX[] = {
-		{ .keyword = SYM_("<:"), ExprTyCheck_(InstanceOf), .precedence_op2 = C_PRECEDENCE_MUL },
-		{ .keyword = SYM_("as"), ExprTyCheck_(As), .precedence_op2 = C_PRECEDENCE_MUL },
-		{ .keyword = KW_END, },
+		{ SYM_("<:"), 0, NULL, Precedence_CStyleMUL, 0, NULL, NULL, NULL, NULL, ExprTyCheck_InstanceOf, },
+		{ SYM_("as"), 0, NULL, Precedence_CStyleMUL, 0, NULL, NULL, NULL, NULL, ExprTyCheck_As},
+		{ KW_END, },
 	};
 	SUGAR kNameSpace_defineSyntax(kctx, ns, SYNTAX, packageNameSpace);
 	return true;
@@ -145,12 +149,15 @@ static kbool_t subtype_setupNameSpace(KonohaContext *kctx, kNameSpace *packageNa
 
 KDEFINE_PACKAGE* subtype_init(void)
 {
-	static KDEFINE_PACKAGE d = {
-		KPACKNAME("subtype", "1.0"),
-		.initPackage = subtype_initPackage,
-		.setupPackage = subtype_setupPackage,
-		.initNameSpace = subtype_initNameSpace,
-		.setupNameSpace = subtype_setupNameSpace,
-	};
+	static KDEFINE_PACKAGE d = {0};
+	KSETPACKNAME(d, "subtype", "1.0");
+	d.initPackage    = subtype_initPackage;
+	d.setupPackage   = subtype_setupPackage;
+	d.initNameSpace  = subtype_initNameSpace;
+	d.setupNameSpace = subtype_setupNameSpace;
 	return &d;
 }
+
+#ifdef __cplusplus
+}
+#endif

@@ -25,8 +25,6 @@
 #include <stdio.h>
 #include "minikonoha/minikonoha.h"
 #include "minikonoha/gc.h"
-
-extern int verbose_debug;
 #include <minikonoha/platform.h>
 
 int main(int argc, const char *argv[])
@@ -46,7 +44,7 @@ int main(int argc, const char *argv[])
     for (i = 0; i < 100; ++i) {
         malloced[i] = lib->Kzmalloc(0, i);
         int j;
-        char *p = malloced[i];
+        char *p = (char*)malloced[i];
         for (j = 0; j < i; ++j) {
             assert(p[0] == 0);
         }
