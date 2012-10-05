@@ -6,8 +6,6 @@ import("dscript.subproc");
 void test() {
 	Subproc s = new Subproc("echo hello", false);
 	assert(s.getReturncode() == 0);
-	Subproc u;
-	assert(u.getReturncode() == 0);
 }
 
 test();
