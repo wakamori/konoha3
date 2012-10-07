@@ -55,15 +55,6 @@ extern "C" {
 #define KW_MethodDeclPattern  (((ksymbol_t)12)|KW_PATTERN) /*$MethodDecl*/
 #define KW_TokenPattern     (((ksymbol_t)13)|KW_PATTERN)   /*$Token*/
 
-typedef enum {
-	TokenType_INDENT = 1,
-	TokenType_SYMBOL = KW_SymbolPattern,
-	TokenType_TEXT   = KW_TextPattern,
-	TokenType_INT    = KW_NumberPattern,
-	TokenType_CODE   = KW_BlockPattern,
-	TokenType_ERR    = KW_TokenPattern
-} TokenType;
-
 #define KW_ExprOperator        KW_ParamPattern
 #define KW_ExprTerm            KW_SymbolPattern
 #define KW_ExprMethodCall      KW_ParamPattern
@@ -95,6 +86,15 @@ typedef enum {
 #define KW_if        (2+KW_void)
 #define KW_else      (3+KW_void)
 #define KW_return    (4+KW_void)
+
+typedef enum {
+	TokenType_INDENT = 1,
+	TokenType_SYMBOL = KW_SymbolPattern,
+	TokenType_TEXT   = KW_TextPattern,
+	TokenType_INT    = KW_NumberPattern,
+	TokenType_CODE   = KW_BlockPattern,
+	TokenType_ERR    = KW_TokenPattern
+} kTokenType;
 
 // reserved
 //#define MN_new       (8+KW_void)
@@ -147,8 +147,8 @@ struct TokenizerEnv {
 		int E = (int)sfp[5].intValue;\
 		VAR_TRACE; (void)STMT; (void)NAME; (void)TLS; (void)S; (void)E
 
-// Expr ParseExpr(Stmt stmt, Token[] tokenList, int s, int c, int e)
-#define VAR_ParseExpr(STMT, TLS, S, C, E)\
+// Expr Expression(Stmt stmt, Token[] tokenList, int s, int c, int e)
+#define VAR_Expression(STMT, TLS, S, C, E)\
 		SugarSyntax *syn = (SugarSyntax*)sfp[0].unboxValue;\
 		kStmt *STMT = (kStmt*)sfp[1].asObject;\
 		kArray *TLS = (kArray*)sfp[2].o;\
@@ -157,46 +157,51 @@ struct TokenizerEnv {
 		int E = (int)sfp[5].intValue;\
 		VAR_TRACE; (void)syn; (void)STMT; (void)TLS; (void)S; (void)C; (void)E
 
-// boolean StmtTyCheck(Stmt stmt, Gamma gma)
-#define VAR_StmtTyCheck(STMT, GMA)\
+// boolean Statement(Stmt stmt, Gamma gma)
+#define VAR_Statement(STMT, GMA)\
 		kStmt *STMT = (kStmt*)sfp[1].asObject;\
 		kGamma *GMA = (kGamma*)sfp[2].o;\
 		VAR_TRACE; (void)STMT; (void)GMA
 
-// Expr ExprTyCheck(Stmt stmt, Expr expr, Gamma gma, int typeid)
-#define VAR_ExprTyCheck(STMT, EXPR, GMA, TY) \
+// Expr TypeCheck(Stmt stmt, Expr expr, Gamma gma, int typeid)
+#define VAR_TypeCheck(STMT, EXPR, GMA, TY) \
 		kStmt *STMT = (kStmt*)sfp[1].asObject;\
 		kExpr *EXPR = (kExpr*)sfp[2].o;\
 		kGamma *GMA = (kGamma*)sfp[3].o;\
 		ktype_t TY = (ktype_t)sfp[4].intValue;\
 		VAR_TRACE; (void)STMT; (void)EXPR; (void)GMA; (void)TY
 
+
 typedef const struct SugarSyntaxVar   SugarSyntax;
 typedef struct SugarSyntaxVar         SugarSyntaxVar;
 
-#define SUGARFUNC_PatternMatch   0
-#define SUGARFUNC_ParseExpr      1
-#define SUGARFUNC_TopStmtTyCheck 2
-#define SUGARFUNC_StmtTyCheck    3
-#define SUGARFUNC_ExprTyCheck    4
-#define SUGARFUNC_SIZE           5
+typedef enum {
+	SugarFunc_PatternMatch   = 0,
+	SugarFunc_Expression      = 1,
+	SugarFunc_TopLevelStatement = 2,
+	SugarFunc_Statement    = 3,
+	SugarFunc_TypeCheck    = 4,
+	SugarFunc_SIZE           = 5,
+} SugerFunc;
+
+//#define SugarFunc_SIZE           5
 
 #define SYNFLAG_Macro               ((kshortflag_t)1)
 
-#define SYNFLAG_ExprLeftJoinOp2    ((kshortflag_t)1 << 1)
-#define SYNFLAG_ExprPostfixOp2     ((kshortflag_t)1 << 2)
+#define SYNFLAG_ExprLeftJoinOp2     ((kshortflag_t)1 << 1)
+#define SYNFLAG_ExprPostfixOp2      ((kshortflag_t)1 << 2)
 
-#define SYNFLAG_StmtBreakExec      ((kshortflag_t)1 << 8)  /* return, throw */
+#define SYNFLAG_StmtBreakExec       ((kshortflag_t)1 << 8)  /* return, throw */
 #define SYNFLAG_StmtJumpAhead0      ((kshortflag_t)1 << 9)  /* continue */
 #define SYNFLAG_StmtJumpSkip0       ((kshortflag_t)1 << 10)  /* break */
 
 struct SugarSyntaxVar {
 	ksymbol_t  keyword;               kshortflag_t  flag;
 	const struct SugarSyntaxVar      *parentSyntaxNULL;
-	kArray                           *syntaxRuleNULL;
+	kArray                           *SyntaxPatternListNULL;
 	union {
-		kFunc                        *sugarFuncTable[SUGARFUNC_SIZE];
-		kArray                       *sugarFuncListTable[SUGARFUNC_SIZE];
+		kFunc                        *sugarFuncTable[SugarFunc_SIZE];
+		kArray                       *sugarFuncListTable[SugarFunc_SIZE];
 	};
 	// binary
 	kshort_t precedence_op2;        kshort_t precedence_op1;
@@ -205,10 +210,10 @@ struct SugarSyntaxVar {
 };
 
 #define PatternMatch_(NAME)    .PatternMatch   = PatternMatch_##NAME
-#define ParseExpr_(NAME)       .ParseExpr      = ParseExpr_##NAME
-#define TopStmtTyCheck_(NAME)  .TopStmtTyCheck = StmtTyCheck_##NAME
-#define StmtTyCheck_(NAME)     .StmtTyCheck    = StmtTyCheck_##NAME
-#define ExprTyCheck_(NAME)     .ExprTyCheck    = ExprTyCheck_##NAME
+#define Expression_(NAME)       .Expression      = Expression_##NAME
+#define TopLevelStatement_(NAME)  .TopLevelStatement = Statement_##NAME
+#define Statement_(NAME)     .Statement    = Statement_##NAME
+#define TypeCheck_(NAME)     .TypeCheck    = TypeCheck_##NAME
 
 #define _OPLeft   .flag = (SYNFLAG_ExprLeftJoinOp2)
 
@@ -239,10 +244,10 @@ typedef struct KDEFINE_SYNTAX {
 	int precedence_op2;
 	int precedence_op1;
 	MethodFunc PatternMatch;
-	MethodFunc ParseExpr;
-	MethodFunc TopStmtTyCheck;
-	MethodFunc StmtTyCheck;
-	MethodFunc ExprTyCheck;
+	MethodFunc Expression;
+	MethodFunc TopLevelStatement;
+	MethodFunc Statement;
+	MethodFunc TypeCheck;
 } KDEFINE_SYNTAX;
 
 #define new_SugarFunc(F)     new_(Func, KLIB new_kMethod(kctx, 0, 0, 0, F))
@@ -525,7 +530,7 @@ typedef struct {
 	int         (*TokenUtils_parseTypePattern)(KonohaContext *, kNameSpace *, kArray *, int , int , KonohaClass **classRef);
 	kTokenVar*  (*kToken_transformToBraceGroup)(KonohaContext *, kTokenVar *, kNameSpace *, MacroSet *);
 
-	void        (*kStmt_setParsedObject)(KonohaContext *, kStmt *, ksymbol_t, kObject *o);
+	void        (*kStmt_addParsedObject)(KonohaContext *, kStmt *, ksymbol_t, kObject *o);
 	uintptr_t   (*kStmt_parseFlag)(KonohaContext *kctx, kStmt *stmt, KonohaFlagSymbolData *flagData, uintptr_t flag);
 	kToken*     (*kStmt_getToken)(KonohaContext *, kStmt *, ksymbol_t kw, kToken *def);
 	kExpr*      (*kStmt_getExpr)(KonohaContext *, kStmt *, ksymbol_t kw, kExpr *def);
