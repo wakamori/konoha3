@@ -126,8 +126,7 @@ static char parseBinaryDigit(char c)
 	return ('0' == c || c == '1') ? c - '0' : -1;
 }
 
-#include <stdio.h>
-static KMETHOD parseNumber(KonohaContext *kctx, KonohaStack *sfp)
+static KMETHOD TokenFunc_ExtendedIntLiteral(KonohaContext *kctx, KonohaStack *sfp)
 {
 	kTokenVar *tk = (kTokenVar *)sfp[1].o;
 	const char *source = S_text(sfp[2].asString);
@@ -282,14 +281,11 @@ static kbool_t int_initNameSpace(KonohaContext *kctx, kNameSpace *packageNameSpa
 	};
 	SUGAR kNameSpace_defineSyntax(kctx, ns, SYNTAX, packageNameSpace);
 
-	SUGAR kNameSpace_defineSyntax(kctx, ns, SYNTAX, packageNameSpace);
-	kMethod *mtd = KLIB new_kMethod(kctx, 0, 0, 0, parseNumber);
-	kFunc *fo = GCSAFE_new(Func, (uintptr_t) mtd);
-	SUGAR kNameSpace_setTokenizeFunc(kctx, ns, '0', NULL, fo, 0);
+	SUGAR kNameSpace_setTokenFunc(kctx, ns, KW_NumberPattern, KonohaChar_Digit, new_SugarFunc(TokenFunc_ExtendedIntLiteral));
 
 	SugarSyntaxVar *syn = (SugarSyntaxVar*)SUGAR kNameSpace_getSyntax(kctx, ns, SYM_("+"), 0);
 	if(syn != NULL) {
-		syn->precedence_op1  = 16;
+		syn->precedence_op1  = Precedence_CStylePREUNARY;
 	}
 	return true;
 }

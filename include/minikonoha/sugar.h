@@ -100,16 +100,59 @@ typedef enum {
 //#define MN_new       (8+KW_void)
 #define FN_this      FN_("this")
 
-//#define kflag_clear(flag)  (flag) = 0
-
 // Tokenizer
+
+typedef enum {
+	KonohaChar_Null                 = 0,
+	KonohaChar_Undefined            = 1,
+	KonohaChar_Digit                = 2,
+	KonohaChar_UpperCaseAlphabet    = 3,
+	KonohaChar_LowerCaseAlphabet    = 4,
+	KonohaChar_Unicode              = 5,
+	KonohaChar_NewLine              = 6,
+	KonohaChar_Tab                  = 7,
+	KonohaChar_Space                = 8,
+	KonohaChar_OpenParenthesis      =9,
+	KonohaChar_CloseParenthesis      =10,
+	KonohaChar_OpenBracket       =11,
+	KonohaChar_CloseBracket       =12,
+	KonohaChar_OpenBrace       =13,
+	KonohaChar_CloseBrace       =14,
+	KonohaChar_LessThan        =15,
+	KonohaChar_GreaterThan        =16,
+	KonohaChar_Quote     =17,
+	KonohaChar_DoubleQuote    =18,
+	KonohaChar_BackQuote   =19,
+	KonohaChar_Surprised   =20,
+	KonohaChar_Sharp     =21,
+	KonohaChar_Dollar    =22,
+	KonohaChar_Percent       =23,
+	KonohaChar_And       =24,
+	KonohaChar_Star      =25,
+	KonohaChar_Plus      =26,
+	KonohaChar_Comma     =27,
+	KonohaChar_Minus     =28,
+	KonohaChar_Dot       =29,
+	KonohaChar_Slash     =30,
+	KonohaChar_Colon     =31,
+	KonohaChar_SemiColon =32,
+	KonohaChar_Equal        =33,
+	KonohaChar_Question  =34,
+	KonohaChar_AtMark       =35,
+	KonohaChar_Var       =36,
+	KonohaChar_Childer   =37,
+	KonohaChar_BackSlash   =38,
+	KonohaChar_Hat       =39,
+	KonohaChar_UnderBar     =40,
+	KonohaChar_MAX = 41
+} KonohaChar;
 
 #define KCHAR_MAX  41
 #define SIZEOF_TOKENMATRIX   (sizeof(void*) * KCHAR_MAX * 2)
-typedef struct TokenizerEnv TokenizerEnv;
-typedef int (*TokenizeFunc)(KonohaContext *, kTokenVar *, TokenizerEnv *, int);
+typedef struct Tokenizer Tokenizer;
+typedef int (*TokenizeFunc)(KonohaContext *, kTokenVar *, Tokenizer *, int);
 
-struct TokenizerEnv {
+struct Tokenizer {
 	kNameSpace         *ns;
 	const char         *source;
 	size_t              sourceLength;
@@ -124,19 +167,18 @@ struct TokenizerEnv {
 	kString            *preparedString;
 };
 
-/******
-// ParseToken
-#define VAR_ParseToken(TK, STR, UL) \
-		kTokenVar *TK = (kTokenVar*)sfp[0].asObject;\
-		kString *STR = sfp[1].asString;\
-		int UL = (int)sfp[2].intValue;\
-		(void)TK; (void)STR; (void)UL;\
-*****/
-
 //#define VAR_TRACE
 #ifndef VAR_TRACE
 #define VAR_TRACE DBG_P("tracing.. file=%s, line=%d", __FILE__, __LINE__)
 #endif
+
+// int TokenFunc(Token tk, Source s)
+#define VAR_TokenFunc(TK, S)\
+		kTokenVar *TK = (kTokenVar*)sfp[1].asObject;\
+		kString *S = sfp[2].asString;\
+		Tokenizer *tokenizer = (Tokenizer*)sfp[1].unboxValue;\
+		int tok_start = (ksymbol_t)sfp[2].intValue;\
+		VAR_TRACE; (void)TK; (void)S; (void)tok_start; (void)tokenizer;
 
 // int PatternMatch(Stmt stmt, int classNameSymbol, Token[] toks, int s, int e)
 #define VAR_PatternMatch(STMT, NAME, TLS, S, E)\
@@ -176,15 +218,14 @@ typedef const struct SugarSyntaxVar   SugarSyntax;
 typedef struct SugarSyntaxVar         SugarSyntaxVar;
 
 typedef enum {
-	SugarFunc_PatternMatch   = 0,
-	SugarFunc_Expression      = 1,
-	SugarFunc_TopLevelStatement = 2,
-	SugarFunc_Statement    = 3,
-	SugarFunc_TypeCheck    = 4,
-	SugarFunc_SIZE           = 5,
+	SugarFunc_TokenFunc         = 0,
+	SugarFunc_PatternMatch      = 1,
+	SugarFunc_Expression        = 2,
+	SugarFunc_TopLevelStatement = 3,
+	SugarFunc_Statement         = 4,
+	SugarFunc_TypeCheck         = 5,
+	SugarFunc_SIZE              = 6
 } SugerFunc;
-
-//#define SugarFunc_SIZE           5
 
 #define SYNFLAG_Macro               ((kshortflag_t)1)
 
@@ -203,10 +244,11 @@ struct SugarSyntaxVar {
 		kFunc                        *sugarFuncTable[SugarFunc_SIZE];
 		kArray                       *sugarFuncListTable[SugarFunc_SIZE];
 	};
-	// binary
-	kshort_t precedence_op2;        kshort_t precedence_op1;
-	kpackage_t lastLoadedPackageId; kshort_t macroParamSize;
-	kArray                          *macroDataNULL;
+	kshort_t tokenKonohaChar;
+	kshort_t precedence_op2;          kshort_t precedence_op1;
+	kpackage_t lastLoadedPackageId;
+	kshort_t macroParamSize;
+	kArray                           *macroDataNULL;
 };
 
 #define PatternMatch_(NAME)    .PatternMatch   = PatternMatch_##NAME
@@ -250,7 +292,7 @@ typedef struct KDEFINE_SYNTAX {
 	MethodFunc TypeCheck;
 } KDEFINE_SYNTAX;
 
-#define new_SugarFunc(F)     new_(Func, KLIB new_kMethod(kctx, 0, 0, 0, F))
+#define new_SugarFunc(F)     GCSAFE_new(Func, KLIB new_kMethod(kctx, 0, 0, 0, F))
 
 /* Token */
 struct kTokenVar {
@@ -520,10 +562,16 @@ typedef struct {
 	KonohaClass *cGamma;
 	KonohaClass *cTokenArray;
 
-	void        (*kNameSpace_setTokenizeFunc)(KonohaContext *, kNameSpace *, int ch, TokenizeFunc, kFunc *, int isAddition);
+	SugarSyntax*    (*kNameSpace_getSyntax)(KonohaContext *, kNameSpace *, ksymbol_t, int);
+	void            (*kNameSpace_defineSyntax)(KonohaContext *, kNameSpace *, KDEFINE_SYNTAX *, kNameSpace *packageNameSpace);
+	kbool_t         (*kArray_addSyntaxRule)(KonohaContext *, kArray *ruleList, TokenSequence *sourceRange);
+	SugarSyntaxVar* (*kNameSpace_setTokenFunc)(KonohaContext *, kNameSpace *, ksymbol_t, int ch, kFunc *);
+	SugarSyntaxVar* (*kNameSpace_setSugarFunc)(KonohaContext *, kNameSpace *, ksymbol_t kw, size_t idx, kFunc *);
+	SugarSyntaxVar* (*kNameSpace_addSugarFunc)(KonohaContext *, kNameSpace *, ksymbol_t kw, size_t idx, kFunc *);
+	void            (*kNameSpace_setMacroData)(KonohaContext *, kNameSpace *, ksymbol_t, int, const char *);
+
 	void        (*TokenSequence_tokenize)(KonohaContext *, TokenSequence *, const char *, kfileline_t);
 	kbool_t     (*TokenSequence_applyMacro)(KonohaContext *, TokenSequence *, kArray *, size_t, MacroSet *);
-	void        (*kNameSpace_setMacroData)(KonohaContext *, kNameSpace *, ksymbol_t, int, const char *);
 	int         (*TokenSequence_resolved)(KonohaContext *, TokenSequence *, MacroSet *, TokenSequence *, int);
 	kstatus_t   (*TokenSequence_eval)(KonohaContext *, TokenSequence *);
 
@@ -536,13 +584,6 @@ typedef struct {
 	kExpr*      (*kStmt_getExpr)(KonohaContext *, kStmt *, ksymbol_t kw, kExpr *def);
 	const char* (*kStmt_getText)(KonohaContext *, kStmt *, ksymbol_t kw, const char *def);
 	kBlock*     (*kStmt_getBlock)(KonohaContext *, kStmt *, kNameSpace *, ksymbol_t kw, kBlock *def);
-
-
-	SugarSyntax* (*kNameSpace_getSyntax)(KonohaContext *, kNameSpace *, ksymbol_t, int);
-	void         (*kNameSpace_defineSyntax)(KonohaContext *, kNameSpace *, KDEFINE_SYNTAX *, kNameSpace *packageNameSpace);
-	kbool_t      (*kArray_addSyntaxRule)(KonohaContext *, kArray *ruleList, TokenSequence *sourceRange);
-	void         (*kNameSpace_setSugarFunc)(KonohaContext *, kNameSpace *, ksymbol_t kw, size_t idx, kFunc *);
-	void         (*kNameSpace_addSugarFunc)(KonohaContext *, kNameSpace *, ksymbol_t kw, size_t idx, kFunc *);
 
 	kBlock*      (*new_kBlock)(KonohaContext *, kStmt *, MacroSet *, TokenSequence *);
 	kStmt*       (*new_kStmt)(KonohaContext *kctx, kNameSpace *ns, ksymbol_t keyword, ...);

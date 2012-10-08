@@ -779,7 +779,7 @@ static kbool_t regexp_setupPackage(KonohaContext *kctx, kNameSpace *ns, isFirstT
 	return true;
 }
 
-static KMETHOD parseREGEXP(KonohaContext *kctx, KonohaStack *sfp)
+static KMETHOD TokenFunc_JavaScriptRegExp(KonohaContext *kctx, KonohaStack *sfp)
 {
 	kTokenVar *tk = (kTokenVar *)sfp[1].o;
 	int ch, prev = '/', pos = 1;
@@ -807,8 +807,8 @@ static KMETHOD parseREGEXP(KonohaContext *kctx, KonohaStack *sfp)
 				kArray *a = (kArray*)KLIB new_kObject(kctx, CT_StringArray0, 2);
 				KLIB kArray_add(kctx, a, KLIB new_kString(kctx, source + 1, (pos0-2), 0));
 				KLIB kArray_add(kctx, a, KLIB new_kString(kctx, source + pos0, pos-pos0, 0));
-				tk->subTokenList = a;
-				tk->unresolvedTokenType = SYM_("$regexp");
+				tk->subTokenList = a;  // FIXME: terrible bug!! who wrote this?
+				tk->unresolvedTokenType = SYM_("$RegExp");
 			}
 			RETURNi_(pos);
 		}
@@ -832,14 +832,13 @@ static KMETHOD TypeCheck_RegExp(KonohaContext *kctx, KonohaStack *sfp)
 
 static kbool_t regexp_initNameSpace(KonohaContext *kctx, kNameSpace *packageNameSpace, kNameSpace *ns, kfileline_t pline)
 {
-	kMethod *mtd = KLIB new_kMethod(kctx, 0, 0, 0, parseREGEXP);
-	kFunc *fo = GCSAFE_new(Func, (uintptr_t) mtd);
-	SUGAR kNameSpace_setTokenizeFunc(kctx, ns, '/', NULL, fo, 0);
 	KDEFINE_SYNTAX SYNTAX[] = {
-		{ .keyword = SYM_("$regexp"),  TypeCheck_(RegExp), },
+		{ .keyword = SYM_("$RegExp"),  TypeCheck_(RegExp), },
 		{ .keyword = KW_END, },
 	};
 	SUGAR kNameSpace_defineSyntax(kctx, ns, SYNTAX, packageNameSpace);
+
+	SUGAR kNameSpace_setTokenFunc(kctx, ns, SYM_("$RegExp"), KonohaChar_Slash, new_SugarFunc(TokenFunc_JavaScriptRegExp));
 	return true;
 }
 

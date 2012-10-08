@@ -528,7 +528,7 @@ typedef struct KUtilsGrowingArray {
 	union {
 		char              *bytebuf;
 		const struct KonohaClassVar      **classItems;
-		KUtilsKeyValue    *keyvalueItems;
+		KUtilsKeyValue    *keyValueItems;
 		struct VirtualMachineInstruction   *codeItems;
 		kObject        **objectItems;
 		kObjectVar     **refhead;  // stack->ref
@@ -549,7 +549,7 @@ typedef struct KUtilsHashMapEntry {
 		uintptr_t        unboxKey;
 		kString         *stringKey;
 		kParam          *paramKey;
-		void            *pkey;
+		void            *ptrKey;
 	};
 	union {
 		kObject         *objectValue;
@@ -560,8 +560,8 @@ typedef struct KUtilsHashMapEntry {
 
 typedef struct KUtilsHashMap KUtilsHashMap;
 struct KUtilsHashMap {
-	KUtilsHashMapEntry *arena;
-	KUtilsHashMapEntry *unused;
+	KUtilsHashMapEntry  *arena;
+	KUtilsHashMapEntry  *unused;
 	KUtilsHashMapEntry **hentry;
 	size_t arenasize;
 	size_t size;
@@ -1246,6 +1246,7 @@ struct kFuncVar {
 	KonohaObjectHeader h;
 	kObject *self;
 	kMethod *mtd;
+	int adhocKeyForTokenFunc;   // as name implies,
 };
 
 /* ------------------------------------------------------------------------ */
@@ -1255,7 +1256,7 @@ struct kFuncVar {
 
 struct kNameSpaceVar {
 	KonohaObjectHeader h;
-	kpackage_t packageId;  	kpackage_t packageDomain;
+	kpackage_t packageId;  	           kshortflag_t syntaxOption;
 	kNameSpace                        *parentNULL;
 	KUtilsGrowingArray                 constTable;        // const variable
 	size_t                             sortedConstTable;
@@ -1263,24 +1264,23 @@ struct kNameSpaceVar {
 	kArray                            *methodList;   // default K_EMPTYARRAY
 	size_t                             sortedMethodList;
 	// the below references are defined in sugar
-	uintptr_t                          syntaxOption;
 	void                              *tokenMatrix;
+	kArray                            *TokenFuncListNULL;
 	KUtilsHashMap                     *syntaxMapNN;
 	kArray                            *StmtPatternListNULL;
 };
 
 // NameSpace_syntaxOption
 
-#define kNameSpace_DefaultSyntaxOption               kNameSpace_CStyleDecl|kNameSpace_ImplicitField|kNameSpace_NoSemiColon
-#define kNameSpace_isAllowed(P, ns)                  (TFLAG_is(uintptr_t, (ns)->syntaxOption, kNameSpace_##P))
-#define kNameSpace_set(P, ns, B)                     TFLAG_set(uintptr_t, ((kNameSpaceVar*)ns)->syntaxOption, kNameSpace_##P, B)
+#define kNameSpace_DefaultSyntaxOption               kNameSpace_ImplicitField|kNameSpace_NoSemiColon
+#define kNameSpace_isAllowed(P, ns)                  (TFLAG_is(kshortflag_t, (ns)->syntaxOption, kNameSpace_##P))
+#define kNameSpace_set(P, ns, B)                     TFLAG_set(kshortflag_t, ((kNameSpaceVar*)ns)->syntaxOption, kNameSpace_##P, B)
 
-#define kNameSpace_CStyleDecl                        ((uintptr_t)(1<<0))
-#define kNameSpace_NoSemiColon                       ((uintptr_t)(1<<1))
+#define kNameSpace_NoSemiColon                       ((kshortflag_t)(1<<1))
 
-#define kNameSpace_TypeInference                     ((uintptr_t)(1<<2))
-#define kNameSpace_ImplicitField                     ((uintptr_t)(1<<3))
-#define kNameSpace_TransparentGlobalVariable         ((uintptr_t)(1<<4))
+#define kNameSpace_TypeInference                     ((kshortflag_t)(1<<2))
+#define kNameSpace_ImplicitField                     ((kshortflag_t)(1<<3))
+#define kNameSpace_TransparentGlobalVariable         ((kshortflag_t)(1<<4))
 
 /* ------------------------------------------------------------------------ */
 /* System */
