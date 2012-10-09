@@ -50,20 +50,26 @@ static KMETHOD Statement_dsh(KonohaContext *kctx, KonohaStack *sfp)
 		RETURNb_(false);
 	}
 
-	size_t i;
-	KUtilsWriteBuffer wb;
+	kString *cmd;
 	kNameSpace *ns = Stmt_nameSpace(stmt);
-	KLIB Kwb_init(&(kctx->stack->cwb), &wb);
-	for(i = 0; i < kArray_size(tokenList); i++) {
-		kToken *token = tokenList->tokenItems[i];
-		KLIB Kwb_write(kctx, &wb, S_text(token->text), S_size(token->text));
-		if(kToken_is(BeforeWhiteSpace, token)) {
-			KLIB Kwb_write(kctx, &wb, " ", 1);
+	if (IS_Token(tokenList)) {
+		kToken *tk = (kToken *) tokenList;
+		cmd = tk->text;
+	} else {
+		size_t i;
+		KUtilsWriteBuffer wb;
+		KLIB Kwb_init(&(kctx->stack->cwb), &wb);
+		for(i = 0; i < kArray_size(tokenList); i++) {
+			kToken *token = tokenList->tokenItems[i];
+			KLIB Kwb_write(kctx, &wb, S_text(token->text), S_size(token->text));
+			if(kToken_is(BeforeWhiteSpace, token)) {
+				KLIB Kwb_write(kctx, &wb, " ", 1);
+			}
 		}
+		cmd = KLIB new_kString(kctx, KLIB Kwb_top(kctx, &wb, 0), Kwb_bytesize(&wb), 0);
+		KLIB Kwb_free(&wb);
 	}
-	kString *cmd = KLIB new_kString(kctx, KLIB Kwb_top(kctx, &wb, 0), Kwb_bytesize(&wb), 0);
 	PUSH_GCSTACK(cmd);
-	KLIB Kwb_free(&wb);
 	DBG_P("cmd$ %s", S_text(cmd));
 
 	SugarSyntaxVar *syn = (SugarSyntaxVar*) SYN_(ns, KW_ExprMethodCall);
