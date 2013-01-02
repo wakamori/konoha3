@@ -89,15 +89,42 @@ int indexOf(String[] a, String s, int startIdx) {
 	return -1;
 }
 
+String expandDollar(String text) {
+	if(text.startsWith("$(") && text.endsWith(")")) { /* shell expression */
+		String[] args = text.substring(2, text.getlength() - 1).split(" ");
+		String funcName = getFuncName();
+		String evaltext = "@Public String " + funcName + "() { ";
+		evaltext = evaltext + generateSubProcSequence(args, false).replace("\n", " ");
+		if(defined(DEBUG)) {
+			System.p(evaltext);
+		}
+		eval(evaltext);
+		return funcName + "()";
+	}
+	else if(text.startsWith("${") && text.endsWith("}")) { /* shell variable */
+		return text.substring(2, text.getlength() - 1) + ".toString()";
+	}
+	else if(text.startsWith("$")) { /* special variable */
+		if(text == "$?") { /* environmental variable */
+			return "getExitStatus().toString()";
+		}
+		return "System.getenv(\"" + text.substring(1, text.getlength()) + "\")";
+	}
+	else if(text.startsWith("\"") && text.endsWith("\"")) {
+		return text;
+	}
+	return "\"" + text + "\"";
+}
+
 String expandArgs(String[] args) {
 	String ret = "[";
 	int i = 0;
 	while(i < args.getlength() - 1) {
-		ret = ret + "\"" + args[i] + "\", ";
+		ret = ret + expandDollar(args[i]) + ", ";
 		i = i + 1;
 	}
 	if(args.getlength() >= 1) {
-		ret = ret + "\"" + args[args.getlength() - 1] + "\"";
+		ret = ret + expandDollar(args[args.getlength() - 1]);
 	}
 	ret = ret + "]";
 	return ret;
@@ -359,7 +386,8 @@ Expr expressionDollarVariable(Stmt stmt, Token[] tokenList, int beginIdx, int op
 		return expr;
 	}
 	else if(text.startsWith("${") && text.endsWith("}")) {
-		text = text.substring(2, text.getlength() - 1);
+		Token[] tokens = Preprocess(text.substring(2, text.getlength() - 1));
+		return stmt.newExpr(tokens, 0, tokens.getlength());
 	}
 	else if(text == "$?") {
 		Token methodToken = new Token("getExitStatus");
@@ -401,7 +429,7 @@ Expr typeCheckStringInterpolation(Stmt stmt, Expr expr, Gamma gma, int typeid) {
 			break;
 		}
 		if(end - start > 2) {
-			String buf = text.substring(start + 2, end);
+			String buf = openBrace + text.substring(start + 2, end) + closeBrace;
 			Token[] tokens = Preprocess(buf);
 			Expr newexpr = stmt.newExpr(tokens, 0, tokens.getlength());
 			if(start > 0) {
