@@ -22,9 +22,7 @@
  * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  ***************************************************************************/
 
-import("cstyle", "while");
-import("cstyle", "break");
-import("cstyle", "null");
+import("cstyle");
 import("js4.array");
 import("konoha.console");
 import("konoha.ns");
@@ -40,10 +38,9 @@ String[] concatTokenList(Token[] tokenList) {
 	if(defined(DEBUG)) {
 		System.p(tokenList);
 	}
-	int i = 0;
 	String[] ret = [];
 	String buf = "";
-	while(i < tokenList.getlength()) {
+	for(int i = 0; i < tokenList.getlength(); i++) {
 		Token tk = tokenList[i];
 		if(tk.isBeforeWhiteSpace()) {
 			ret.add(buf + tk.getText());
@@ -52,7 +49,6 @@ String[] concatTokenList(Token[] tokenList) {
 		else {
 			buf = buf + tk.getText();
 		}
-		i = i + 1;
 	}
 	if(buf != "") {
 		ret.add(buf);
@@ -79,12 +75,10 @@ String getFuncName() {
 }
 
 int indexOf(String[] a, String s, int startIdx) {
-	int i = startIdx;
-	while(i < a.getlength()) {
+	for(int i = startIdx; i < a.getlength(); i++) {
 		if(a[i] == s) {
 			return i;
 		}
-		i = i + 1;
 	}
 	return -1;
 }
@@ -118,10 +112,8 @@ String expandDollar(String text) {
 
 String expandArgs(String[] args) {
 	String ret = "[";
-	int i = 0;
-	while(i < args.getlength() - 1) {
+	for(int i = 0; i < args.getlength() - 1; i++) {
 		ret = ret + expandDollar(args[i]) + ", ";
-		i = i + 1;
 	}
 	if(args.getlength() >= 1) {
 		ret = ret + expandDollar(args[args.getlength() - 1]);
@@ -130,8 +122,7 @@ String expandArgs(String[] args) {
 	return ret;
 }
 
-boolean isCommandUseTty(String cmd) {
-	// TODO: consider using isatty.
+boolean isUseTtyCommand(String cmd) {
 	if(cmd == "less" || cmd == "man") {
 		return true;
 	}
@@ -140,10 +131,8 @@ boolean isCommandUseTty(String cmd) {
 
 String join(String[] a, String separator) {
 	String ret = "";
-	int i = 0;
-	while(i < a.getlength() - 1) {
+	for(int i = 0; i < a.getlength() - 1; i++) {
 		ret = ret + a[i] + separator;
-		i = i + 1;
 	}
 	if(a.getlength() >= 1) {
 		ret = ret + a[a.getlength() - 1];
@@ -153,10 +142,10 @@ String join(String[] a, String separator) {
 
 String getPipeString(String prevname, String varname, String[] args, int startindex, int argsize, boolean enableStdout, int index) {
 	String ret = "";
-	if(prevname != "" && !isCommandUseTty(args[startindex])) {
+	if(prevname != "" && !isUseTtyCommand(args[startindex])) {
 		ret = ret + prevname + ".pipe(" + varname + ", false);\n";
 	}
-	if(isCommandUseTty(args[startindex])) {
+	if(isUseTtyCommand(args[startindex])) {
 		if(prevname != "") {
 			ret = ret + varname + ".bg();\n";
 			if(defined(USE_PRINT)) {
@@ -289,21 +278,26 @@ boolean statementShell(Stmt stmt, Gamma gma) {
 	return ret;
 }
 
+boolean isBuiltinCommand(String cmd) {
+	if(cmd == "cd") {
+		return true;
+	}
+	return false;
+}
+
 int patternMatchShell(Stmt stmt, int nameid, Token[] tokenList, int beginIdx, int endIdx) {
 	Token firstToken = tokenList[beginIdx];
-	if(firstToken.Is("$Symbol") && SubProc.isCommand(firstToken.getText())) {
+	if(firstToken.Is("$Symbol") && SubProc.isCommand(firstToken.getText()) || isBuiltinCommand(firstToken.getText())) {
 		if(firstToken.getText() == "Expr") {
 			return -1;
 		}
-		int i = beginIdx + 1;
-		while(i < endIdx) {
+		for(int i = beginIdx + 1; i < endIdx; i++) {
 			if(tokenList[i].is("$Indent") || tokenList[i].getText() == ";") {
 				break;
 			}
 			if(tokenList[i].Is("()")) {
 				return -1;
 			}
-			i = i + 1;
 		}
 		return beginIdx;
 	}
@@ -324,13 +318,11 @@ Expr expressionAsk(Stmt stmt, Token[] tokenList, int beginIdx, int operatorIdx, 
 }
 
 int getLastIndex(String source) {
-	int i = 0;
 	String endSymbol = " )}\n";
-	while(i < source.getlength()) {
+	for(int i = 0; i < source.getlength(); i++) {
 		if(endSymbol.indexOf(source[i]) >= 0) {
 			return i;
 		}
-		i = i + 1;
 	}
 	return -1;
 }
@@ -361,13 +353,11 @@ int tokenFuncDollarVariable(Token tk, String source) {
 
 Expr expressionDollarVariable(Stmt stmt, Token[] tokenList, int beginIdx, int operatorIdx, int endIdx) {
 	if(defined(DEBUG)) {
-		int i = beginIdx;
-		while(i < endIdx) {
+		for(int i = beginIdx; i < endIdx; i++) {
 			System.p(tokenList[i].getText());
 			System.p(tokenList[i].getText().getlength());
 			System.p(tokenList[i].is("$Symbol"));
 			System.p(tokenList[i].is("()"));
-			i = i + 1;
 		}
 	}
 	String text = tokenList[operatorIdx].getText();
