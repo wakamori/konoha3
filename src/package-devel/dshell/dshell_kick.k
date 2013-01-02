@@ -1,5 +1,6 @@
 import("konoha.global");
 import("posix.process");
+import("posix.path");
 
 AllowImplicitGlobalVariable(true);
 int lastExitStatus = 0;

@@ -129,15 +129,11 @@ boolean isUseTtyCommand(String cmd) {
 	return false;
 }
 
-String join(String[] a, String separator) {
-	String ret = "";
-	for(int i = 0; i < a.getlength() - 1; i++) {
-		ret = ret + a[i] + separator;
+boolean isBuiltinCommand(String cmd) {
+	if(cmd == "cd") {
+		return true;
 	}
-	if(a.getlength() >= 1) {
-		ret = ret + a[a.getlength() - 1];
-	}
-	return ret;
+	return false;
 }
 
 String getPipeString(String prevname, String varname, String[] args, int startindex, int argsize, boolean enableStdout, int index) {
@@ -221,32 +217,42 @@ String generateSubProcSequence(String[] args, boolean enableStdout) {
 			argsize = index - startindex - 1;
 		}
 		varname = getVarName();
-		ret = ret + "SubProc " + varname + " = new SubProc(\"" + args[startindex] + "\");\n";
-		if(defined(SHOW_COMMAND)) {
-			stdout.println(args[startindex]);
-		}
-		if(argsize > 0) {
-			ret = ret + varname + ".setArgumentList(" + expandArgs(args.slice(startindex + 1, startindex + 1 + argsize)) + ");\n";
-		}
-		if(index >= 0) {
-			ret = ret + getPipeString(prevname, varname, args, startindex, argsize, enableStdout, index);
+		if(isBuiltinCommand(args[startindex])) {
+			if(args[startindex] == "cd" && argsize == 1) {
+				ret = ret + "System.chdir(" + expandDollar(args[startindex + 1]) + ");\n";
+			}
+			if(index < 0) {
+				break;
+			}
 		}
 		else {
-			if(redirectindex >= 0) {
-				/* redirect */
-				String filename = args[redirectindex + 1];
-				ret = ret + varname + ".setOutputStream(new FILE(\"" + filename + "\", \"" + mode + "\"));\n";
+			ret = ret + "SubProc " + varname + " = new SubProc(\"" + args[startindex] + "\");\n";
+			if(defined(SHOW_COMMAND)) {
+				stdout.println(args[startindex]);
+			}
+			if(argsize > 0) {
+				ret = ret + varname + ".setArgumentList(" + expandArgs(args.slice(startindex + 1, startindex + 1 + argsize)) + ");\n";
+			}
+			if(index >= 0) {
+				ret = ret + getPipeString(prevname, varname, args, startindex, argsize, enableStdout, index);
 			}
 			else {
-				/* end of pipe */
-				if(enableStdout && !defined(USE_PRINT)) {
-					ret = ret + varname + ".setOutputStream(stdout);\n";
+				if(redirectindex >= 0) {
+					/* redirect */
+					String filename = args[redirectindex + 1];
+					ret = ret + varname + ".setOutputStream(new FILE(\"" + filename + "\", \"" + mode + "\"));\n";
 				}
+				else {
+					/* end of pipe */
+					if(enableStdout && !defined(USE_PRINT)) {
+						ret = ret + varname + ".setOutputStream(stdout);\n";
+					}
+				}
+				ret = ret + getPipeString(prevname, varname, args, startindex, argsize, enableStdout, index);
+				break;
 			}
-			ret = ret + getPipeString(prevname, varname, args, startindex, argsize, enableStdout, index);
-			break;
+			prevname = varname;
 		}
-		prevname = varname;
 		startindex = index + 1;
 	}
 	if(defined(DEBUG)) {
@@ -276,13 +282,6 @@ boolean statementShell(Stmt stmt, Gamma gma) {
 	}
 	stmt.setType(TSTMT_BLOCK);
 	return ret;
-}
-
-boolean isBuiltinCommand(String cmd) {
-	if(cmd == "cd") {
-		return true;
-	}
-	return false;
 }
 
 int patternMatchShell(Stmt stmt, int nameid, Token[] tokenList, int beginIdx, int endIdx) {
