@@ -670,11 +670,16 @@ static KMETHOD SubProc_getStatus(KonohaContext *kctx, KonohaStack *sfp)
 static KMETHOD SubProc_isCommand(KonohaContext *kctx, KonohaStack *sfp)
 {
 	const char *cmd = kString_text(sfp[1].asString);
-	size_t bufsize = confstr(_CS_PATH, NULL, 0);
-	char buf[bufsize];
-	confstr(_CS_PATH, buf, bufsize);
+	if(cmd[0] == '/') {
+		if(checkExecutablePath(kctx, NULL, cmd)) {
+			KReturnUnboxValue(true);
+		}
+		KReturnUnboxValue(false);
+	}
+	char buf[PATH_MAX];
+	confstr(_CS_PATH, buf, PATH_MAX);
 	char *pos, *p = buf;
-	while(p < buf + bufsize) {
+	while(p < buf + PATH_MAX) {
 		if((pos = strchr(p, ':')) == NULL) {
 			if(checkExecutablePath(kctx, p, cmd)) {
 				KReturnUnboxValue(true);

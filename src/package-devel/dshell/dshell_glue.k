@@ -300,6 +300,18 @@ int patternMatchShell(Stmt stmt, int nameid, Token[] tokenList, int beginIdx, in
 		}
 		return beginIdx;
 	}
+	else if(firstToken.getText() == "/") {
+		String cmd = "";
+		for(int i = beginIdx; i < endIdx - 1; i = i + 2) {
+			if(tokenList[i].getText() != "/") {
+				break;
+			}
+			cmd = cmd + "/" + tokenList[i + 1].getText();
+		}
+		if(SubProc.isCommand(cmd)) {
+			return beginIdx;
+		}
+	}
 	return -1;
 }
 
