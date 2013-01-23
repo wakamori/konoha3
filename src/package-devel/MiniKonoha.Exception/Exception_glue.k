@@ -5,6 +5,9 @@ void OutOfBoundsException(Event e) {
 	// you can write the way for out of bounds exception
 }
 
-EventHandler.setCallBack("OutOfBoundsException", OutOfBoundsException);
+// you can write other exception callbacks here
 
-HttpEventListener.start("0.0.0.0", 8080);
+EventHandler.setCallBack("OutOfBoundsException", OutOfBoundsException);
+// you can list the callbacks here
+
+HttpEventListener.start("127.0.0.1", 8080);

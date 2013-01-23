@@ -748,6 +748,9 @@ struct KonohaFactory {
 	kbool_t     (*SetJsonArrayAt)(KonohaContext *kctx, struct JsonBuf *jsonbuf, size_t index, struct JsonBuf *otherbuf);
 	kbool_t     (*AppendJsonArray)(KonohaContext *kctx, struct JsonBuf *jsonbuf, struct JsonBuf *otherbuf);
 
+	// Throwing Exception API
+	kbool_t     (*ThrowExceptionToEventListener)(KonohaContext *kctx, struct JsonBuf *info);
+
 };
 
 #define LOG_END   0

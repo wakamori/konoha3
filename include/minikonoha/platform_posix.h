@@ -917,6 +917,14 @@ static void exit_i(int status, const char *file, int line)
 	exit(status);
 }
 
+struct JsonBuf;
+
+// --------------------------------------------------------------------------
+/* Exception */
+static kbool_t ThrowExceptionToEventListener(KonohaContext *kctx, struct JsonBuf *info)
+{
+}
+
 // --------------------------------------------------------------------------
 static kunused void PosixFactory(KonohaFactory *factory)
 {
@@ -982,6 +990,9 @@ static kunused void PosixFactory(KonohaFactory *factory)
 	factory->InputUserApproval     = InputUserApproval;
 	factory->InputUserText         = InputUserText;
 	factory->InputUserPassword     = InputUserPassword;
+
+	// exception
+	factory->ThrowExceptionToEventListener = ThrowExceptionToEventListener;
 }
 
 #ifdef __cplusplus
