@@ -29,7 +29,9 @@
 #include <minikonoha/sugar.h>
 #include <minikonoha/import/methoddecl.h>
 
-struct JsonBuf;
+struct JsonBuf {
+	uint64_t json_i;
+};
 
 #ifdef __cplusplus
 extern "C"{
@@ -98,25 +100,25 @@ static void KBuffer_WriteValue(KonohaContext *kctx, KBuffer *wb, KClass *c, Kono
 
 static kbool_t AppendStringArrayToJson(KonohaContext *kctx, struct JsonBuf *jsonbuf, const char *text)
 {
-	struct JsonBuf *value;
-	PLATAPI CreateJson(kctx, value, KJSON_STRING, text);
-	if(!PLATAPI AppendJsonArray(kctx, jsonbuf, value)) {
+	struct JsonBuf value;
+	PLATAPI CreateJson(kctx, &value, KJSON_STRING, text);
+	if(!PLATAPI AppendJsonArray(kctx, jsonbuf, &value)) {
 		return false;
 	}
 	return true;
 }
 
 #define CreateExceptionInfo() \
-	struct JsonBuf *info;\
-	PLATAPI CreateJson(kctx, info, KJSON_OBJECT);
+	struct JsonBuf info;\
+	PLATAPI CreateJson(kctx, &info, KJSON_OBJECT);
 
-#define AddExceptionInfoString(KEY, VAL) PLATAPI SetJsonValue(kctx, info, KEY, strlen(KEY), KJSON_STRING, VAL)
+#define AddExceptionInfoString(KEY, VAL) PLATAPI SetJsonValue(kctx, &info, KEY, strlen(KEY), KJSON_STRING, VAL)
 
-#define AddExceptionInfoJson(KEY, VAL) PLATAPI SetJsonKeyValue(kctx, info, KEY, strlen(KEY), VAL)
+#define AddExceptionInfoJson(KEY, VAL) PLATAPI SetJsonKeyValue(kctx, &info, KEY, strlen(KEY), VAL)
 
-#define ThrowExceptionInfo() ThrowExceptionInfoToEventListener(kctx, info)
+#define ThrowExceptionInfo() ThrowExceptionInfoToEventListener(kctx, &info)
 
-#define DestroyExceptionInfo() PLATAPI  FreeJson(kctx, info)
+#define DestroyExceptionInfo() PLATAPI  FreeJson(kctx, &info)
 
 static void UI_ReportCaughtException(KonohaContext *kctx, kException *e, KonohaStack *bottomStack, KonohaStack *topStack)
 {
@@ -127,48 +129,48 @@ static void UI_ReportCaughtException(KonohaContext *kctx, kException *e, KonohaS
 	AddExceptionInfoString("event", exceptionName);
 	AddExceptionInfoString("optionalMessage", optionalMessage);
 	int fault = e->fault;
-	struct JsonBuf *faultInfo;
-	PLATAPI CreateJson(kctx, faultInfo, KJSON_OBJECT);
+	struct JsonBuf faultInfo;
+	PLATAPI CreateJson(kctx, &faultInfo, KJSON_OBJECT);
 	PLATAPI printf_i("%s", BeginTag(kctx, ErrTag));
 	if(optionalMessage != NULL && optionalMessage[0] != 0) {
-		AppendStringArrayToJson(kctx, faultInfo, "SoftwareFault");
+		AppendStringArrayToJson(kctx, &faultInfo, "SoftwareFault");
 		PLATAPI printf_i("%s: SoftwareFault %s", exceptionName, optionalMessage);
 	}
 	else {
 		PLATAPI printf_i("%s:", exceptionName);
 		if(KFlag_Is(int, fault, SoftwareFault)) {
-			AppendStringArrayToJson(kctx, faultInfo, "SoftwareFault");
+			AppendStringArrayToJson(kctx, &faultInfo, "SoftwareFault");
 			PLATAPI printf_i(" SoftwareFault");
 		}
 		if(KFlag_Is(int, fault, UserFault)) {
-			AppendStringArrayToJson(kctx, faultInfo, "UserFault");
+			AppendStringArrayToJson(kctx, &faultInfo, "UserFault");
 			PLATAPI printf_i(" UserFault");
 		}
 		if(KFlag_Is(int, fault, SystemFault)) {
-			AppendStringArrayToJson(kctx, faultInfo, "SystemFault");
+			AppendStringArrayToJson(kctx, &faultInfo, "SystemFault");
 			PLATAPI printf_i(" SystemFault");
 		}
 		if(KFlag_Is(int, fault, ExternalFault)) {
-			AppendStringArrayToJson(kctx, faultInfo, "ExternalFault");
+			AppendStringArrayToJson(kctx, &faultInfo, "ExternalFault");
 			PLATAPI printf_i(" ExternalFault");
 		}
 	}
-	AddExceptionInfoJson("fault", faultInfo);
+	AddExceptionInfoJson("fault", &faultInfo);
 	PLATAPI printf_i("%s\n", EndTag(kctx, ErrTag));
 	PLATAPI printf_i("%sStackTrace\n", BeginTag(kctx, InfoTag));
 
 	KonohaStack *sfp = topStack;
 	KBuffer wb;
 	KLIB KBuffer_Init(&(kctx->stack->cwb), &wb);
-	struct JsonBuf *StackTraceInfo;
-	struct JsonBuf *stackInfo;
-	PLATAPI CreateJson(kctx, StackTraceInfo, KJSON_OBJECT);
+	struct JsonBuf StackTraceInfo;
+	struct JsonBuf stackInfo;
+	PLATAPI CreateJson(kctx, &StackTraceInfo, KJSON_OBJECT);
 	while(bottomStack < sfp) {
-		PLATAPI CreateJson(kctx, stackInfo, KJSON_OBJECT);
+		PLATAPI CreateJson(kctx, &stackInfo, KJSON_OBJECT);
 		kMethod *mtd = sfp[K_MTDIDX].calledMethod;
 		kfileline_t uline = sfp[K_RTNIDX].calledFileLine;
 		const char *file = PLATAPI shortFilePath(KFileLine_textFileName(uline));
-		PLATAPI SetJsonValue(kctx, stackInfo, "file", strlen("file"), KJSON_STRING, file);
+		PLATAPI SetJsonValue(kctx, &stackInfo, "file", strlen("file"), KJSON_STRING, file);
 		// add more info
 		PLATAPI printf_i(" [%ld] (%s:%d) %s.%s%s(", (sfp - kctx->stack->stack), file, (kushort_t)uline, kMethod_Fmt3(mtd));
 		KClass *cThis = KClass_(mtd->typeId);
@@ -194,13 +196,14 @@ static void UI_ReportCaughtException(KonohaContext *kctx, kException *e, KonohaS
 		}
 		PLATAPI printf_i(")\n");
 		sfp = sfp[K_SHIFTIDX].previousStack;
-		PLATAPI AppendJsonArray(kctx, StackTraceInfo, stackInfo);
+		PLATAPI AppendJsonArray(kctx, &StackTraceInfo, &stackInfo);
 	}
-	AddExceptionInfoJson("StackTraceInfo", StackTraceInfo);
+	AddExceptionInfoJson("StackTraceInfo", &StackTraceInfo);
 	KLIB KBuffer_Free(&wb);
 	PLATAPI printf_i("%s\n", EndTag(kctx, InfoTag));
 	ThrowExceptionInfo();
 	DestroyExceptionInfo();
+	KLIB KscheduleEvent(kctx);
 }
 
 static kbool_t Exception_PackupNameSpace(KonohaContext *kctx, kNameSpace *ns, int option, KTraceInfo *trace)
