@@ -72,7 +72,7 @@ class DTask {
 	String id;
 	String script;
 
-	DTask(String filePath) {
+	@Public DTask(String filePath) {
 		this.id = null;
 		this.script = readFile(filePath).replace("\"", "\\\"");
 	}
@@ -131,7 +131,7 @@ class Dse {
 		String dtaskId;
 		while(true) {
 			i = 0;
-			while(i < dtaskIds.getSize()) {
+			while(i < this.dtaskIds.getSize()) {
 				dtaskId = this.dtaskIds[i];
 				response = global.DTaskStatusMap.get(dtaskId);
 				if(response.toString() != "{}") {
@@ -143,7 +143,7 @@ class Dse {
 					i++;
 				}
 			}
-			if(dtaskIds.getSize() == 0) {
+			if(this.dtaskIds.getSize() == 0) {
 				break;
 			}
 			System.usleep(10000);
@@ -227,11 +227,11 @@ class DseGroup {
 		String dtaskId;
 		while(true) {
 			i = 0;
-			while(i < dtaskIds.getSize()) {
+			while(i < this.dtaskIds.getSize()) {
 				dtaskId = this.dtaskIds[i];
 				response = global.DTaskStatusMap.get(dtaskId);
 				if(response.toString() != "{}") {
-					System.p("response : " + response); // for debug
+//					System.p("response : " + response); // for debug
 					responses.add(response);
 					this.dtaskIds.removeAt(i);
 				}
@@ -239,7 +239,7 @@ class DseGroup {
 					i++;
 				}
 			}
-			if(dtaskIds.getSize() == 0) {
+			if(this.dtaskIds.getSize() == 0) {
 				break;
 			}
 			System.usleep(10000);
@@ -259,6 +259,7 @@ class DseGroup {
 				this.dtaskIds.add(ids[j]);
 				j = j + 1;
 			}
+			j = 0;
 			i++;
 		}
 		responses =  waitDTasks();
