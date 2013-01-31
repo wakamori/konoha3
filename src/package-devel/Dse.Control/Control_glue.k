@@ -71,15 +71,13 @@ String readFile(String path) {
 class DTask {
 	String id;
 	String script;
-	DTask next;
 
 	DTask(String filePath) {
 		this.id = null;
 		this.script = readFile(filePath).replace("\"", "\\\"");
-		this.next = null;
 	}
 
-	boolean execute(String IP) {
+	String execute(String IP) {
 		Json request = new Json();
 		request.setString("method", "ExecuteScript");
 		request.setString("from", global.localhost);
@@ -89,38 +87,32 @@ class DTask {
 		params.setString("cid", "" + global.cid);
 		params.setInt("tid", global.tid);
 		this.id = "" + global.cid + "+" + global.tid;
-		global.tid += 1;
+		global.tid = global.tid + 1;
 		request.set("params", params);
-		Json response = null;
-		global.DTaskStatusMap.set(this.id, response);
+		global.DTaskStatusMap.set(this.id, null);
 		Curl curl = new Curl();
 		curl.setOpt(CURLOPT_URL, IP);
 		curl.setOpt(CURLOPT_POSTFIELDS, request.toString());
 		curl.perform();
-		while(true) {
-			response = global.DTaskStatusMap.get(this.id);
-			if(response.toString() != "{}") {
-				System.p("response : " + response);
-				break;
-			}
-			System.usleep(10000);
-		}
-		return true; // FIXME
+		return this.id;
 	}
 }
 
 class Dse {
 	String IP;
 	DTask[] dtasks;
+	String[] dtaskIds;
 
 	@Public Dse(String host, int port) {
 		this.IP = "http://" + host + ":" + port;
-		dtasks = [];
+		this.dtasks = [];
+		this.dtaskIds = [];
 	}
 
 	@Public Dse(String host) {
 		this.IP = "http://" + host + ":" + 8080;
 		dtasks = [];
+		dtaskIds = [];
 	}
 
 	@Public void appendDTask(DTask dtask) {
@@ -131,47 +123,147 @@ class Dse {
 		this.dtasks.add(new DTask(filePath));
 	}
 
-	@Public boolean dispatchDTasks() {
+	Json[] waitDTasks() {
+		Json[] responses = [];
+		Json response = null;
+		int i;
+		int size;
+		String dtaskId;
+		while(true) {
+			i = 0;
+			while(i < dtaskIds.getSize()) {
+				dtaskId = this.dtaskIds[i];
+				response = global.DTaskStatusMap.get(dtaskId);
+				if(response.toString() != "{}") {
+//					System.p("response : " + response); // for debug
+					responses.add(response);
+					this.dtaskIds.removeAt(i);
+				}
+				else {
+					i++;
+				}
+			}
+			if(dtaskIds.getSize() == 0) {
+				break;
+			}
+			System.usleep(10000);
+		}
+		return responses;
+	}
+
+	@Public Json[] dispatchDTasks() {
 		int i = 0;
 		int size = this.dtasks.getSize();
+		Json[] responses;
 		while(i < size) {
-			this.dtasks[i].execute(this.IP);
+			this.dtaskIds.add(this.dtasks[i].execute(this.IP));
 			i++;
 		}
+		responses =  waitDTasks();
+		dtasks = [];
+		dtaskIds = [];
+		return responses;
+	}
+
+	String[] dispatchDTasksWithNoBlocking() {
+		String[] ret;
+		int i = 0;
+		int size = this.dtasks.getSize();
+		Json[] responses;
+		while(i < size) {
+			this.dtaskIds.add(this.dtasks[i].execute(this.IP));
+			i++;
+		}
+		ret = this.dtaskIds;
+		this.dtasks = [];
+		this.dtaskIds = [];
+		return ret;
 	}
 }
 
 class DseGroup {
 	Dse[] dses;
+	DTask[] dtasks;
+	String[] dtaskIds;
 
 	@Public DseGroup() {
 		this.dses = [];
-	}
-
-	@Public void appendDse(Dse dse) {
-		this.dses.add(dse);
+		this.dtasks = [];
+		this.dtaskIds = [];
 	}
 
 	@Public void appendDse(String host, int port) {
 		this.dses.add(new Dse(host, port));
 	}
 
-	@Public void appendDTask(String filePath) {
+	@Public void appendDse(String host) {
 		this.dses.add(new Dse(host));
 	}
 
-	@Public void appendDTask(DTask dtask) {
+	@Public void appendDTask(String filePath) {
+		int i = 0;
+		int size = this.dses.getSize();
+		DTask dtask = new DTask(filePath);
+		while(i < size) {
+			this.dses[i].appendDTask(dtask);
+			i++;
+		}
 	}
 
-//	@Public void appendDTask(String filePath) {
-//	}
-}
+	@Public void appendDTask(DTask dtask) {
+		int i = 0;
+		int size = this.dses.getSize();
+		while(i < size) {
+			this.dses[i].appendDTask(dtask);
+			i++;
+		}
+	}
 
-void test() {
-	DControl.start("0.0.0.0", 8090);
-	Dse dse = new Dse("0.0.0.0");
-	dse.appendDTask("hoge.k");
-	dse.dispatchDTasks();
-}
+	Json[] waitDTasks() {
+		Json[] responses = [];
+		Json response = null;
+		int i;
+		int size;
+		String dtaskId;
+		while(true) {
+			i = 0;
+			while(i < dtaskIds.getSize()) {
+				dtaskId = this.dtaskIds[i];
+				response = global.DTaskStatusMap.get(dtaskId);
+				if(response.toString() != "{}") {
+					System.p("response : " + response); // for debug
+					responses.add(response);
+					this.dtaskIds.removeAt(i);
+				}
+				else {
+					i++;
+				}
+			}
+			if(dtaskIds.getSize() == 0) {
+				break;
+			}
+			System.usleep(10000);
+		}
+		return responses;
+	}
 
-test();
+	@Public Json[] dispatchDTasks() {
+		int i = 0;
+		int j = 0; // TODO remove it
+		int size = this.dses.getSize();
+		Json[] responses;
+		while(i < size) {
+//			this.dtaskIds.concat(this.dses[i].dispatchDTasksWithNoBlocking());  TODO use concat in this way
+			String[] ids = this.dses[i].dispatchDTasksWithNoBlocking();
+			while(j < ids.getSize()) {
+				this.dtaskIds.add(ids[j]);
+				j = j + 1;
+			}
+			i++;
+		}
+		responses =  waitDTasks();
+		dtasks = [];
+		dtaskIds = [];
+		return responses;
+	}
+}
