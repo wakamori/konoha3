@@ -32,17 +32,34 @@ void DTaskWatcher(Event event) {
 	global.DTaskStatusMap.set(id, response);
 }
 
+boolean isMasterDseAlive() {
+	Json request = new Json();
+	request.setString("method", "IsDseAlive");
+	Curl curl = new Curl();
+	curl.setOpt(CURLOPT_URL, "http://" + HOST + ":" + PORT);
+	curl.setOpt(CURLOPT_POSTFIELDS, request.toString());
+	return curl.perform();
+}
+
 class DControl {
-	@Public @Static void start(String host, int port) {
+	@Public @Static boolean start(String host, int port) {
+		if(isMasterDseAlive() == false) {
+			return false;
+		}
 		global.IP = "http://" + host + ":" + port;
 		EventHandler.setCallBack("dse", DTaskWatcher);
 		HttpEventListener.start(host, port);
+		return true;
 	}
 
-	@Public @Static void start(int port) {
+	@Public @Static boolean start(int port) {
+		if(isMasterDseAlive() == false) {
+			return false;
+		}
 		global.IP = "http://" + HOST + ":" + port;
 		EventHandler.setCallBack("dse", DTaskWatcher);
 		HttpEventListener.start(HOST, port);
+		return true;
 	}
 }
 

@@ -17,7 +17,7 @@ import("Type.Json");
 import("Syntax.GlobalVariable");
 import("Dse.Control");
 
-DControl.start(8090); // D-Control is work on a port 8090 (this port is not the port of DSE)
+assert(DControl.start(8090)); // D-Control is work on a port 8090 (this port is not the port of DSE)
 
 DTask dtask1 = new DTask("D-Task1.k"); // D-Task1
 DTask dtask2 = new DTask("D-Task2.k"); // D-Task2
