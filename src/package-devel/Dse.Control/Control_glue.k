@@ -15,9 +15,11 @@ import("MiniKonoha.Map");
 import("MiniKonoha.EventListener");
 import("posix.process");
 
+load("/etc/dse/config.k");
+
 int cid = new Date().getTime();
 int tid = 1;
-String localhost;
+String IP;
 Json DTaskStatusMap = new Json(); // TODO replace it to Map[Json]
 
 const running = 0;
@@ -32,15 +34,15 @@ void DTaskWatcher(Event event) {
 
 class DControl {
 	@Public @Static void start(String host, int port) {
-		global.localhost = "http://" + host + ":" + port;
+		global.IP = "http://" + host + ":" + port;
 		EventHandler.setCallBack("dse", DTaskWatcher);
 		HttpEventListener.start(host, port);
 	}
 
 	@Public @Static void start(int port) {
-		global.localhost = "http://" + "0.0.0.0:" + port;
+		global.IP = "http://" + HOST + ":" + port;
 		EventHandler.setCallBack("dse", DTaskWatcher);
-		HttpEventListener.start("0.0.0.0", port);
+		HttpEventListener.start(HOST, port);
 	}
 }
 
@@ -77,10 +79,10 @@ class DTask {
 		this.script = readFile(filePath).replace("\"", "\\\"");
 	}
 
-	String execute(String IP) {
+	String execute(String to) {
 		Json request = new Json();
 		request.setString("method", "ExecuteScript");
-		request.setString("from", global.localhost);
+		request.setString("from", global.IP);
 		Json params = new Json();
 		params.setString("scripttype", "D-Task");
 		params.setString("script", this.script);
@@ -91,7 +93,7 @@ class DTask {
 		request.set("params", params);
 		global.DTaskStatusMap.set(this.id, null);
 		Curl curl = new Curl();
-		curl.setOpt(CURLOPT_URL, IP);
+		curl.setOpt(CURLOPT_URL, to);
 		curl.setOpt(CURLOPT_POSTFIELDS, request.toString());
 		curl.perform();
 		return this.id;
