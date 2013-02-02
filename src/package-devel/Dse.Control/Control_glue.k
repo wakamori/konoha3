@@ -29,6 +29,8 @@ void DTaskWatcher(Event event) {
 	String id = event.getProperty("cid") + "+" + event.getInt("tid");
 	Json response = new Json();
 	response.setInt("code", event.getInt("code"));
+	response.setString("stdout", event.getProperty("stdout"));
+	response.setString("stderr", event.getProperty("stderr"));
 	global.DTaskStatusMap.set(id, response);
 }
 
