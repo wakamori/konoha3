@@ -28,6 +28,7 @@ Import("JavaScript.Array");
 Import("JavaScript.String");
 Import("Lib.Openssl");
 Import("MiniKonoha.Eval");
+Import("MiniKonoha.NameSpace");
 Import("MiniKonoha.Syntax");
 Import("Syntax.CStyleWhile");
 Import("Syntax.GlobalVariable");
@@ -42,7 +43,7 @@ DControl.start(8090);
 
 Json _names = new Json();
 API repository = new API(USER, PASSWORD);
-Json[] _context = [];
+Json[] _gcontext = [];
 String[] _target = ["DSE"];
 boolean[] _compiled = [];
 
@@ -104,9 +105,8 @@ String CreateDseCode(String target, String body) {
 	ret = ret + EscapeBody(body);
 	ret = ret + "\"));\n";
 	ret = ret + "Json[] result = group.dispatchDTasks();\n";
-	ret = ret + "System.p(result);\n";
-	ret = ret + "System.p(result[0]);\n";
-	ret = ret + "return (result[0].getInt(\"code\") == 0);\n";
+	ret = ret + "System.p(result.get(0));\n";
+	ret = ret + "return (result.get(0).getInt(\"code\") == 0);\n";
 	System.p(ret);
 	return ret;
 }
@@ -115,11 +115,11 @@ String CreateDseCode(String target, String body) {
 // [class definitions]
 
 class DCaseContext {
-	String Get(String key) {
+	@Static String Get(String key) {
 		//System.p("Get Context '" + key + "'");
-		int i = global._context.getlength() - 1;
+		int i = global._gcontext.getlength() - 1;
 		while(i >= 0) {
-			String val = global._context[i].getString(key);
+			String val = global._gcontext[i].getString(key);
 			if(val != "") {
 				return val;
 			}
@@ -127,16 +127,16 @@ class DCaseContext {
 		}
 		return "";
 	}
-	void Push(Json context) {
-		global._context.add(context);
+	@Static void Push(Json context) {
+		global._gcontext.add(context);
 	}
-	Json Pop() {
-		return global._context.pop();
+	@Static Json Pop() {
+		return global._gcontext.pop();
 	}
 }
 
 class DCaseAssurance {
-	boolean TypeCheck(String goal) {
+	@Static boolean TypeCheck(String goal) {
 		//System.p("Typecheck Assurance '" + goal + "'");
 		Json root = global.repository.Search(goal);
 		if(root.getSize() > 0) {
@@ -163,7 +163,7 @@ class DCaseAssurance {
 }
 
 class DArgument {
-	boolean TypeCheck(String goal, String context) {
+	@Static boolean TypeCheck(String goal, String context) {
 		//System.p("Typecheck Argument '" + goal + "' with Context '" + context + "'");
 		Json root = global.repository.Search(goal);
 		if(root.getSize() > 0) {
