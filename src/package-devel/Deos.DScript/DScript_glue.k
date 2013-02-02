@@ -36,7 +36,14 @@ Import("Syntax.JavaStyleClass");
 Import("Syntax.Null");
 Import("Type.Json");
 
-DControl.start(8090);
+void CheckDControlIsRunning() {
+	if(!DControl.start(8090)) {
+		System.p("Master DSE is not running.");
+		assert(false);
+	}
+}
+
+CheckDControlIsRunning();
 
 // --------------------------------------------------------------------------
 // [global variables]
@@ -105,9 +112,10 @@ String CreateDseCode(String target, String body) {
 	ret = ret + EscapeBody(body);
 	ret = ret + "\"));\n";
 	ret = ret + "Json[] result = group.dispatchDTasks();\n";
-	ret = ret + "System.p(result.get(0));\n";
 	ret = ret + "return (result.get(0).getInt(\"code\") == 0);\n";
-	System.p(ret);
+	if(defined(DEBUG)) {
+		System.p(ret);
+	}
 	return ret;
 }
 
@@ -426,8 +434,8 @@ Node TypeArgue(Node node, NameSpace ns, Object o) {
 		String funcName = context.CreateHash();
 		SetName(funcName, GetName(context));
 		String evalText = "@Public boolean " + funcName + "(Func[boolean] dscript) {";
-		evalText = evalText + body + "}";
-		ns.eval(evalText);
+		evalText = evalText + body + "\treturn true;\n}";
+		boolean ret = ns.eval(evalText);
 
 		//Node funcNode = ns.CreateFuncNode(context);
 		//Node classNode = NewNameSpaceConst(ns);
@@ -436,7 +444,7 @@ Node TypeArgue(Node node, NameSpace ns, Object o) {
 		//TODO:evalate context correctly
 		//DCaseContext.Pop();
 		//return methodNode;
-		return node.SetConstValue(true);
+		return node.SetConstValue(ret);
 	}
 	return node.Message(ErrTag, "Assurance 'D-Script must work' with Context '" + GetName(context) + "' does not exist in D-Case Cloud.");
 }
@@ -448,12 +456,13 @@ int ParseStrategy(Node node, Symbol sym, Token[] tokenList, int beginIdx, int op
 	String strategyText = GetJoinedString(tokenList, beginIdx + 1, endIdx - 1);
 	if(IsStrategyRule(strategyText)) {
 		Node[] innerBlocks = node.ParseNewNode(tokenList, endIdx - 1, endIdx, false).GetNodeList();
-		if(innerBlocks.getlength() > 1) {
-			System.p("TODO");
-			return -1;
-		}
 		node.AddParsedObject("rule", node.PreprocessText(strategyText));
-		node.AddParsedObject("f0", innerBlocks[0]);
+		node.AddParsedObject("size", node.PreprocessText(innerBlocks.getlength().toString()));
+		int i = 0;
+		while(i < innerBlocks.getlength()) {
+			node.AddParsedObject("f" + i, innerBlocks[i]);
+			i = i + 1;
+		}
 		node.AddParsedObject("func", node.ParseNewNode(node.getNameSpace().Preprocess("dscript()"), 0, 2, false));
 		PushArgumentCompiled(false);
 		return endIdx;
@@ -462,15 +471,26 @@ int ParseStrategy(Node node, Symbol sym, Token[] tokenList, int beginIdx, int op
 }
 
 Node TypeStrategy(Node node, NameSpace ns, Object o) {
-	node.TypeCheckNode("f0", boolean, 0);
-	Node argumentFuncNode = node.TypeCheckNode("func", boolean, 0);
-	String funcName = node.GetNode("f0").GetText("goal");
 	Node classNode = NewNameSpaceConst(ns);
-	Node funcNode = node.newMethodNode(NameSpace, funcName, classNode);
+	Node argumentFuncNode = node.TypeCheckNode("func", boolean, 0);
+	int size = node.GetText("size").toint();
+	int i = 0;
+	Node[] funcNodes = []
+	while(i < size) {
+		String key = "f" + i;
+		node.TypeCheckNode(key, boolean, 0);
+		String funcName = node.GetNode(key).GetText("goal");
+		funcNodes.add(node.newMethodNode(NameSpace, funcName, classNode));
+		i = i + 1;
+	}
 	Node newNode = new Node(ns);
 	String rule = node.GetText("rule");
 	if(rule == "pre") {
-		newNode.AddNode(funcNode);
+		i = 0;
+		while(i < funcNodes.getlength()) {
+			newNode.AddNode(funcNodes[i]);
+			i = i + 1;
+		}
 		if(!IsArgumentCompiled()) {
 			newNode.AddNode(argumentFuncNode);
 			SetArgumentCompiled();
@@ -481,9 +501,13 @@ Node TypeStrategy(Node node, NameSpace ns, Object o) {
 			newNode.AddNode(argumentFuncNode);
 			SetArgumentCompiled();
 		}
-		newNode.AddNode(funcNode);
+		i = 0;
+		while(i < funcNodes.getlength()) {
+			newNode.AddNode(funcNodes[i]);
+			i = i + 1;
+		}
 	}
-	else if (rule == "concurrent") {
+	else if(rule == "concurrent") {
 		return node.Message(ErrTag, "TODO");
 	}
 	newNode.SetType(KNode_Block);
