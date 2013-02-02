@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>DCase Cloud web API</title>
+	<script type="text/javascript" src="http://code.jquery.com/jquery-1.9.0.min.js"></script>
+	<script type="text/javascript">
+
+var commonData = {
+	url: 'http://192.168.59.251/dcase_cloud/interface.cgi'
+	//url: 'http://localhost/cgi-bin/interface.cgi'
+};
+
+$(document).ready( function() {
+
+function onclick_template($selector, name, data) {
+	$selector.click(function() {
+		console.log('hello, commit');
+		$.ajax({
+			type: 'POST',
+			url: commonData.url,
+			contentType: 'application/json-rpc',
+			dataType: 'json',
+			data: JSON.stringify(data),
+			success: function(msg) {},
+			error: function(msg) {},
+			complete: function(msg) {
+				alert(name + ' method\nRequest:\n' + JSON.stringify(data) + '\nResponse:\n' + msg['responseText']);
+			}
+		});
+	});
+}
+
+var create_data = {
+	jsonrpc: "2.0",
+	method: "create",
+	version: 1,
+	params: {
+		type: "Goal",
+		description: "hoge"
+	}
+};
+
+var insert_data = {
+	jsonrpc: "2.0",
+	method: "insert",
+	version: 1,
+	params: {
+		type: "Goal",
+		description: "hello, world",
+		parent: {args_id: "A1", node_id: "S1"}
+	}
+};
+
+var update_data = {
+	jsonrpc: "2.0",
+	method: "update",
+	version: 1,
+	params: {
+		args_id: "A1",
+		node_id: "G1",
+		description: "hello, world",
+	}
+};
+
+var delete_data = {
+	jsonrpc: "2.0",
+	method: "delete",
+	version: 1,
+	params: {
+		args_id: "A1",
+		node_id: "G1",
+	}
+};
+
+var get_data = {
+	jsonrpc: "2.0",
+	method: "get",
+	version: 1,
+	params: {
+		args_id: "A1",
+		filter: ["Goal", "Context"]
+	}
+};
+
+var commit_data = {
+	jsonrpc: "2.0",
+	method: "commit",
+	version: 1,
+	params: {
+		message: "1st commit"
+	}
+};
+
+var revert_data = {
+	jsonrpc: "2.0",
+	method: "revert",
+	version: 1,
+	params: {
+		to: "xxxxxx"
+	}
+};
+
+var diff_data = {
+	jsonrpc: "2.0",
+	method: "diff",
+	version: 1,
+	params: {
+		to:   "xxxxxx",
+		from: "yyyyyy"
+	}
+};
+
+var log_data = {
+	jsonrpc: "2.0",
+	method: "log",
+	version: 1,
+	params: {
+		offset: "xxxxxx",
+		limit: 2
+	}
+};
+
+var search_data = {
+	jsonrpc: "2.0",
+	method: "search",
+	version: 1,
+	params: {
+		keyword: "hello",
+		filter: ["Goal", "Context"]
+	}
+};
+
+var traverse_data = {
+	jsonrpc: "2.0",
+	method: "search",
+	version: 1,
+	params: {
+		args_id: "A1",
+		node_id: "G1",
+		filter: ["Goal", "Context"]
+	}
+};
+
+var get1_data = {
+	jsonrpc: "2.0",
+	version: 1,
+	method: "get",
+	param: {
+		filter: ["Argument"]
+	}
+};
+
+var get2_data = {
+	jsonrpc: "2.0",
+	version: 1,
+	method: "get",
+	param: {
+		argument_id: "1"
+	}
+};
+
+var insert1_data = {
+	jsonrpc: "2.0",
+	version: 1,
+	method: "insert",
+	param: {
+		type: "Goal",
+		description: "hello, matz!!",
+		parent: {
+			argument_id: "0",
+			node_id: "7"
+		}
+	}
+};
+
+onclick_template($('#create_btn'),   'create',   create_data);
+onclick_template($('#insert_btn'),   'insert',   insert_data);
+onclick_template($('#update_btn'),   'update',   update_data);
+onclick_template($('#delete_btn'),   'delete',   delete_data);
+onclick_template($('#get_btn'),      'get',      get_data);
+onclick_template($('#commit_btn'),   'commit',   commit_data);
+onclick_template($('#revert_btn'),   'revert',   revert_data);
+onclick_template($('#diff_btn'),     'diff',     diff_data);
+onclick_template($('#log_btn'),      'log',      log_data);
+onclick_template($('#search_btn'),   'search',   search_data);
+onclick_template($('#traverse_btn'), 'traverse', traverse_data);
+
+onclick_template($('#get1_btn'), 'get1', get1_data);
+onclick_template($('#get2_btn'), 'get2', get2_data);
+onclick_template($('#insert1_btn'), 'insert1', insert1_data);
+onclick_template($('#commit1_btn'), 'commit1', commit_data);
+
+});
+
+	</script>
+</head>
+<body>
+	<h1>DCase Cloud web API Sample</h1>
+	<div class="list" style="float: left; padding: 20px;">
+		<h2>create</h2>
+		<button id="create_btn">create</button>
+		<h2>insert</h2>
+		<button id="insert_btn">insert</button>
+		<h2>update</h2>
+		<button id="update_btn">update</button>
+		<h2>get</h2>
+		<button id="get_btn">get</button>
+	</div>
+	<div class="list" style="float: left; padding: 20px;">
+		<h2>commit</h2>
+		<button id="commit_btn">commit</button>
+		<h2>revert</h2>
+		<button id="revert_btn">revert</button>
+		<h2>diff</h2>
+		<button id="diff_btn">diff</button>
+		<h2>log</h2>
+		<button id="log_btn">log</button>
+	</div>
+	<div class="list" style="float: left; padding: 20px;">
+		<h2>search</h2>
+		<button id="search_btn">search</button>
+		<h2>traverse</h2>
+		<button id="traverse_btn">traverse</button>
+	</div>
+	<div class="list" style="float: left; padding: 20px;">
+		<h1>Viewer Test Flow</h2>
+		<h2>get Argument List</h2>
+		<button id="get1_btn">get1</button>
+		<h2>get Nodes in Arguments</h2>
+		<button id="get2_btn">get2</button>
+		<h2>insert Goal in Arguments</h2>
+		<button id="insert1_btn">insert1</button>
+		<h2>Commit it!</h2>
+		<button id="commit1_btn">commit1</button>
+	</div>
+
+</body>
+</html>
