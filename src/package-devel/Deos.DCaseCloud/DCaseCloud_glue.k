@@ -128,11 +128,13 @@ class Context extends DBNode {
 		this.context = new Json();
 
 		this.PrivateUpdate(content);
-		if(content.hasKey("context")) {
-			Json array = content.get("context");
+		if(content.hasKey("properties")) {
+			Json array = content.get("properties");
 			String[] keys = array.keys();
-			for(int i = 0; i < keys.getSize(); i = i + 1) {
+			int i = 0;
+			while(i < keys.getSize()) {
 				this.context.setString(keys[i],array.getString(keys[i]));//TODO validation
+				i = i + 1;
 			}
 		}
 	}
