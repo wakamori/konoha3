@@ -467,7 +467,7 @@ class Branch {
 			}
 			i = i + 1;
 		}
-		if(node.argument_id == -1) {
+		if(node.argument_id < 1) {
 			this.nodes.add(node);
 			node.argument_id = this.argument_id;
 			return true;
