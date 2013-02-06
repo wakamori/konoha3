@@ -44,23 +44,13 @@ boolean isMasterDseAlive() {
 }
 
 class DControl {
-	@Public @Static boolean start(String host, int port) {
-		if(isMasterDseAlive() == false) {
-			return false;
-		}
-		global.IP = "http://" + host + ":" + port;
-		EventHandler.setCallBack("dse", DTaskWatcher);
-		HttpEventListener.start(host, port);
-		return true;
-	}
-
 	@Public @Static boolean start(int port) {
 		if(isMasterDseAlive() == false) {
 			return false;
 		}
 		global.IP = "http://" + HOST + ":" + port;
 		EventHandler.setCallBack("dse", DTaskWatcher);
-		HttpEventListener.start(HOST, port);
+		HttpEventListener.start("0.0.0.0", port);
 		return true;
 	}
 }
@@ -166,7 +156,6 @@ class Dse {
 				dtaskId = this.dtaskIds[i];
 				response = global.DTaskStatusMap.get(dtaskId);
 				if(response.toString() != "{}") {
-//					System.p("response : " + response); // for debug
 					responses.add(response);
 					this.dtaskIds.removeAt(i);
 				}
@@ -262,7 +251,6 @@ class DseGroup {
 				dtaskId = this.dtaskIds[i];
 				response = global.DTaskStatusMap.get(dtaskId);
 				if(response.toString() != "{}") {
-//					System.p("response : " + response); // for debug
 					responses.add(response);
 					this.dtaskIds.removeAt(i);
 				}
