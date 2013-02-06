@@ -49,7 +49,7 @@ CheckDControlIsRunning();
 // [global variables]
 
 Json _names = new Json();
-API repository = new API(USER, PASSWORD);
+API repository = new API("dcasedb", "dcasedb"); // TODO
 Json[] _gcontext = [];
 String[] _target = ["DSE"];
 boolean[] _compiled = [];
