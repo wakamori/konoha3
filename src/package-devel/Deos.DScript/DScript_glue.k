@@ -49,6 +49,7 @@ CheckDControlIsRunning();
 // [global variables]
 
 Json _names = new Json();
+Json _tasks = new Json();
 API repository = new API("dcasedb", "dcasedb"); // TODO
 Json[] _gcontext = [];
 String[] _target = ["DSE"];
@@ -60,6 +61,12 @@ String GetName(String hash) {
 
 void SetName(String hash, String funcname) {
 	global._names.setString(hash, funcname);
+}
+
+String String.CreateHash() {
+	MD5 md5 = new MD5();
+	md5.update(this);
+	return "f" + md5.final();
 }
 
 boolean DefinedContext(String hash) {
@@ -98,7 +105,7 @@ String EscapeBody(String body) {
 	return body.replace("\n", "\\n").replace("\"", "\\\"").replace("\t", "");
 }
 
-String CreateDseCode(String target, String body) {
+String CreateDseCode(String goal, String target, String body) {
 	String ret = "DseGroup group = new DseGroup();\n";
 	String[] hosts = target.split(",");
 	int i = 0;
@@ -111,6 +118,7 @@ String CreateDseCode(String target, String body) {
 	ret = ret + "Import(\\\"Syntax.ShellStyle\\\");";
 	ret = ret + EscapeBody(body);
 	ret = ret + "\"));\n";
+	ret = ret + "AppendAdditionalTasks(\"" + goal + "\", group);\n";
 	ret = ret + "Json[] result = group.dispatchDTasks();\n";
 	ret = ret + "return (result.get(0).getInt(\"code\") == 0);\n";
 	if(defined(DEBUG)) {
@@ -118,6 +126,12 @@ String CreateDseCode(String target, String body) {
 	}
 	return ret;
 }
+
+@Public void AppendAdditionalTasks(String goal, DseGroup group) {
+	System.p(goal);
+}
+
+CompileAllDefinedMethod();
 
 // --------------------------------------------------------------------------
 // [class definitions]
@@ -210,12 +224,6 @@ String String.Decode() {
 
 String String.Encode() {
 	return this.replace("\"", "\\\"").replace("\n", "\\n");
-}
-
-String String.CreateHash() {
-	MD5 md5 = new MD5();
-	md5.update(this);
-	return "f" + md5.final();
 }
 
 String Node.GetText(Symbol key) {
@@ -393,7 +401,7 @@ Node TypeAssure(Node node, NameSpace ns, Object o) {
 		//DseGroup group = CreateDseGroup(target);
 		//System.p(group);
 		String evalText = "@Public boolean " + goal + "() {";
-		evalText = evalText + CreateDseCode(target, body) + "}";
+		evalText = evalText + CreateDseCode(goal, target, body) + "}";
 		boolean ret = ns.eval(evalText);
 		//TODO:evalate context correctly
 		//DCaseContext.Pop();
