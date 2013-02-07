@@ -63,6 +63,19 @@ void SetName(String hash, String funcname) {
 	global._names.setString(hash, funcname);
 }
 
+void AddTask(String key, String task) {
+	if(global._tasks.hasKey(key)) {
+		global._tasks.setString(key, global._tasks.getString(key) + "," + task);
+	}
+	else {
+		global._tasks.setString(key, task);
+	}
+}
+
+String[] GetTaskList(String key) {
+	return global._tasks.getString(key).split(",");
+}
+
 String String.CreateHash() {
 	MD5 md5 = new MD5();
 	md5.update(this);
@@ -483,20 +496,19 @@ Node TypeStrategy(Node node, NameSpace ns, Object o) {
 	Node argumentFuncNode = node.TypeCheckNode("func", boolean, 0);
 	int size = node.GetText("size").toint();
 	int i = 0;
-	Node[] funcNodes = []
+	String[] funcNames = [];
 	while(i < size) {
 		String key = "f" + i;
 		node.TypeCheckNode(key, boolean, 0);
-		String funcName = node.GetNode(key).GetText("goal");
-		funcNodes.add(node.newMethodNode(NameSpace, funcName, classNode));
+		funcNames.add(node.GetNode(key).GetText("goal"));
 		i = i + 1;
 	}
 	Node newNode = new Node(ns);
 	String rule = node.GetText("rule");
 	if(rule == "pre") {
 		i = 0;
-		while(i < funcNodes.getlength()) {
-			newNode.AddNode(funcNodes[i]);
+		while(i < funcNames.getlength()) {
+			newNode.AddNode(node.newMethodNode(NameSpace, funcNames[i], classNode));
 			i = i + 1;
 		}
 		if(!IsArgumentCompiled()) {
@@ -510,12 +522,17 @@ Node TypeStrategy(Node node, NameSpace ns, Object o) {
 			SetArgumentCompiled();
 		}
 		i = 0;
-		while(i < funcNodes.getlength()) {
-			newNode.AddNode(funcNodes[i]);
+		while(i < funcNames.getlength()) {
+			newNode.AddNode(node.newMethodNode(NameSpace, funcNames[i], classNode));
 			i = i + 1;
 		}
 	}
 	else if(rule == "concurrent") {
+		i = 0;
+		while(i < funcNames.getlength()) {
+			System.p(funcNames[i]);
+			i = i + 1;
+		}
 		return node.Message(ErrTag, "TODO");
 	}
 	newNode.SetType(KNode_Block);
