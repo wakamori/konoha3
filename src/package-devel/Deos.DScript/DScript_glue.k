@@ -202,12 +202,10 @@ class DCaseContext {
 	int i = 0;
 	TaskData[] tlist = GetTaskList(goal);
 	while(i < tlist.getlength()) {
-		String[] hosts = target.split(",");
+		String[] hosts = DCaseContext.Get(target).split(",");
 		int j = 0;
 		while(j < hosts.getlength()) {
 			String[] host_port = hosts[i].split(":");
-			host_port[0];
-			host_port[1];
 			Dse dse = new Dse(host_port[0], host_port[1].toint());
 			dse.appendDTask(DTask.CreateFromText("Import(\"Syntax.ShellStyle\");" + tlist[i].body));
 			group.appendDse(dse);
