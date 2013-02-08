@@ -48,6 +48,16 @@ CheckDControlIsRunning();
 // --------------------------------------------------------------------------
 // [global variables]
 
+class TaskData {
+	String target;
+	String body;
+
+	TaskData(String t, String b) {
+		this.target = t;
+		this.body = b;
+	}
+}
+
 Json _names = new Json();
 Json _tasks = new Json();
 API repository = new API("dcasedb", "dcasedb"); // TODO
@@ -64,20 +74,28 @@ void SetName(String hash, String funcname) {
 	global._names.setString(hash, funcname);
 }
 
-void AddTask(String key, String task) {
+void AddTask(String key, String target, String task) {
 	if(global._tasks.hasKey(key)) {
-		global._tasks.setString(key, global._tasks.getString(key) + "," + task);
+		global._tasks.setString(key, global._tasks.getString(key) + "," + target + ":" + task);
 	}
 	else {
-		global._tasks.setString(key, task);
+		global._tasks.setString(key, target + ":" + task);
 	}
 }
 
-String[] GetTaskList(String key) {
+TaskData[] GetTaskList(String key) {
 	if(global._tasks.getString(key) == "") {
 		return [];
 	}
-	return global._tasks.getString(key).split(",");
+	String[] data = global._tasks.getString(key).split(",");
+	int i = 0;
+	TaskData[] tdata = [];
+	while(i < data.getlength()) {
+		String[] t_b = data[i].split(":");
+		tdata.add(new TaskData(t_b[0], t_b[1]));
+		i = i + 1;
+	}
+	return tdata;
 }
 
 String String.CreateHash() {
@@ -156,17 +174,6 @@ String CreateDseCode(String goal, String target, String body) {
 	return ret;
 }
 
-@Public void AppendAdditionalTasks(String goal, DseGroup group) {
-	int i = 0;
-	String[] tlist = GetTaskList(goal);
-	while(i < tlist.getlength()) {
-		group.appendDTask(DTask.CreateFromText("Import(\"Syntax.ShellStyle\");" + tlist[i]));
-		i = i + 1;
-	}
-}
-
-CompileAllDefinedMethod();
-
 // --------------------------------------------------------------------------
 // [class definitions]
 
@@ -190,6 +197,27 @@ class DCaseContext {
 		return global._context.pop();
 	}
 }
+
+@Public void AppendAdditionalTasks(String goal, DseGroup group) {
+	int i = 0;
+	TaskData[] tlist = GetTaskList(goal);
+	while(i < tlist.getlength()) {
+		String[] hosts = target.split(",");
+		int j = 0;
+		while(j < hosts.getlength()) {
+			String[] host_port = hosts[i].split(":");
+			host_port[0];
+			host_port[1];
+			Dse dse = new Dse(host_port[0], host_port[1].toint());
+			dse.appendDTask(DTask.CreateFromText("Import(\"Syntax.ShellStyle\");" + tlist[i].body));
+			group.appendDse(dse);
+			j = j + 1;
+		}
+		i = i + 1;
+	}
+}
+
+CompileAllDefinedMethod();
 
 class DCaseAssurance {
 	@Static boolean TypeCheck(String goal) {
@@ -556,7 +584,7 @@ Node TypeStrategy(Node node, NameSpace ns, Object o) {
 		}
 		i = 0;
 		while(i < funcNames.getlength()) {
-			AddTask(GetCurrentArgument(), node.GetNode("f" + i).GetText("body").replace("\t", ""));
+			AddTask(GetCurrentArgument(), node.GetNode("f" + i).GetText("target"), node.GetNode("f" + i).GetText("body").replace("\t", ""));
 			i = i + 1;
 		}
 		//return node.Message(ErrTag, "TODO");
