@@ -972,7 +972,11 @@ class API {
 
 	@Public DBNode CreateDBNode(Json content) {
 		String NodeType = content.getString("type");
-		return this.db.CreateDBNode(NodeType,content);
+		DBNode node = this.db.CreateDBNode(NodeType,content);
+		if(NodeType == "Context" && content.hasKey("properties")) {
+			this.db.AddContext(node.node_id,content.get("properties"));
+		}
+		return node;
 	}
 
 	@Public void InsertLink(int id, DBNode parent, DBNode child) {
