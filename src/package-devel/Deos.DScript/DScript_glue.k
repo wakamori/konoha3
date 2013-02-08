@@ -62,7 +62,7 @@ Json _names = new Json();
 Json _tasks = new Json();
 API repository = new API("dcasedb", "dcasedb"); // TODO
 Json[] _context = [];
-String[] _target = ["DSE"];
+String[] _target = [];
 boolean[] _compiled = [];
 String[] _argument = [];
 
@@ -109,7 +109,7 @@ boolean DefinedContext(String hash) {
 }
 
 String GetTarget() {
-	return global._target[global._target.getlength() - 1];
+	return global._target[0];
 }
 
 void PushTarget(String target) {
@@ -117,7 +117,7 @@ void PushTarget(String target) {
 }
 
 String PopTarget() {
-	return global._target.pop();
+	return global._target.removeAt(0);
 }
 
 boolean IsArgumentCompiled() {
@@ -202,7 +202,7 @@ class DCaseContext {
 	int i = 0;
 	TaskData[] tlist = GetTaskList(goal);
 	while(i < tlist.getlength()) {
-		String[] hosts = DCaseContext.Get(target).split(",");
+		String[] hosts = DCaseContext.Get(tlist[i].target).split(",");
 		int j = 0;
 		while(j < hosts.getlength()) {
 			String[] host_port = hosts[i].split(":");
@@ -337,13 +337,12 @@ boolean IsAnnotation(String source) {
 	return false;
 }
 
-boolean IsAssurePrefix(String source) {
+String GetAssurePrefix(String source) {
 	String[] tokens = source.split(" ");
 	if(tokens.getlength() > 1 && tokens[1] == "assure") {
-		PushTarget(tokens[0].substring(1));
-		return true;
+		return tokens[0].substring(1);
 	}
-	return false;
+	return "";
 }
 
 boolean IsStrategyRule(String text) {
@@ -367,10 +366,17 @@ int GetLastIndex(String source) {
 
 int TokenizeAt(Token tk, String source) {
 	int pos = 1;
+	//System.p(source);
 	if(IsAnnotation(source)) {
 		return -1;
 	}
-	if(IsAssurePrefix(source)) {
+	String prefix = GetAssurePrefix(source);
+	if(prefix != "") {
+		RegExp r1 = new RegExp("{", "g");
+		RegExp r2 = new RegExp("}", "g");
+		if(r1.exec(source).getlength() == 1 && r2.exec(source).getlength() == 1) {
+			PushTarget(prefix);
+		}
 		return 6;
 	}
 	if(source.indexOf("{") == 1) {
@@ -444,7 +450,6 @@ int ParseAssure(Node node, Symbol sym, Token[] tokenList, int beginIdx, int oper
 	String nodeText = GetJoinedString(tokenList, beginIdx + 1, endIdx - 1);
 	Token block = NewBlockWithReturnValue(node, tokenList[endIdx - 1]);
 	String funcName = nodeText.CreateHash();
-	node.AddParsedObject("target", node.PreprocessText(GetTarget()));
 	node.AddParsedObject("goal", node.PreprocessText(funcName));
 	node.AddParsedObject("body", block);
 	return endIdx;
@@ -454,12 +459,11 @@ Node TypeAssure(Node node, NameSpace ns, Object o) {
 	String goal = node.GetText("goal");
 	String body = node.GetText("body");
 	if(DCaseAssurance.TypeCheck(GetName(goal))) {
+		node.AddParsedObject("target", node.PreprocessText(GetTarget()));
 		String target = DCaseContext.Get(node.GetText("target"));
 		if(target == "") {
 			return node.Message(ErrTag, "Undefined Context '" + target + "'.");
 		}
-		//DseGroup group = CreateDseGroup(target);
-		//System.p(group);
 		String evalText = "@Public boolean " + goal + "() {";
 		evalText = evalText + CreateDseCode(goal, target, body) + "}";
 		boolean ret = ns.eval(evalText);
@@ -582,10 +586,10 @@ Node TypeStrategy(Node node, NameSpace ns, Object o) {
 		}
 		i = 0;
 		while(i < funcNames.getlength()) {
-			AddTask(GetCurrentArgument(), node.GetNode("f" + i).GetText("target"), node.GetNode("f" + i).GetText("body").replace("\t", ""));
+			Node fnode = node.GetNode("f" + i);
+			AddTask(GetCurrentArgument(), fnode.GetText("target"), fnode.GetText("body").replace("\t", ""));
 			i = i + 1;
 		}
-		//return node.Message(ErrTag, "TODO");
 	}
 	newNode.SetType(KNode_Block);
 	return newNode;
