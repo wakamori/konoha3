@@ -157,12 +157,10 @@ String CreateDseCode(String goal, String target, String body) {
 }
 
 @Public void AppendAdditionalTasks(String goal, DseGroup group) {
-	System.p(goal);
 	int i = 0;
 	String[] tlist = GetTaskList(goal);
 	while(i < tlist.getlength()) {
-		System.p(tlist[i]);
-		group.appendDTask(DTask.CreateFromText(""));
+		group.appendDTask(DTask.CreateFromText("Import(\"Syntax.ShellStyle\");" + tlist[i]));
 		i = i + 1;
 	}
 }
@@ -558,8 +556,7 @@ Node TypeStrategy(Node node, NameSpace ns, Object o) {
 		}
 		i = 0;
 		while(i < funcNames.getlength()) {
-			System.p(funcNames[i]);
-			AddTask(GetCurrentArgument(), funcNames[i]);
+			AddTask(GetCurrentArgument(), node.GetNode("f" + i).GetText("body").replace("\t", ""));
 			i = i + 1;
 		}
 		//return node.Message(ErrTag, "TODO");
