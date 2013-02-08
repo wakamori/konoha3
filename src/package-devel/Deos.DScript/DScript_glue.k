@@ -51,9 +51,10 @@ CheckDControlIsRunning();
 Json _names = new Json();
 Json _tasks = new Json();
 API repository = new API("dcasedb", "dcasedb"); // TODO
-Json[] _gcontext = [];
+Json[] _context = [];
 String[] _target = ["DSE"];
 boolean[] _compiled = [];
+String[] _argument = [];
 
 String GetName(String hash) {
 	return global._names.getString(hash);
@@ -73,6 +74,9 @@ void AddTask(String key, String task) {
 }
 
 String[] GetTaskList(String key) {
+	if(global._tasks.getString(key) == "") {
+		return [];
+	}
 	return global._tasks.getString(key).split(",");
 }
 
@@ -114,6 +118,18 @@ boolean PopArgumentCompiled() {
 	return global._compiled.pop();
 }
 
+String GetCurrentArgument() {
+	return global._argument[global._argument.getlength() - 1];
+}
+
+void PushCurrentArgument(String name) {
+	global._argument.add(name);
+}
+
+String PopCurrentArgument() {
+	return global._argument.pop();
+}
+
 String EscapeBody(String body) {
 	return body.replace("\n", "\\n").replace("\"", "\\\"").replace("\t", "");
 }
@@ -142,6 +158,13 @@ String CreateDseCode(String goal, String target, String body) {
 
 @Public void AppendAdditionalTasks(String goal, DseGroup group) {
 	System.p(goal);
+	int i = 0;
+	String[] tlist = GetTaskList(goal);
+	while(i < tlist.getlength()) {
+		System.p(tlist[i]);
+		group.appendDTask(DTask.CreateFromText(""));
+		i = i + 1;
+	}
 }
 
 CompileAllDefinedMethod();
@@ -152,9 +175,9 @@ CompileAllDefinedMethod();
 class DCaseContext {
 	@Static String Get(String key) {
 		//System.p("Get Context '" + key + "'");
-		int i = global._gcontext.getlength() - 1;
+		int i = global._context.getlength() - 1;
 		while(i >= 0) {
-			String val = global._gcontext[i].getString(key);
+			String val = global._context[i].getString(key);
 			if(val != "") {
 				return val;
 			}
@@ -163,10 +186,10 @@ class DCaseContext {
 		return "";
 	}
 	@Static void Push(Json context) {
-		global._gcontext.add(context);
+		global._context.add(context);
 	}
 	@Static Json Pop() {
-		return global._gcontext.pop();
+		return global._context.pop();
 	}
 }
 
@@ -452,6 +475,7 @@ Node TypeArgue(Node node, NameSpace ns, Object o) {
 	String body = node.GetText("body");
 	String context = node.GetText("context");
 	if(DArgument.TypeCheck("D-Script must work", GetName(context))) {
+		PushCurrentArgument(context);
 		String funcName = context.CreateHash();
 		SetName(funcName, GetName(context));
 		String evalText = "@Public boolean " + funcName + "(Func[boolean] dscript) {";
@@ -528,12 +552,17 @@ Node TypeStrategy(Node node, NameSpace ns, Object o) {
 		}
 	}
 	else if(rule == "concurrent") {
+		if(!IsArgumentCompiled()) {
+			newNode.AddNode(argumentFuncNode);
+			SetArgumentCompiled();
+		}
 		i = 0;
 		while(i < funcNames.getlength()) {
 			System.p(funcNames[i]);
+			AddTask(GetCurrentArgument(), funcNames[i]);
 			i = i + 1;
 		}
-		return node.Message(ErrTag, "TODO");
+		//return node.Message(ErrTag, "TODO");
 	}
 	newNode.SetType(KNode_Block);
 	return newNode;
