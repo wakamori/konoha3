@@ -38,12 +38,12 @@ extern "C" {
 #define K_CLASSTABLE_INITSIZE 64
 #define K_PAGESIZE        4096
 
-#define K_VERSION   "0.3"
-#define K_MAJOR_VERSION 0
-#define K_MINOR_VERSION 3
+#define K_VERSION   "3.0"
+#define K_MAJOR_VERSION 3
+#define K_MINOR_VERSION 0
 #define K_PATCH_LEVEL   0
 
-#include <konoha/stardate.h>
+#include <konoha3/stardate.h>
 #define K_DATE      ((K_YEAR - 2006) * (12 * 24 * 32) + (K_MONTH * (24 * 32) + ((K_DAY * 24) + K_HOUR)))
 
 #ifndef K_REVISION
@@ -94,7 +94,7 @@ extern "C" {
 #ifdef HAVE_STDBOOL_H
 #include <stdbool.h>
 #else
-#include <konoha/stdbool.h>
+#include <konoha3/stdbool.h>
 #endif
 #include <stdint.h>
 #endif
