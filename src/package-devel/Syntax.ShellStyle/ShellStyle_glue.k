@@ -260,12 +260,29 @@ Node TypeShell(Node node, NameSpace ns, Object o) {
 int ParseShell(Node node, Symbol sym, Token[] tokenList, int beginIdx, int operatorIdx, int endIdx) {
 	Token firstToken = tokenList[beginIdx];
 	boolean ignoreErrorStatus = false;
+	boolean isSymbol = false;
 	if(firstToken.Is("!")) {
 		ignoreErrorStatus = true;
 		firstToken = tokenList[beginIdx + 1];
 		beginIdx = beginIdx + 1;
 	}
-	if(firstToken.Is("$Symbol") && SubProc.isCommand(firstToken.getParsedText())) {
+	else if(firstToken.getParsedText() == "/") {
+		int i = beginIdx + 1;
+		String cmd = "/";
+		while(i < endIdx) {
+			Token currentToken = tokenList[i];
+			cmd = cmd + currentToken.getParsedText();
+			if(currentToken.isBeforeWhiteSpace()) {
+				beginIdx = i;
+				currentToken.setParsedText("$Symbol", cmd, 0, cmd.getlength());
+				firstToken = currentToken;
+				break;
+			}
+			i = i + 1;
+		}
+		isSymbol = true;
+	}
+	if((isSymbol || firstToken.Is("$Symbol")) && SubProc.isCommand(firstToken.getParsedText())) {
 		int i = beginIdx + 1;
 		while(i < endIdx) {
 			if(tokenList[i].Is("()")) {
