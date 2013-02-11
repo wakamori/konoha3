@@ -266,7 +266,7 @@ int ParseShell(Node node, Symbol sym, Token[] tokenList, int beginIdx, int opera
 		firstToken = tokenList[beginIdx + 1];
 		beginIdx = beginIdx + 1;
 	}
-	else if(firstToken.getParsedText() == "/") {
+	if(firstToken.getParsedText() == "/") {
 		int i = beginIdx + 1;
 		String cmd = "/";
 		while(i < endIdx) {
