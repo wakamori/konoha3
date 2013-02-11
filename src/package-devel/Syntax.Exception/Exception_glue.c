@@ -96,13 +96,14 @@ static void Kthrow(KonohaContext *kctx, KonohaStack *sfp, kException *e)
 			p--;
 		}
 	}
+	((KonohaFactory *)kctx->platApi)->exitStatus = 1;  // just in case
 	KLIB KRuntime_raise(kctx, e->symbol, SoftwareFault, NULL, sfp);
 }
 
 /* ------------------------------------------------------------------------ */
 
 //## void System.throw(Object e);
-static KMETHOD System_throw(KonohaContext *kctx, KonohaStack *sfp)
+static KMETHOD NameSpace_throw(KonohaContext *kctx, KonohaStack *sfp)
 {
 	KUnsafeFieldSet(kctx->stack->ThrownException, sfp[1].asException);
 	Kthrow(kctx, sfp, sfp[1].asException);
@@ -115,9 +116,13 @@ static KMETHOD System_getThrownException(KonohaContext *kctx, KonohaStack *sfp)
 	//KReturn(ctx->thrownException);
 }
 
+//## Exception Exception.new(String msg);
 static KMETHOD Exception_new(KonohaContext *kctx, KonohaStack *sfp)
 {
-	KReturn(sfp[0].asObject);
+	kException *e = sfp[0].asException;
+	e->symbol = KException_("RuntimeScript");
+	KFieldInit(e, e->Message, sfp[1].asString);
+	KReturn(e);
 }
 
 ///* ------------------------------------------------------------------------ */
@@ -220,7 +225,8 @@ static kbool_t Exception_PackupNameSpace(KonohaContext *kctx, kNameSpace *ns, in
 {
 
 	KDEFINE_METHOD MethodData[] = {
-		_Public, _F(Exception_new), KType_Exception,  KType_Exception, KMethodName_("new"), 0, _Public|_Hidden, _F(System_throw), KType_void,  KType_System, KMethodName_("throw"), 1, KType_Exception, KFieldName_("e"),
+		_Public, _F(Exception_new), KType_Exception,  KType_Exception, MN_new, 1, KType_String, KFieldName_("msg"),
+		_Public|_Hidden, _F(NameSpace_throw), KType_void,  KType_NameSpace, KMethodName_("throw"), 1, KType_Exception, KFieldName_("e"),
 		_Public|_Hidden, _F(System_getThrownException), KType_Exception, KType_System, KMethodName_("getThrownException"), 0,
 		DEND,
 	};
@@ -233,6 +239,12 @@ static kbool_t Exception_PackupNameSpace(KonohaContext *kctx, kNameSpace *ns, in
 		{ KSymbol_END, },
 	};
 	SUGAR kNameSpace_DefineSyntax(kctx, ns, SYNTAX, trace);
+
+	KDEFINE_INT_CONST ClassData[] = {   // konoha defined class
+		{"Exception", VirtualType_KClass,  (uintptr_t)KClass_Exception},
+		{NULL},
+	};
+	KLIB kNameSpace_LoadConstData(kctx, KNULL(NameSpace), KConst_(ClassData), 0);
 
 	SUGAR kSyntax_AddPattern(kctx, kSyntax_(ns, KSymbol_("try")), "\"try\" $Node [ \"catch\" \"(\" $Type $Symbol \")\" catch: $Node ] [ \"finally\" finally: $Node ]", 0, trace);
 	SUGAR kSyntax_AddPattern(kctx, kSyntax_(ns, KSymbol_("catch")), "\"catch\" \"(\" $Type $Symbol \")\" $Node", 0, trace);
