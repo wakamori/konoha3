@@ -15,6 +15,7 @@ Import("dscript.subproc");
 Import("MiniKonoha.Syntax"); // for debug
 
 Load("utils.k");
+Load("ShowTree_Assure.k");
 
 API repo = new API("dcasedb", "dcasedb");
 
