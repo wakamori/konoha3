@@ -162,7 +162,7 @@ String CreateDseCode(String goal, String target, String body) {
 		i = i + 1;
 	}
 	ret = ret + "group.appendDTask(DTask.CreateFromText(\"";
-	ret = ret + "Import(\\\"Syntax.ShellStyle\\\");";
+	ret = ret + "Import(\\\"Syntax.ShellStyle\\\");\\n";
 	ret = ret + EscapeBody(body);
 	ret = ret + "\"));\n";
 	ret = ret + "AppendAdditionalTasks(\"" + goal + "\", group);\n";

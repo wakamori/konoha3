@@ -259,23 +259,12 @@ static void kSubProc_execOnChild(KonohaContext *kctx, kSubProc *sbp, KTraceInfo 
 	}
 }
 
-static void catch_sigchld(int sig)
-{
-	int retval = 1;
-	int status;
-
-	while(retval > 0) {
-		retval = waitpid(-1, &status, WNOHANG);
-	}
-}
-
 static kbool_t ignoreSigchld(KonohaContext *kctx, KTraceInfo *trace)
 {
 	/* Ignore SIGCHLD signale to prevent zombie process. */
 	struct sigaction sa;
-	//sa.sa_handler = SIG_IGN;
-	//sa.sa_flags = SA_NOCLDWAIT;
-	sa.sa_handler = catch_sigchld;
+	sa.sa_handler = SIG_IGN;
+	sa.sa_flags = SA_NOCLDWAIT;
 	if(sigaction(SIGCHLD, &sa, NULL) == -1) {
 		KTraceApi(trace, SystemFault, "sigaction", LogErrno);
 		return false;
@@ -348,8 +337,7 @@ static int kSubProc_exec(KonohaContext *kctx, kSubProc *sbp, KTraceInfo *trace)
 			//if(fork()) {
 			//	exit(0);
 			//}
-			// TODO: if ignoreSigchld is disabled zombie process may created
-			//ignoreSigchld(kctx, trace);
+			ignoreSigchld(kctx, trace);
 		}
 //		if(!IS_NULL(sp->cwd)) { // TODO!!
 //			if(chdir(kString_text((sp->cwd))) != 0) {
