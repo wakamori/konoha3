@@ -173,6 +173,7 @@ String getPipeString(String prevname, String varname, String[] args, int startin
 		}
 	}
 	if(!ignoreErrorStatus) {
+		//ret = ret + "if(" + varname + ".getStatus() != 0) { exit(" + varname + ".getStatus()); }\n";
 		ret = ret + "assert(" + varname + ".getStatus() == 0);\n";
 	}
 	ret = ret + "global.lastExitStatus = " + varname + ".getStatus();\n";
