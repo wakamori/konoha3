@@ -294,6 +294,12 @@ static KMETHOD NameSpace_assert(KonohaContext *kctx, KonohaStack *sfp)
 	}
 }
 
+//## @Const @Static void NameSpace.exit(int status);
+static KMETHOD NameSpace_exit(KonohaContext *kctx, KonohaStack *sfp)
+{
+	exit(sfp[1].intValue);
+}
+
 // void NameSpace_AllowImplicitCoercion(boolean t)
 static KMETHOD NameSpace_AllowImplicitCoercion(KonohaContext *kctx, KonohaStack *sfp)
 {
@@ -354,6 +360,7 @@ static void LoadDefaultMethod(KonohaContext *kctx, kNameSpace *ns)
 		_Public|_Const|_Hidden, _F(Func_new), KType_Func, KType_Func, MN_new, 2, KType_Object, FN_x, KType_Method, FN_x,
 		_Public|kMethod_SmartReturn|_Hidden, _F(Func_invoke), KType_Object, KType_Func, KMethodName_("Invoke"), 0,
 		_Static|_Public|_Im, _F(NameSpace_assert), KType_void, KType_NameSpace, KMethodName_("Assert"), 1, KType_Boolean, FN_x,
+		_Static|_Public|_Im, _F(NameSpace_exit), KType_void, KType_NameSpace, KMethodName_("Exit"), 1, KType_int, FN_x,
 		_Public|_Const, _F(NameSpace_AllowImplicitCoercion), KType_void, KType_NameSpace, KMethodName_("AllowImplicitCoercion"), 1, KType_Boolean, KFieldName_("allow"),
 		_Static|_Public|_Im, _F(System_p), KType_void, KType_System, KMethodName_("p"), 1, KType_String | KTypeAttr_Coercion, KFieldName_("s"),
 		_Static|_Public|_Im, _F(System_gc), KType_void, KType_System, KMethodName_("gc"), 0,
