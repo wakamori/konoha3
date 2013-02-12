@@ -279,6 +279,9 @@ int ParseShell(Node node, Symbol sym, Token[] tokenList, int beginIdx, int opera
 				firstToken = currentToken;
 				break;
 			}
+			else if(tk.Is("$Member")) {
+				cmd = cmd + ".";
+			}
 			i = i + 1;
 		}
 		isSymbol = true;
