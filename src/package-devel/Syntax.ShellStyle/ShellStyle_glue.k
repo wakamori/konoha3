@@ -311,6 +311,7 @@ int ParseShell(Node node, Symbol sym, Token[] tokenList, int beginIdx, int opera
 				stdout.print(args[j] + " ");
 				j = j + 1;
 			}
+			stdout.println("");
 		}
 		Token[] subprocTokens = node.getNameSpace().Preprocess(generateSubProcSequence(args, true, ignoreErrorStatus));
 		Node sequence = node.ParseNewNode(subprocTokens, 0, subprocTokens.getlength(), false);
@@ -379,6 +380,7 @@ int ParseDollarVariable(Node node, Symbol sym, Token[] tokenList, int beginIdx, 
 				stdout.print(args[j] + " ");
 				j = j + 1;
 			}
+			stdout.println("");
 		}
 		Token[] tokens = ns.Preprocess(generateSubProcSequence(args, false, ignoreErrorStatus));
 		Node sequence = node.ParseNewNode(tokens, 0, tokens.getlength(), false);
