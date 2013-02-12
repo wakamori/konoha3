@@ -168,6 +168,7 @@ String CreateDseCode(String goal, String target, String body) {
 	ret = ret + "AppendAdditionalTasks(\"" + goal + "\", group);\n";
 	ret = ret + "Json[] result = group.dispatchDTasks();\n";
 	ret = ret + "if(result.get(0).getString(\"stdout\").startsWith(\" - (error) \")) { return false; }\n";
+	ret = ret + "if(result.get(0).getString(\"stdout\").indexOf(\"Exception\") >= 0) { System.p(result.get(0).getString(\"stdout\"));\nreturn false; }\n";
 	ret = ret + "return (result.get(0).getInt(\"code\") == 0);\n";
 	if(defined(DEBUG)) {
 		System.p(ret);
