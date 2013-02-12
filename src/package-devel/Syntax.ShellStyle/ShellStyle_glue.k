@@ -304,6 +304,14 @@ int ParseShell(Node node, Symbol sym, Token[] tokenList, int beginIdx, int opera
 		if(!SubProc.isCommand(args[0])) {
 			return -1;
 		}
+		if(defined(OUTPUT_CMD)) {
+			int j = 0;
+			stdout.print("execute command: ");
+			while(j < args.getlength()) {
+				stdout.print(args[j] + " ");
+				j = j + 1;
+			}
+		}
 		Token[] subprocTokens = node.getNameSpace().Preprocess(generateSubProcSequence(args, true, ignoreErrorStatus));
 		Node sequence = node.ParseNewNode(subprocTokens, 0, subprocTokens.getlength(), false);
 		node.AddParsedObject("$SubprocSequence", sequence);
@@ -363,6 +371,14 @@ int ParseDollarVariable(Node node, Symbol sym, Token[] tokenList, int beginIdx, 
 		}
 		if(!SubProc.isCommand(args[0])) {
 			return -1;
+		}
+		if(defined(OUTPUT_CMD)) {
+			int j = 0;
+			stdout.print("execute command: ");
+			while(j < args.getlength()) {
+				stdout.print(args[j] + " ");
+				j = j + 1;
+			}
 		}
 		Token[] tokens = ns.Preprocess(generateSubProcSequence(args, false, ignoreErrorStatus));
 		Node sequence = node.ParseNewNode(tokens, 0, tokens.getlength(), false);
