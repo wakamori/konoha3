@@ -283,6 +283,9 @@ int ParseShell(Node node, Symbol sym, Token[] tokenList, int beginIdx, int opera
 		}
 		isSymbol = true;
 	}
+	if(defined(DEBUG)) {
+		System.p(firstToken);
+	}
 	if((isSymbol || firstToken.Is("$Symbol")) && SubProc.isCommand(firstToken.getParsedText())) {
 		int i = beginIdx + 1;
 		while(i < endIdx) {
