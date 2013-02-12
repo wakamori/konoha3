@@ -292,6 +292,9 @@ int ParseShell(Node node, Symbol sym, Token[] tokenList, int beginIdx, int opera
 			i = i + 1;
 		}
 		String[] args = concatTokenList(tokenList.slice(beginIdx, i));
+		if(defined(DEBUG)) {
+			System.p(args);
+		}
 		if(!SubProc.isCommand(args[0])) {
 			return -1;
 		}
