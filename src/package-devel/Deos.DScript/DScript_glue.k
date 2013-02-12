@@ -373,12 +373,13 @@ int TokenizeAt(Token tk, String source) {
 	}
 	String prefix = GetAssurePrefix(source);
 	if(prefix != "") {
-		RegExp r1 = new RegExp("{", "g");
-		RegExp r2 = new RegExp("}", "g");
-		if(r1.exec(source).getlength() == 1 && r2.exec(source).getlength() == 1) {
+		RegExp r1 = new RegExp("^@.*{\n", "g");
+		RegExp r2 = new RegExp("{", "g");
+		RegExp r3 = new RegExp("}", "g");
+		if(r1.exec(source).getlength() == 1 && r2.exec(source).getlength() == r3.exec(source).getlength()) {
 			PushTarget(prefix);
 		}
-		return 6;
+		return prefix.getlength() + 1;
 	}
 	if(source.indexOf("{") == 1) {
 		pos = source.indexOf("}");
