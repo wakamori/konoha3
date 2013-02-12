@@ -272,15 +272,15 @@ int ParseShell(Node node, Symbol sym, Token[] tokenList, int beginIdx, int opera
 		String cmd = "/";
 		while(i < endIdx) {
 			Token currentToken = tokenList[i];
+			if(currentToken.Is("$Member")) {
+				cmd = cmd + ".";
+			}
 			cmd = cmd + currentToken.getParsedText();
 			if(currentToken.isBeforeWhiteSpace()) {
 				beginIdx = i;
 				currentToken.setParsedText("$Symbol", cmd, 0, cmd.getlength());
 				firstToken = currentToken;
 				break;
-			}
-			else if(currentToken.Is("$Member")) {
-				cmd = cmd + ".";
 			}
 			i = i + 1;
 		}
