@@ -2508,8 +2508,8 @@ static KMETHOD kMethod_SetFunction(KonohaContext *kctx, KonohaStack *sfp)
 {
 	kMethod *mtd = (kMethod *) sfp[0].asObject;
 	kObject *po = sfp[1].asObject;
-	union anyptr { void *p; KMethodFunc f;} ptr;
-	ptr.p = konoha::object_cast<void*>(po);
+	union anyptr { void *ptr; KMethodFunc f;} ptr;
+	ptr.ptr = konoha::object_cast<void*>(po);
 	KLIB kMethod_SetFunc(kctx, mtd, ptr.f);
 	KReturnVoid();
 }
@@ -4647,11 +4647,6 @@ static kbool_t llvm_PackupNameSpace(KonohaContext *kctx, kNameSpace *ns, int arg
 		unbox,\
 		compareTo,\
 		compareUnboxValue,\
-		hasField,\
-		getFieldObjectValue,\
-		setFieldObjectValue,\
-		getFieldUnboxValue,\
-		setFieldUnboxValue,\
 		initdef,\
 		isSubType,\
 		realtype) {\
@@ -4671,11 +4666,6 @@ static kbool_t llvm_PackupNameSpace(KonohaContext *kctx, kNameSpace *ns, int arg
 		unbox,\
 		compareTo,\
 		compareUnboxValue,\
-		hasField,\
-		getFieldObjectValue,\
-		setFieldObjectValue,\
-		getFieldUnboxValue,\
-		setFieldUnboxValue,\
 		initdef,\
 		isSubType,\
 		realtype}
@@ -4696,11 +4686,6 @@ static kbool_t llvm_PackupNameSpace(KonohaContext *kctx, kNameSpace *ns, int arg
 		0/*unbox*/,\
 		FN_COMPARE/*compareTo*/,\
 		0/*compareUnboxValue*/,\
-		0/*hasField*/,\
-		0/*getFieldObjectValue*/,\
-		0/*setFieldObjectValue*/,\
-		0/*getFieldUnboxValue*/,\
-		0/*setFieldUnboxValue*/,\
 		0/*initdef*/,\
 		0/*isSubType*/,\
 		0/*realtype*/)
