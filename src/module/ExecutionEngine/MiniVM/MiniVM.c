@@ -23,10 +23,13 @@
  ***************************************************************************/
 
 #define USE_DIRECT_THREADED_CODE
+#define USE_EXECUTIONENGINE
 
 #include <konoha3/konoha.h>
 #include <konoha3/klib.h>
 #include <konoha3/sugar.h>
+#include <konoha3/arch/minivm.h>
+#include <konoha3/import/module.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -57,13 +60,11 @@ extern "C" {
 	MACRO(SAFEPOINT)\
 	MACRO(CHKSTACK)\
 
-#include <konoha3/arch/minivm.h>
-
 #define OPCODE(T)  OPCODE_##T,
-typedef enum {
+typedef enum MiniVMOpCode {
 	OPDEFINE(OPCODE)
 	OPCODE_MAX,
-} MiniVM;
+} MiniVMOpCode;
 
 /* ------------------------------------------------------------------------ */
 /* [data] */
@@ -173,7 +174,7 @@ static void kNameSpace_LookupMethodWithInlineCache(KonohaContext *kctx, KonohaSt
 	sfp[K_MTDIDX].calledMethod = mtd;
 }
 
-static KVirtualCode* KonohaVirtualMachine_Run(KonohaContext *, KonohaStack *, KVirtualCode *);
+static KVirtualCode *KonohaVirtualMachine_Run(KonohaContext *, KonohaStack *, KVirtualCode *);
 
 static KVirtualCode *KonohaVirtualMachine_tryJump(KonohaContext *kctx, KonohaStack *sfp, KVirtualCode *pc)
 {
@@ -229,7 +230,7 @@ static KVirtualCode *KonohaVirtualMachine_tryJump(KonohaContext *kctx, KonohaSta
 
 #endif/*USE_DIRECT_THREADED_CODE*/
 
-static struct KVirtualCode* KonohaVirtualMachine_Run(KonohaContext *kctx, KonohaStack *sfp0, struct KVirtualCode *pc)
+static struct KVirtualCode *KonohaVirtualMachine_Run(KonohaContext *kctx, KonohaStack *sfp0, struct KVirtualCode *pc)
 {
 #ifdef USE_DIRECT_THREADED_CODE
 	static void *OPJUMP[] = {
@@ -251,17 +252,15 @@ typedef intptr_t bblock_t;
 struct KBuilder {   /* MiniVM Builder */
 	struct KBuilderCommon common;
 	// minivm local setting
-	kArray          *constPools;
-	bblock_t              bbBeginId;
-	bblock_t              bbMainId;
-	bblock_t              bbReturnId;
+	kArray    *constPools;
+	bblock_t   bbBeginId;
+	bblock_t   bbMainId;
+	bblock_t   bbReturnId;
 };
 
 /* ------------------------------------------------------------------------ */
 
-typedef struct BasicBlock BasicBlock;
-
-struct BasicBlock {
+typedef struct BasicBlock {
 	long     incoming;
 	bblock_t newid;
 	bblock_t nextid;
@@ -270,7 +269,7 @@ struct BasicBlock {
 	size_t   lastoffset;
 	size_t   size;
 	size_t   max;
-};
+} BasicBlock;
 
 static BasicBlock *BasicBlock_FindById(KonohaContext *kctx, bblock_t id)
 {
@@ -290,7 +289,7 @@ static bblock_t BasicBlock_id(KonohaContext *kctx, BasicBlock *bb)
 	return ((char *)bb) - kctx->stack->cwb.bytebuf;
 }
 
-static BasicBlock* new_BasicBlock(KonohaContext *kctx, size_t max, bblock_t oldId)
+static BasicBlock *new_BasicBlock(KonohaContext *kctx, size_t max, bblock_t oldId)
 {
 	KBuffer wb;
 	KLIB KBuffer_Init(&(kctx->stack->cwb), &wb);
@@ -501,7 +500,7 @@ static bblock_t AsmJMPF(KonohaContext *kctx, KBuilder *builder, int localStack, 
 	return nextId;
 }
 
-static kObject* KBuilder_AddConstPool(KonohaContext *kctx, KBuilder *builder, kObject *o)
+static kObject *KBuilder_AddConstPool(KonohaContext *kctx, KBuilder *builder, kObject *o)
 {
 	KLIB kArray_Add(kctx, builder->constPools, o);
 	return o;
@@ -528,36 +527,6 @@ static bblock_t AsmJumpIfFalse(KonohaContext *kctx, KBuilder *builder, kNode *ex
 
 //----------------------------------------------------------------------------
 
-static kNode* Node_getFirstBlock(KonohaContext *kctx, kNode *stmt)
-{
-	return SUGAR kNode_GetNode(kctx, stmt, KSymbol_BlockPattern, K_NULLBLOCK);
-}
-
-static kNode* Node_getElseNode(KonohaContext *kctx, kNode *stmt)
-{
-	return SUGAR kNode_GetNode(kctx, stmt, KSymbol_else, K_NULLBLOCK);
-}
-
-static kNode* Node_getFirstExpr(KonohaContext *kctx, kNode *stmt)
-{
-	return SUGAR kNode_GetNode(kctx, stmt, KSymbol_ExprPattern, NULL);
-}
-
-static kNode *kNode_GetNode(KonohaContext *kctx, kNode *stmt, ksymbol_t kw)
-{
-	return (kNode *) kNode_GetObject(kctx, stmt, kw, NULL);
-}
-
-static kMethod* CallNode_getMethod(kNode *expr)
-{
-	return expr->NodeList->MethodItems[0];
-}
-
-static int CallNode_getArgCount(kNode *expr)
-{
-	return kArray_size(expr->NodeList) - 2;
-}
-
 /* Visitor */
 
 static kbool_t KBuilder_VisitDoneNode(KonohaContext *kctx, KBuilder *builder, kNode *stmt, void *thunk)
@@ -582,7 +551,6 @@ static kbool_t KBuilder_VisitConstNode(KonohaContext *kctx, KBuilder *builder, k
 
 static kbool_t KBuilder_VisitUnboxConstNode(KonohaContext *kctx, KBuilder *builder, kNode *expr, void *thunk)
 {
-	if(expr->attrTypeId == KType_void) return true;  	/*FIXME(ide) Need to skip VoidType Node */
 	kshort_t a = AssignStack(thunk);
 	ASM(NSET, NC_(a), expr->unboxConstValue, KClass_(expr->attrTypeId));
 	return true;
@@ -767,13 +735,13 @@ static kbool_t KBuilder_VisitIfNode(KonohaContext *kctx, KBuilder *builder, kNod
 	bblock_t lbELSE = new_BasicBlockLABEL(kctx);
 	bblock_t lbEND  = new_BasicBlockLABEL(kctx);
 	/* if */
-	AsmJumpIfFalse(kctx, builder, Node_getFirstExpr(kctx, stmt), &espidx, lbELSE);
+	AsmJumpIfFalse(kctx, builder, kNode_getFirstNode(kctx, stmt), &espidx, lbELSE);
 	/* then */
-	SUGAR VisitNode(kctx, builder, Node_getFirstBlock(kctx, stmt), &espidx);
+	SUGAR VisitNode(kctx, builder, kNode_getFirstBlock(kctx, stmt), &espidx);
 	ASM_JMP(kctx, builder, lbEND);
 	/* else */
 	ASM_LABEL(kctx, builder, lbELSE);
-	SUGAR VisitNode(kctx, builder, Node_getElseNode(kctx, stmt), &espidx);
+	SUGAR VisitNode(kctx, builder, kNode_getElseBlock(kctx, stmt), &espidx);
 	//ASM(NOP);
 	/* endif */
 	ASM_LABEL(kctx, builder, lbEND);
@@ -790,8 +758,8 @@ static kbool_t KBuilder_VisitWhileNode(KonohaContext *kctx, KBuilder *builder, k
 	kNode_SetLabelNode(kctx, stmt, KSymbol_("break"),    lbBREAK);
 	ASM_LABEL(kctx, builder, lbCONTINUE);
 	KBuilder_AsmSAFEPOINT(kctx, builder, kNode_uline(stmt), espidx);
-	AsmJumpIfFalse(kctx, builder, Node_getFirstExpr(kctx, stmt), &espidx, lbBREAK);
-	SUGAR VisitNode(kctx, builder, Node_getFirstBlock(kctx, stmt), &espidx);
+	AsmJumpIfFalse(kctx, builder, kNode_getFirstNode(kctx, stmt), &espidx, lbBREAK);
+	SUGAR VisitNode(kctx, builder, kNode_getFirstBlock(kctx, stmt), &espidx);
 	ASM_JMP(kctx, builder, lbCONTINUE);
 	ASM_LABEL(kctx, builder, lbBREAK);
 	//AssignLocal(kctx, builder, stackBase(thunk), stmt);
@@ -809,9 +777,9 @@ static kbool_t KBuilder_VisitDoWhileNode(KonohaContext *kctx, KBuilder *builder,
 	ASM_JMP(kctx, builder, lbENTRY);
 	ASM_LABEL(kctx, builder, lbCONTINUE);
 	KBuilder_AsmSAFEPOINT(kctx, builder, kNode_uline(stmt), espidx);
-	AsmJumpIfFalse(kctx, builder, Node_getFirstExpr(kctx, stmt), &espidx, lbBREAK);
+	AsmJumpIfFalse(kctx, builder, kNode_getFirstNode(kctx, stmt), &espidx, lbBREAK);
 	ASM_LABEL(kctx, builder, lbENTRY);
-	SUGAR VisitNode(kctx, builder, Node_getFirstBlock(kctx, stmt), &espidx);
+	SUGAR VisitNode(kctx, builder, kNode_getFirstBlock(kctx, stmt), &espidx);
 	ASM_JMP(kctx, builder, lbCONTINUE);
 	ASM_LABEL(kctx, builder, lbBREAK);
 	//AssignLocal(kctx, builder, stackBase(thunk), stmt);
@@ -840,12 +808,12 @@ static kbool_t KBuilder_VisitForNode(KonohaContext *kctx, KBuilder *builder, kNo
 
 	{/* Head */
 		ASM_LABEL(kctx, builder, lbENTRY);
-		kNode *condNode = Node_getFirstExpr(kctx, stmt);
+		kNode *condNode = kNode_getFirstNode(kctx, stmt);
 		AsmJumpIfFalse(kctx, builder, condNode, &espidx, lbBREAK);
 	}
 	{/* Body */
 		ASM_LABEL(kctx, builder, lbBody);
-		SUGAR VisitNode(kctx, builder, Node_getFirstBlock(kctx, stmt), &espidx);
+		SUGAR VisitNode(kctx, builder, kNode_getFirstBlock(kctx, stmt), &espidx);
 		ASM_JMP(kctx, builder, lbCONTINUE);
 	}
 	{/* Itr */
@@ -909,7 +877,7 @@ static kbool_t KBuilder_VisitThrowNode(KonohaContext *kctx, KBuilder *builder, k
 
 static void FreeVirtualCode(KonohaContext *kctx, struct KVirtualCode *vcode)
 {
-	OPTHCODE * opTHCODE = (OPTHCODE *)(vcode - 1);
+	OPTHCODE *opTHCODE = (OPTHCODE *)(vcode - 1);
 	if(opTHCODE->opcode == OPCODE_THCODE && opTHCODE->codesize > 0) {
 		KFree(opTHCODE, opTHCODE->codesize);
 	}
@@ -923,7 +891,7 @@ static struct KVirtualCode *MakeThreadedCode(KonohaContext *kctx, KBuilder *buil
 {
 	OPTHCODE *opTHCODE = (OPTHCODE *)vcode;
 	opTHCODE->codesize = codesize;
-	struct KVirtualCodeAPI** p = (struct KVirtualCodeAPI **)builder->common.api->ExecutionEngineModule->RunExecutionEngine(kctx, kctx->esp + 1, vcode);
+	struct KVirtualCodeAPI **p = (struct KVirtualCodeAPI **)builder->common.api->ExecutionEngineModule->RunExecutionEngine(kctx, kctx->esp + 1, vcode);
 	p[-1] = &vapi;
 	return (KVirtualCode *)p;
 }
@@ -957,7 +925,7 @@ static void _THCODE(KonohaContext *kctx, KVirtualCode *pc, void **codeaddr, size
 #endif
 }
 
-static struct KVirtualCode* MiniVM_GenerateVirtualCode(KonohaContext *kctx, kMethod *mtd, kNode *block, int option)
+static struct KVirtualCode *MiniVM_GenerateVirtualCode(KonohaContext *kctx, kMethod *mtd, kNode *block, int option)
 {
 	KBuffer wb;
 	KLIB KBuffer_Init(&(kctx->stack->cwb), &wb);
@@ -1007,10 +975,6 @@ static void SetUpBootCode(void)
 		KVirtualCode *pc = KonohaVirtualMachine_Run(NULL, NULL, InitCode);
 		BOOTCODE_NCALL = pc;
 		BOOTCODE_ENTER = pc+1;
-//		struct KVirtualCodeAPI **vapi = pc;  // check NULL
-//		DBG_ASSERT(vapi[-1] == NULL);
-//		vapi = pc + 1;
-//		DBG_ASSERT(vapi[-1] == NULL);
 	}
 }
 
@@ -1031,7 +995,7 @@ static void MiniVM_SetMethodCode(KonohaContext *kctx, kMethodVar *mtd, KVirtualC
 	mtd->vcode_start = vcode;
 }
 
-static struct KVirtualCode* GetDefaultBootCode(void)
+static struct KVirtualCode *GetDefaultBootCode(void)
 {
 	return BOOTCODE_NCALL;
 }
@@ -1076,11 +1040,9 @@ kbool_t LoadMiniVMModule(KonohaFactory *factory, ModuleType type)
 {
 	SetUpBootCode();
 	memcpy(&factory->ExecutionEngineModule, &MiniVM_Module, sizeof(MiniVM_Module));
-
 	return true;
 }
 
 #ifdef __cplusplus
 } /* extern "C" */
 #endif
-
