@@ -1,8 +1,8 @@
 Import("Type.Json");
-Import("Lib.Openssl");
-Import("Syntax.CStyleFor");
 Import("Syntax.CStyleWhile");
 Import("Syntax.Null");
+Import("Syntax.GlobalVariable");
+Import("Syntax.StringInterpolation");
 Import("Java.Class");
 Import("MiniKonoha.NameSpace");
 Import("MiniKonoha.Map");
@@ -11,1065 +11,632 @@ Import("JavaStyle.Object");
 Import("JavaScript.Array");
 Import("JavaScript.Date");
 
-class DBNode {
-	int node_id;
-	String description;
-	int argument_id;
-	int branch_id;
-	boolean isEvidence;
+class PreparedStatement {
+	Connection con;
+	String[] queue;
+	int id;
 
-	DBNode parent;
-	Json lazy_parent;
-	DBNode[] children;
-	Json lazy_children;
-
-	DBNode(int node_id, String description, boolean isEvidence) {
-		this.node_id      = node_id;
-		this.description = description;
-		this.isEvidence  = isEvidence;
-		this.children    = [];
-		this.lazy_children = new Json([]);
-		this.argument_id = -1;
-	}
-
-	DBNode(int node_id, String description) {
-		this.node_id      = node_id;
-		this.description = description;
-		this.isEvidence  = false;
-		this.children    = [];
-		this.lazy_children = new Json([]);
-		this.argument_id = -1;
-	}
-
-	DBNode(int node_id) {
-		this.node_id      = node_id;
-		this.description = "";
-		this.isEvidence  = false;
-		this.children    = [];
-		this.lazy_children = new Json([]);
-		this.argument_id = -1;
-	}
-
-	DBNode(Json content) {
-		this.argument_id = -1;
-		this.description = "";
-		this.isEvidence  = false;
-		this.children    = [];
-		this.PrivateUpdate(content);
-		this.lazy_children = new Json([]);
-	}
-
-	void AddChild(DBNode child) {
-		this.children.add(child);
-		child.parent = this;
-	}
-
-	void RemoveChild(DBNode child) {
-		for(int i = 0; i < this.children.getSize(); i = i + 1) {
-			if(this.children[i].node_id == child.node_id){
-				children.removeAt(i);
-				break;
-			}
+	//TODO Array.join()
+	String join() {
+		if(this.queue.getSize() == 0) {
+			return "";
 		}
-		child.parent = NULL;
-	}
-
-	void AddParent(DBNode parent) {
-		this.parent = parent;
-		parent.children.add(this);
-	}
-
-	//Private
-	void PrivateUpdate(Json content) {
-		if(content.hasKey("description")) {
-			this.description = content.getString("description");
-		}
-		if(content.hasKey("isEvidence")) {
-			this.isEvidence = content.getBoolean("isEvidence");
-		}
-	}
-
-	Json Update(Json content) {
-		Json json = new Json();
-		json.set("before",this.toJson());
-		this.PrivateUpdate(content);
-		json.set("after", this.toJson());
-		return json;
-	}
-
-	Json PrivateToJson() {
-		Json json = new Json();
-		json.setString("node_id",this.node_id.toString());
-		json.setString("description",this.description);
-		json.setBoolean("isEvidence",this.isEvidence);
-		return json;
-	}
-
-	@Public Json toJson() {
-		Json json = this.PrivateToJson();
-		return json;
-	}
-
-	@Public Json GetContext() {
-		//Abstract
-		return NULL;
-	}
-
-	@Public int AddContext(Json context) {
-		//Abstract
-	}
-}
-
-class Context extends DBNode {
-	Json context; //FIXME
-
-	Context(Json content) {
-		//TODO Create Argument
-		this.context = new Json();
-
-		this.PrivateUpdate(content);
-		if(content.hasKey("properties")) {
-			Json array = content.get("properties");
-			String[] keys = array.keys();
-			int i = 0;
-			while(i < keys.getSize()) {
-				this.context.setString(keys[i],array.getString(keys[i]));//TODO validation
-				i = i + 1;
-			}
-		}
-	}
-
-	String searchValue(String key) {
-		if(this.context.hasKey(key)) {
-			return this.context.getString(key);
-		}
-		return NULL;
-	}
-
-	void addKeyValue(String key, String value) {
-		this.context.setString(key,value);
-	}
-
-	@Public Json toJson() {
-		Json json = this.PrivateToJson();
-		json.setString("type","Context");
-		json.set("properties",this.context);
-		return json;
-	}
-
-	@Public Json GetContext() {
-		return this.context;
-	}
-
-	@Public int AddContext(Json context) {
-		String[] keys = context.keys();
-		//for(int i = 0; i < keys.getSize(); i = i + 1) {
 		int i = 0;
-		while(i < keys.getSize()) {
-			this.context.setString(keys[i],context.getString(keys[i])); //TODO Need validation
+		String ret = " USING ";
+		while(i < this.queue.getSize()-1) {
+			ret = ret + this.queue[i] + ",";
 			i = i + 1;
 		}
-		return this.node_id;
+		ret = ret + this.queue[this.queue.getSize()-1];
+		return ret;
+	}
+
+	PreparedStatement(Connection con, String sql) {
+		this.con = con;
+		this.queue = [];
+		this.con.query("PREPARE stmt1 FROM '${sql}'");
+	}
+
+	void setString(String param, String value) {
+		this.con.query("SET ${param} = '${value}'"); //FIXME
+		this.queue.add(param);
+	}
+
+	void setInt(String param, int value) {
+		this.con.query("SET ${param} = ${value}");
+		this.queue.add(param);
+	}
+
+	void setBoolean(String param, boolean value) {
+		if(value) {
+			this.con.query("SET ${param} = TRUE");
+		}else {
+			this.con.query("SET ${param} = FALSE");
+		}
+		this.queue.add(param);
+	}
+
+	ResultSet execute() {
+		ResultSet r = this.con.query("EXECUTE stmt1 "+this.join());
+		this.id = this.con.getInsertId();
+		this.con.query("DEALLOCATE PREPARE stmt1");
+		return r;
+	}
+
+	int getInsertId(){
+		return this.id;
 	}
 }
 
-class Goal extends DBNode {
-	Goal(){}
-
-	@Public Json toJson() {
-		Json json = this.PrivateToJson();
-		json.setString("type","Goal");
-		return json;
-	}
-
-	//FIXME validation
-	@Public Json GetContext() {
-		Json json = this.parent.GetContext();
-		Json context_array = new Json([]);
-		//for(int i = 0; i < this.children.getSize();i = i + 1) {
-		int i = 0;
-		while(i < this.children.getSize()) {
-			if(this.children[i].toJson().getString("type") == "Context") { //FIXME instanceOf
-				Context c = this.children[i] as Context;
-				context_array.add(c.GetContext());
-			}
-			i = i + 1;
-		}
-		//for(int i = 0; i < context_array.getSize();i = i + 1) {
-		i = 0;
-		while(i < context_array.getSize()) {
-			Json context = context_array.get(i);
-			String[] keys = context.keys();
-			//for(int j = 0; j < keys.getSize(); j = j + 1) {
-			int j = 0;
-			while(j < keys.getSize()) {
-				json.setString(keys[j],context.getString(keys[j]));
-				j = j + 1;
-			}
-			i = i + 1;
-		}
-		return json;
-	}
-
-	@Public int AddContext(Json context) {
-		//for(int i = 0; i < this.children.getSize();i = i + 1) {
-		int i = 0;
-		while(i < this.children.getSize()) {
-			if(this.children[i].toJson().getString("type") == "Context") { //FIXME instanceOf
-				Context c = this.children[i] as Context;
-				return c.AddContext(context);
-			}
-			i = i + 1;
-		}
-		return -1;
-		//FIXME if there is no Context, add new Context(not here?)
-	}
-}
-
-class Strategy extends DBNode {
-	Strategy(){}
-
-	@Public Json toJson() {
-		Json json = this.PrivateToJson();
-		json.setString("type","Strategy");
-		return json;
-	}
-
-	//FIXME validation
-	@Public Json GetContext() {
-		Json json = this.parent.GetContext();
-		Json context_array = new Json([]);
-		//for(int i = 0; i < this.children.getSize();i = i + 1) {
-		int i = 0;
-		while(i < this.children.getSize()) {
-			if(this.children[i].toJson().getString("type") == "Context") { //FIXME instanceOf
-				Context c = this.children[i] as Context;
-				context_array.add(c.GetContext());
-			}
-			i = i + 1;
-		}
-		//for(int i = 0; i < context_array.getSize();i = i + 1) {
-		i = 0;
-		while(i < context_array.getSize()) {
-			Json context = context_array.get(i);
-			String[] keys = context.keys();
-			//for(int j = 0; j < keys.getSize(); j = j + 1) {
-			int j = 0;
-			while(j < keys.getSize()) {
-				json.setString(keys[j],context.getString(keys[j]));
-				j = j + 1;
-			}
-			i = i + 1;
-		}
-		return json;
-	}
-
-	@Public void AddContext(Json context) {
-		//for(int i = 0; i < this.children.getSize();i = i + 1) {
-		int i = 0;
-		while(i < this.children.getSize()) {
-			if(this.children[i].toJson().getString("type") == "Context") { //FIXME instanceOf
-				Context c = this.children[i] as Context;
-				return c.AddContext(context);
-			}
-			i = i + 1;
-		}
-		return -1;
-		//FIXME if there is no Context, add new Context(not here?)
-	}
-}
-
-class Evidence extends DBNode {
-	Evidence() {}
-
-	@Public Json toJson() {
-		Json json = this.PrivateToJson();
-		json.setString("type","Evidence");
-		return json;
-	}
-
-	@Public Json GetContext(){
-		return this.parent.GetContext();
-	}
-}
-
-//TODO
-class Justification extends DBNode {
-	Justification(){}
-
-	@Public Json toJson() {
-		Json json = this.PrivateToJson();
-		json.setString("type","Justification");
-		return json;
-	}
-}
-
-//TODO
-class Rebuttal extends DBNode {
-	Rebuttal(){}
-
-	@Public Json toJson() {
-		Json json = this.PrivateToJson();
-		json.setString("type","Rebuttal");
-		return json;
-	}
-}
-
-class Commit {
-	String method;
-	Json   args;
-	String revision;
-	int time;
-
-	Commit() {
-	}
-
-	Commit(String method, Json args, String revision) {
-		this.method   = method;
-		this.args     = args;
-		this.revision = revision;
-		this.time     = new Date().getTime();
-	}
-
-	Json toJson() {
-		Json json = new Json();
-		json.setString("method",this.method);
-		json.set("args",this.args);
-		json.setString("revision",this.revision);
-		json.setInt("time",this.time);
-		return json;
-	}
-}
-
-class CommitLog {
-	Commit[] commits;
-	String head;
-	SHA1 sha1;
-
-	CommitLog() {
-		this.commits = [];
-		this.sha1 = new SHA1();
-		this.sha1.update(new Date().toString());
-	}
-
-	Commit addCommit(String method, Json argument) {
-		Commit commit = new Commit(method, argument, this.sha1.final());
-		this.commits.add(commit);
-		this.head = commit.revision;
-		return commit;
-	}
-
-	Json toJson() {
-		Json json = new Json([]);
-		for(int i = 0;i < this.commits.getSize(); i = i + 1) {
-			json.add(this.commits[i].toJson());
-		}
-		return json;
-	}
-
-}
-
-class Branch {
-	int branch_id;
-	int argument_id;
-	DBNode root;
-	DBNode[] nodes;
-
-	Branch() {
-		this.root = NULL;
-		this.nodes = [];
-	}
-
-	Branch(DBNode[] nodes, DBNode root) {
-		this.nodes = nodes;
-		this.root = root;
-	}
-
-	DBNode GetDBNode(int node_id) {
-		if(this.root.node_id == node_id) {
-			return this.root;
-		}
-		//for(int i = 0; i < this.nodes.getSize(); i = i + 1) {
-		int i = 0;
-		while(i < this.nodes.getSize()) {
-			if(this.nodes[i].node_id == node_id) {
-				return this.nodes[i];
-			}
-			i = i + 1;
-		}
-		return NULL;
-	}
-
-	Json DBNodeListToJson() {
-		Json json = new Json([]);
-		int max = this.nodes.getSize();
-		//for(int i = 0; i < max; i = i + 1) {
-		int i = 0;
-		while(i < max) {
-			json.add(this.nodes[i].toJson());
-			i = i + 1;
-		}
-		return json;
-	}
-
-	Json PrivateArgumentTreeToJson(DBNode node) {
-		Json json = new Json();
-		json.setString("node_id",node.node_id.toString());
-		Json children = new Json([]);
-		//for(int i = 0; i < node.children.getSize(); i = i + 1) {
-		int i = 0;
-		int id = node.argument_id;
-		while(i < node.children.getSize()) {
-			if(node.children[i].argument_id != id) {
-				Json json = new Json();
-				json.setString("type","Argument");
-				//json.setString("description",); //FIXME
-				json.setString("argument_id",id.toString());
-				children.add(json);
-			}else {
-				children.add(this.PrivateArgumentTreeToJson(node.children[i]));
-			}
-			i = i + 1;
-		}
-		json.set("children",children);
-		return json;
-	}
-
-	Json ArgumentTreeToJson() {
-		Json json = new Json();
-		json.setString("node_id",this.root.node_id.toString());
-		Json children = new Json([]);
-		//for(int i = 0; i < this.root.children.getSize(); i = i + 1) {
-		int i = 0;
-		int id = this.root.argument_id;
-		while(i < this.root.children.getSize()) {
-			if(this.root.children[i].argument_id != id) {
-				Json json = new Json();
-				json.setString("type","Argument");
-				//json.setString("description",); //FIXME
-				json.setString("argument_id",id.toString());
-				children.add(json);
-			}else {
-				children.add(this.PrivateArgumentTreeToJson(this.root.children[i]));
-			}
-			i = i + 1;
-		}
-		json.set("children",children);
-		return json;
-	}
-
-	boolean AddNode(DBNode node) {
-		//for(int i = 0; i < this.nodes.getSize(); i = i + 1) {
-		int i = 0;
-		while(i < this.nodes.getSize()) {
-			if(node.node_id == this.nodes[i].node_id) {
-				return false;
-			}
-			i = i + 1;
-		}
-		if(node.argument_id < 1) {
-			this.nodes.add(node);
-			node.argument_id = this.argument_id;
-			return true;
-		}
-		return false;
-	}
-
-	void RemoveNode(DBNode node) {
-		//for(int i = 0; i < this.nodes.getSize(); i = i + 1) {
-		int i = 0;
-		while(i < this.nodes.getSize()) {
-			if(node.node_id == this.nodes[i].node_id) {
-				this.nodes.removeAt(i);
-				break;
-			}
-			i = i + 1;
-		}
-	}
-
-	@Public Json toJson() {
-		Json json = new Json();
-		json.set("root",this.root.toJson());
-		json.set("nodes",this.DBNodeListToJson());
-		json.set("links",this.ArgumentTreeToJson());
-		return json;
-	}
-}
-
-class DCaseArgument {
-	int argument_id;
-	String name;
-	String description;
-	int masterBranchId;
-	Map[Branch] branches;
-	Map[CommitLog] commits;
-
-	@Public DCaseArgument(int masterId, Branch branch) {
-		this.branches = new Map[Branch];
-		this.masterBranchId =masterId;
-		this.branches.set(masterId.toString(), branch);
-		this.commits.set(masterId.toString(), new CommitLog());
-	}
-
-	Commit Commit(String method, Json argument) {
-		//TODO
-		//return this.commits.addCommit(method,argument);
-	}
-
-	@Public Branch GetBranch(int BranchId) {
-		return this.branches.get(BranchId.toString());
-	}
-
-	@Public Branch Fork(String originId, String newId, Context ctx) {
-		this.Fork(originId, newId, ctx, this.GetBranch(originId).commitLog.head);
-	}
-
-	@Public Branch Fork(String originalId, String newId, Context ctx, String revision) {
-		return new Branch(); //FIXME
-	}
-
-	@Public DBNode GetDBNode(int node_id) {
-		return this.GetDBNode(this.masterBranchId, node_id);
-	}
-
-	@Public DBNode GetDBNode(int branch_id, int node_id) {
-		return this.GetBranch(branch_id).GetDBNode(node_id);
-	}
-
-	@Public void SetRoot(Goal g) {
-		this.SetRoot(this.masterBranchId,g);
-	}
-
-	@Public void SetRoot(int branch_id, Goal g) {
-		this.GetBranch(branch_id).root = g;
-	}
-
-	@Public DBNode GetRoot() {
-		return this.GetBranch(this.masterBranchId).root;
-	}
-
-	@Public Json toJson(int branch_id) {
-		Json json = this.GetBranch(branch_id).toJson();
-		CommitLog clog = this.commits.get(""+branch_id);//FIXME wrapper
-		json.set("CommitLog",clog.toJson());
-		json.setString("HEAD",clog.head);
-		json.setString("argument_id",this.argument_id.toString());
-		json.setString("branch_id",branch_id.toString());
-		return json;
-	}
-
-	@Public Json toJson() {
-		return this.toJson(this.masterBranchId);
-	}
-}
-
-class DBDriver {
-	DBDriver(){}
-
-	Json GetContext(int id) {}
-
-	Json SearchContext(String text) {}
-
-	DCaseArgument GetArgument(int argument_id) {}
-
-	DCaseArgument CreateArgument() {}
-
-	DCaseArgument CreateArgument(String description) {}
-
-	void SetRoot(int argument_id, int topGoalId) {}
-
-	DBNode CreateDBNode(String nodeType, Json content) {}
-
-	//TODO
-	//void InsertCommit(String argument_name, String method, Commit c) {}
-
-	void InsertLink(int argument_id, int branch_id, int parentId, int childId) {}
-
-	void AddContext(int id, Json context) {}
-
-	void UpdateDBNode(DBNode node, int argument_id, int branch_id) {}
-
-	void UpdateDBNode(DBNode node, String description) {}
-
-	void UpdateDBNode(DBNode node, String description, boolean isEvidence) {}
-
-	void UpdateDBNode(DBNode node, boolean isEvidence) {}
-
-	Json GetArgumentIdList() {}
-
-	int GetArgumentIdByName(String name) {}
-
-	Json Search(String text) {}
-	Json Search(String text,String nodeType) {}
-	boolean RemoveNode(DBNode node) {}
-}
-
-class DriverMySQL extends DBDriver {
+class DataBase {
 	Connection con;
 
-	DBDriver(String userName, String password) {
-		this.con = new Connection("mysql://" + userName + ":" + password + "@localhost:3306");
-		this.con.query("USE dcasedb;");
+	DataBase(String userName, String password) {
+		this.con = new Connection("mysql://${userName}:${password}@localhost:3306");
+		this.con.query("USE dcasecloud;");
 	}
 
-	Json GetContext(int id) {
-		Json json = new Json();
-		ResultSet r = this.con.query("SELECT context_key,value FROM Context WHERE node_id="+id);
-		while(r.next()) {
-			String key = r.getString("context_key");
-			String value = r.getString("value");
-			json.setString(key,value);
-		}
-		return json;
+	PreparedStatement newPreparedStatement(String q) {
+		return new PreparedStatement(this.con, q);
 	}
 
-	Json SearchContext(String text) {
-		Json json = new Json([]);
-		ResultSet r = this.con.query("SELECT DBNode.id as node_id,argument_id,branch_id,context_key,value FROM DBNode,Context WHERE DBNode.id=Context.node_id AND value LIKE '%"+text+"%'");
-		while(r.next()) {
-			Json j = new Json();
-			j.setString("node_id",r.getInt("node_id").toString());
-			j.setString("argument_id",r.getInt("argument_id").toString());
-			j.setString("branch_id",r.getInt("branch_id").toString());
-			j.setString("key",r.getString("context_key"));
-			j.setString("value",r.getString("value"));
-			json.add(j);
-		}
-		return json;
-	}
-
-	Json Search(String text, String nodeType) {
-		Json json = new Json([]);
-		//FIXME
-		ResultSet r = this.con.query("SELECT DBNode.id,argument_id,branch_id,type_name,description FROM DBNode,NodeType WHERE nodeType_id=NodeType.id AND type_name='"+nodeType+"' AND description LIKE '%"+text+"%'");
-		while(r.next()) {
-			Json j = new Json();
-			j.setString("node_id",r.getInt("id").toString());
-			j.setString("argument_id",r.getInt("argument_id").toString());
-			j.setString("branch_id",r.getInt("branch_id").toString());
-			j.setString("type",r.getString("type_name"));
-			j.setString("description",r.getString("description"));
-			json.add(j);
-		}
-		return json;
-	}
-
-	Json Search(String text) {
-		Json json = new Json([]);
-		ResultSet r = this.con.query("SELECT DBNode.id,argument_id,branch_id,type_name,description FROM DBNode,NodeType WHERE nodeType_id=NodeType.id AND description LIKE '%"+text+"%'");
-		while(r.next()) {
-			Json j = new Json();
-			j.setString("node_id",r.getInt("id").toString());
-			j.setString("argument_id",r.getInt("argument_id").toString());
-			j.setString("branch_id",r.getInt("branch_id").toString());
-			j.setString("type",r.getString("node_type"));
-			j.setString("description",r.getString("description"));
-			json.add(j);
-		}
-		return json;
-	}
-
-	DBNode MakeNode(String NodeType, Json content) {
-		if(NodeType == "Goal") {
-			return new Goal(content);
-		} else if (NodeType == "Strategy") {
-			return new Strategy(content);
-		} else if (NodeType == "Context") {
-			return new Context(content);
-		} else if (NodeType == "Evidence") {
-			return new Evidence(content);
-		}
-		return null; //FIXME
-	}
-
-	DBNode PrivateGetNode(DBNode[] nodes,int id) {
-		int i = 0;
-		while(i<nodes.getSize()) {
-			if(nodes[i].node_id == id) {
-				return nodes[i];
-			}
-			i = i + 1;
-		}
-		return null;
-	}
-
-	Json GetDBNodeById(int nodeId) {
-		ResultSet r = this.con.query("SELECT argument_id,branch_id FROM DBNode WHERE id="+ nodeId +"");
-		r.next();
-		Json json = new Json();
-		json.setInt("argument_id",r.getInt("argument_id"));
-		json.setInt("branch_id",r.getInt("branch_id"));
-		return json;
-	}
-
-	DBNode[] GetLinks(DBNode[] nodes) {
-		int i = 0;
-		while(i<nodes.getSize()) {
-			ResultSet r = this.con.query("SELECT parent_Node_id FROM NodeLink WHERE child_Node_id="+nodes[i].node_id+"");
-			while(r.next()){
-				int id = r.getInt("parent_Node_id");
-				nodes[i].parent = this.PrivateGetNode(nodes,id);
-				if(nodes[i].parent == null) {
-					Json json = this.GetDBNodeById(id);
-					nodes[i].lazy_parent = json;
-				}
-			}
-
-			ResultSet r1 = this.con.query("SELECT child_Node_id FROM NodeLink WHERE parent_Node_id="+nodes[i].node_id+"");
-			while(r1.next()){
-				int id = r1.getInt("child_Node_id");
-				DBNode node = this.PrivateGetNode(nodes,id);
-				if(node!=null) {
-					nodes[i].children.add(this.PrivateGetNode(nodes,id));
-				}else{
-					Json json = this.GetDBNodeById(id);
-					nodes[i].lazy_children.add(json);
-				}
-			}
-			i = i + 1;
-		}
-		return nodes;
-	}
-
-	DBNode[] GetDBNodeList(int argument_id, int branch_id) {
-		DBNode[] nodes = [];
-		ResultSet r = this.con.query("SELECT DBNode.id,description,evidence_flag,type_name FROM DBNode,NodeType WHERE argument_id="+argument_id+" AND branch_id="+ branch_id +" AND nodeType_id=NodeType.id;");
-		while(r.next()) {
-			Json json = new Json();
-			json.setString("description",r.getString("description"));
-			String nodeType = r.getString("type_name");
-			json.setString("type",nodeType);
-			json.setBoolean("isEvidence", r.getBoolean("evidence_flag"));
-			DBNode node = this.MakeNode(nodeType,json);
-			node.node_id     = r.getInt("id");
-			node.argument_id = argument_id;
-			node.branch_id   = branch_id;
-			if(nodeType == "Context") {
-				Context context = node as Context;
-				context.context = this.getContext(context.node_id);
-				nodes.add(context);
-			} else {
-				nodes.add(node);
-			}
-		}
-		return this.GetLinks(nodes);
-	}
-
-	DCaseArgument GetArgument(int argument_id,int branch_id) {
-		//FIXME branch
-		ResultSet r = this.con.query("SELECT goal_id,master_branch_id FROM Argument WHERE id="+ argument_id +"");
-		r.next();
-		int goalId = r.getInt("goal_id");
-		int master_branch_id = r.getInt("master_branch_id");
-
-		DBNode[] nodes = this.GetDBNodeList(argument_id,branch_id);
-		DBNode   root  = this.PrivateGetNode(nodes,goalId);
-		Branch branch = new Branch(nodes,root);
-		DCaseArgument argument = new DCaseArgument(branch_id,branch);
-		return argument;
-	}
-
-	//FIXME
-	int GetArgumentIdByName(String name) {
-		ResultSet r = this.con.query("SELECT id FROM Argument WHERE description LIKE '%"+ name +"%'");
-		r.next();
-		return r.getInt("id");
-	}
-
-	DCaseArgument GetArgument(int argument_id) {
-		ResultSet r = this.con.query("SELECT goal_id,master_branch_id FROM Argument WHERE id="+ argument_id +"");
-		r.next();
-		int goalId = r.getInt("goal_id");
-		int branch_id = r.getInt("master_branch_id");
-
-		DBNode[] nodes = this.GetDBNodeList(argument_id,branch_id);
-		DBNode   root  = this.PrivateGetNode(nodes,goalId);
-		Branch branch = new Branch(nodes,root);
-		DCaseArgument argument = new DCaseArgument(branch_id,branch);
-		return argument;
-	}
-
-	Branch CreateBranch() {
-		this.con.query("INSERT INTO Branch() VALUES()");
-		Branch branch = new Branch();
-		branch.branch_id = this.con.getInsertId();
-		return branch;
-	}
-
-	void UpdateBranch(Branch branch, int argument_id) {
-		this.con.query("UPDATE Branch SET Argument_id=" + argument_id + " WHERE id=" + branch.branch_id);
-		branch.argument_id = argument_id;
-	}
-
-	void SetRoot(int argument_id, int topGoalId) {
-		this.con.query("UPDATE Argument SET goal_id="+topGoalId+" WHERE id="+argument_id);
-	}
-
-	DCaseArgument CreateArgument() {
-		Branch branch = this.CreateBranch();
-		this.con.query("INSERT INTO Argument(master_branch_id) VALUES("+branch.branch_id+")");
-		DCaseArgument argument = new DCaseArgument(branch.branch_id, branch);
-		argument.argument_id = this.con.getInsertId();
-		this.UpdateBranch(branch,argument.argument_id);
-		return argument;
-	}
-
-	DCaseArgument CreateArgument(String description) {
-		Branch branch = this.CreateBranch();
-		this.con.query("INSERT INTO Argument(description,master_branch_id) VALUES('"+description+"',"+branch.branch_id+")");
-		DCaseArgument argument = new DCaseArgument(branch.branch_id, branch);
-		argument.argument_id = this.con.getInsertId();
-		argument.description = description;
-		this.UpdateBranch(branch,argument.argument_id);
-		return argument;
-	}
-
-	int GetNodeType(String nodeType) {
-		ResultSet nodeTypeId = this.con.query("SELECT id FROM NodeType WHERE type_name='" + nodeType + "'");
-		int typeId;
-		while(nodeTypeId.next()) {
-			typeId = nodeTypeId.getInt("id");
-		}
-		return typeId;
-	}
-
-	DBNode CreateDBNode(String nodeType, Json content) {
-		DBNode node = this.MakeNode(nodeType,content);
-		int typeId = this.GetNodeType(nodeType);
-
-		String description = content.getString("description");
-		boolean isEvidence = content.getBoolean("isEvidence");
-		String evidence = "FALSE";
-		if(isEvidence) {
-			evidence = "TRUE";
-		}
-		this.con.query("INSERT INTO DBNode(description,evidence_flag,nodeType_id) VALUES('"+ description + "'," + evidence + ","+typeId+") ");
-		node.node_id = this.con.getInsertId();
-		return node;
-	}
-
-	void UpdateDBNode(DBNode node, int argument_id, int branch_id) {
-		this.con.query("UPDATE DBNode SET argument_id="+argument_id+", branch_id="+branch_id+" WHERE id="+node.node_id);
-		node.argument_id = argument_id;
-		node.branch_id   = branch_id;
-	}
-
-	void UpdateDBNode(DBNode node, String description) {
-		this.con.query("UPDATE DBNode SET description='"+description+"' WHERE id="+node.node_id);
-	}
-
-	void UpdateDBNode(DBNode node, String description, boolean isEvidence) {
-		String evidence = "FALSE";
-		if(isEvidence){
-			evidence = "TRUE";
-		}
-		this.con.query("UPDATE DBNode SET description='"+description+"', evidence_flag="+evidence +" WHERE id="+node.node_id);
-	}
-
-	void UpdateDBNode(DBNode node, boolean isEvidence) {
-		String evidence = "FALSE";
-		if(isEvidence) {
-			evidence = "TRUE";
-		}
-		this.con.query("UPDATE DBNode SET evidence_flag="+evidence +" WHERE id="+node.node_id);
-	}
-
-	int GetDBNodeByName(String name) {
-		ResultSet r = this.con.query("SELECT id FROM DBNode WHERE name='"+ name +"'");
-		r.next();
-		return r.getInt("id");
-	}
-
-	void InsertLink(int argument_id, int branch_id, int parentId, int childId) {
-		this.con.query("INSERT INTO NodeLink(argument_id,parent_Node_id,child_Node_id,branch_id) VALUES("+argument_id+","+parentId+","+childId+","+branch_id+")");
-	}
-
-	Json GetArgumentIdList() {
-		ResultSet r = this.con.query("SELECT id,description FROM Argument");
-		Json retVal = new Json([]);
-		while(r.next()){
-			Json json = new Json();
-			json.setString("argument_id",r.getInt("id").toString());
-			json.setString("description",r.getString("description"));
-			retVal.add(json);
-		}
-		return retVal;
-	}
-
-	void AddContext(int id, Json context) {
-		int i = 0;
-		String[] keys = context.keys();
-		while(i<keys.getSize()) {
-			String key = keys[i];
-			this.con.query("INSERT INTO Context(context_key,value,node_id) Values('"+ key +"','" +context.getString(key)+ "'," +id+ ")");
-			i = i + 1;
-		}
-	}
-
-	boolean RemoveNode(DBNode node) {
-		this.con.query("DELETE FROM NodeLink WHERE parent_Node_id="+node.node_id+" OR child_Node_id="+node.node_id);
-		this.con.query("DELETE FROM DBNode WHERE id="+node.node_id);
-		return true; //TODO
-	}
 }
 
-class API {
-	Map[DCaseArgument] arguments;
-	DBDriver db;
+class DCaseModel {
+	DataBase db;
 
-	@Public API() {
-		arguments = new Map[DCaseArgument];
+	@Public DCaseModel(String userName, String password) {
+		this.db = new DataBase(userName, password);
 	}
 
-	@Public API(String userName, String password) {
-		arguments = new Map[DCaseArgument];
-		this.Connect(userName, password);
+	@Public int[] GetArgumentList() {
+		PreparedStatement q = this.db.newPreparedStatement("SELECT `id` FROM `argument` WHERE `id`!=0");
+		ResultSet r = q.execute();
+		int[] ret = [];
+		while(r.next()) {
+			ret.add(r.getInt("id"));
+		}
+		return ret;
 	}
 
-	@Public void Connect(String userName, String password) {
-		this.db = new DriverMySQL(userName, password);
+	Json getAttribute(int node_id) {
+		Json json = new Json();
+		PreparedStatement p = this.db.newPreparedStatement("SELECT property_key,property_value FROM node_property WHERE node_data_id=?"); //FIXME snapshot_id
+		p.setInt("@a",node_id);
+		ResultSet r = p.execute();
+		while(r.next()) {
+			json.setString(r.getString("property_key"),r.getString("property_value"));
+		}
+		return json;
 	}
 
-	@Public DCaseArgument CreateArgument(String description) {
-		Json content = new Json();
-		content.setString("description",description);
-		content.setString("type","Goal");
-
-		DCaseArgument argument = this.db.CreateArgument(description);
-		this.arguments.set(argument.argument_id.toString(), argument);
-
-		Goal g = this.CreateDBNode(content) as Goal;
-		argument.SetRoot(g);
-		this.db.SetRoot(argument.argument_id,g.node_id);
-
-		Json context_json = new Json();
-		context_json.setString("type","Context");
-		Context c = this.CreateDBNode(context_json) as Context;
-		this.InsertLink(argument.argument_id, g, c);
-		this.db.UpdateDBNode(c,argument.argument_id,argument.masterBranchId);
-		argument.GetBranch(argument.masterBranchId).nodes.add(c);
-		return argument;
+	Json CreateJsonNode(ResultSet r,int snapshot_id) {
+		Json json = new Json();
+		json.setInt("ThisNodeId", r.getInt("node_id"));
+		json.setInt("NodeIdentityId", r.getInt("node_identity_id"));
+		json.setInt("PrevNodeId", r.getInt("node_prev_id"));
+		json.setInt("NextNodeId", r.getInt("node_next_id"));
+		json.setString("Url", r.getString("url"));
+		json.setString("Description", r.getString("description"));
+		json.setBoolean("DeleteFlag", r.getBoolean("delete_flag"));
+		json.setString("NodeType", r.getString("type_name"));
+		json.set("Children", this.GetChildLinkList(r.getInt("node_id"),snapshot_id));
+		int node_id = r.getInt("node_id");
+		json.set("Attributes", this.getAttribute(node_id));
+		return json;
+	}
+	Json CreateJsonNode(ResultSet r) {
+		Json json = new Json();
+		json.setInt("ThisNodeId", r.getInt("node_id"));
+		json.setInt("NodeIdentityId", r.getInt("node_identity_id"));
+		json.setInt("PrevNodeId", r.getInt("node_prev_id"));
+		json.setInt("NextNodeId", r.getInt("node_next_id"));
+		json.setString("Url", r.getString("url"));
+		json.setString("Description", r.getString("description"));
+		json.setBoolean("DeleteFlag", r.getBoolean("delete_flag"));
+		json.setString("NodeType", r.getString("type_name"));
+		json.set("Children", this.GetChildLinkList(r.getInt("node_id")));
+		int node_id = r.getInt("node_id");
+		json.set("Attributes", this.getAttribute(node_id));
+		return json;
 	}
 
-	@Public DCaseArgument GetArgument(int argument_id) {
-		String argId = ""+argument_id;
-		if(this.arguments.has(argId)) {
-			return this.arguments.get(argId);
-		}else{
-			DCaseArgument argument = this.db.GetArgument(argument_id);
-			this.arguments.set(argId,argument);
-			return argument;
+	//Return Node
+	@Public Json GetNode(int node_id) {
+		PreparedStatement q = this.db.newPreparedStatement("SELECT node_data.id AS node_id,node_identity_id, url, description, delete_flag,type_name,node_prev_id,node_next_id FROM node_identity INNER JOIN node_data ON current_node_id=node_data.id INNER JOIN node_type ON node_type_id=node_type.id WHERE node_data.id=?");
+		q.setInt("@a",node_id);
+		ResultSet r = q.execute();
+		r.next();
+		return this.CreateJsonNode(r);
+	}
+
+	Json GetChildLinkList(int node_id) {
+			PreparedStatement q = this.db.newPreparedStatement("SELECT node_child_id FROM node_link_has_snapshot INNER JOIN node_link ON node_link_id=node_link.id WHERE node_parent_id=?"); //FIXME snapshot_id
+		q.setInt("@b", node_id);
+		ResultSet r = q.execute();
+		Json json = new Json([]);
+		while(r.next()) {
+			json.add(r.getInt("node_child_id"));
+		}
+		return json;
+	}
+
+	Json GetChildLinkList(int node_id, int snapshot_id) {
+			PreparedStatement q = this.db.newPreparedStatement("SELECT node_child_id FROM node_link_has_snapshot INNER JOIN node_link ON node_link_id=node_link.id WHERE node_parent_id=? AND snapshot_id=?"); //FIXME snapshot_id
+		q.setInt("@b", node_id);
+		q.setInt("@a", snapshot_id);
+		ResultSet r = q.execute();
+		Json json = new Json([]);
+		while(r.next()) {
+			json.add(r.getInt("node_child_id"));
+		}
+		return json;
+	}
+
+	Json GetLinkList(int snapshot_id) {
+			PreparedStatement q = this.db.newPreparedStatement("SELECT node_parent_id,node_child_id FROM node_link_has_snapshot INNER JOIN node_link ON node_link_id=node_link.id WHERE snapshot_id=?");
+		q.setInt("@a", snapshot_id);
+		ResultSet r = q.execute();
+		Json json_array = new Json([]);
+		while(r.next()) {
+			//FIXME
+			Json json = new Json();
+			json.setInt("node_parent_id", r.getInt("node_parent_id"));
+			json.setInt("node_child_id", r.getInt("node_child_id"));
+			json_array.add(json);
+		}
+		return json_array;
+	}
+
+	Json GetNodeList(int snapshot_id) {
+			PreparedStatement q = this.db.newPreparedStatement("SELECT node_data.id AS node_id,node_identity_id, url, description, delete_flag,type_name FROM node_data INNER JOIN snapshot_has_node_data ON node_data_id=node_data.id  INNER JOIN node_type ON node_type_id=node_type.id WHERE snapshot_id=?");
+		q.setInt("@a", snapshot_id);
+		ResultSet r = q.execute();
+		Json json_array = new Json([]);
+		while(r.next()) {
+			Json json = this.CreateJsonNode(r,snapshot_id);
+			json_array.add(json);
+		}
+
+		return json_array;
+	}
+
+	int getTopGoalId(int snapshot_id) {
+		PreparedStatement p = this.db.newPreparedStatement("SELECT `root_node_id` FROM `snapshot` WHERE `id`=?");
+		p.setInt("@a", snapshot_id);
+		ResultSet r = p.execute();
+		r.next();
+		return r.getInt("root_node_id");
+	}
+
+	Json _GetNodeTree(int argument_id, int top_goal_id, int snapshot_id) {
+		Json tree = new Json();
+		tree.setInt("BelongedArgumentId",argument_id);
+		tree.setInt("SnapshotId",snapshot_id);
+		tree.setInt("TopGoalId",top_goal_id);
+		Json nodeList = this.GetNodeList(snapshot_id);
+		tree.set("NodeList", nodeList);
+		//tree.set("links", linkList);
+		return tree;
+	}
+
+	//Return NodeTree
+	@Public Json  GetNodeTree(int argument_id) {
+		return this.GetNodeTree(argument_id, this.getCurrentSnapShot(argument_id));
+	}
+
+	@Public Json  GetNodeTree(int argument_id, int snapshot_id) {
+		int top_goal_id = this.getTopGoalId(snapshot_id);
+		return this._GetNodeTree(argument_id,top_goal_id,snapshot_id);
+	}
+
+	int[] _GetSnapshotList(int start_id, int end_id) {
+		int[] ret = [];
+		ret.add(end_id);
+		int it = end_id;
+		while(it != start_id) {
+			PreparedStatement p = this.db.newPreparedStatement("SELECT `prev_snapshot_id` FROM `snapshot` WHERE `id`=?");
+			p.setInt("@a", it);
+			ResultSet r = p.execute();
+			r.next();
+			it = r.getInt("prev_snapshot_id");
+			if(it == 0) {
+				break;
+			}
+			ret.add(it);
+		}
+		int[] reverse = [];
+		int i = ret.getSize()-1;
+		while(i>=0) {
+			reverse.add(ret[i]);
+			i = i - 1;
+		}
+		return reverse;
+	}
+
+	@Public Json GetNodeTree(int argument_id, int snapshot_start_id, int snapshot_end_id) {
+		Json array_json = new Json([]);
+		int i = 0;
+		int[] ids = this._GetSnapshotList(snapshot_start_id,snapshot_end_id);//TODO get snapshot_id[]
+		while(i < ids.getSize()) {
+			int top_goal_id = this.getTopGoalId(ids[i]);
+			array_json.add(this._GetNodeTree(argument_id,top_goal_id,ids[i]));
+			i = i + 1;
+		}
+		return array_json;
+	}
+
+	int initSnapshot(int prev_snapshot_id, int root_node_id) {
+		String sql = "INSERT INTO `snapshot`(`prev_snapshot_id`,`unix_time`, `root_node_id`) VALUES(?,?,?)";
+		PreparedStatement q = this.db.newPreparedStatement(sql);
+		q.setInt("@a", prev_snapshot_id);
+		q.setInt("@b", new Date().getTime());
+		q.setInt("@c", root_node_id);
+		q.execute();
+		return q.getInsertId();
+	}
+
+	int initProcessContext(int snapshot_id, int processType, String justification, String commiter) {
+		String sql = "INSERT INTO `process_context`(`current_snapshot_id`,`process_type`,`justification`,`commiter`) VALUES(?,?,?,?)";
+		PreparedStatement q = this.db.newPreparedStatement(sql);
+		q.setInt("@a",    snapshot_id);
+		q.setInt("@b",    processType);
+		q.setString("@c", justification);
+		q.setString("@d", commiter);
+		q.execute();
+		return q.getInsertId();
+	}
+
+	int initArgument(int process_id) {
+		PreparedStatement p = this.db.newPreparedStatement("INSERT INTO `argument`(`current_process_id`) VALUES(?)");
+		p.setInt("@a", process_id);
+		p.execute();
+		return p.getInsertId();
+	}
+
+	int initNode_identity(int argument_id) {
+		PreparedStatement p = this.db.newPreparedStatement("INSERT INTO `node_identity`(`argument_id`) VALUES(?)");
+		p.setInt("@a", argument_id);
+		p.execute();
+		return p.getInsertId();
+	}
+
+	int getNodeType(String type_name) {
+		PreparedStatement p = this.db.newPreparedStatement("SELECT `id` FROM `node_type` WHERE `type_name`=?");
+		p.setString("@a", type_name);
+		ResultSet r = p.execute();
+		r.next();
+		return r.getInt("id");
+	}
+
+	int createNodeData(int type_id, int node_identity_id, String description, String url) {
+		PreparedStatement p = this.db.newPreparedStatement("INSERT INTO `node_data`(`node_type_id`,`node_identity_id`,`description`, `url`) VALUES(?,?,?,?)");
+		p.setInt("@a", type_id);
+		p.setInt("@b", node_identity_id);
+		p.setString("@c", description);
+		p.setString("@d", url);
+		p.execute();
+		return p.getInsertId();
+	}
+
+	void createAttributes(int node_id, Json attr) {
+		String[] keys = attr.keys();
+		int i = 0;
+		while(i<keys.getSize()) {
+			PreparedStatement p = this.db.newPreparedStatement("INSERT INTO `node_property`(`property_key`,`property_value`, `node_data_id`) VALUES(?,?,?)");
+			p.setString("@a", keys[i]);
+			p.setString("@b", attr.getString(keys[i])); //FIXME String or Json
+			p.setInt("@c", node_id);
+			p.execute();
+			i = i + 1;
 		}
 	}
 
-	@Public Json GetArgumentIds() {
-		return this.db.GetArgumentIdList();
-	}
-
-	@Public DBNode[] SearchDBNode(String searchText) {
-		return []; //FIXME
-	}
-
-	@Public DBNode CreateDBNode(Json content) {
-		String NodeType = content.getString("type");
-		DBNode node = this.db.CreateDBNode(NodeType,content);
-		if(NodeType == "Context" && content.hasKey("properties")) {
-			this.db.AddContext(node.node_id,content.get("properties"));
+	int createNodeDataFromJson(int type_id, int node_identity_id, Json json) {
+		int parent_node_id = json.getInt("ParentNodeId");
+		int argument_id    = json.getInt("BelongedArgumentId");
+		String description = json.getString("Description");
+		String url         = json.getString("Url");
+		//int this_node_id = json.getInt("ThisNodeId");
+		int prev_node_id   = json.getInt("PrevNodeId");
+		//int next_node_id = json.getInt("NextNodeId");
+		PreparedStatement p = this.db.newPreparedStatement("INSERT INTO `node_data`(`node_type_id`,`node_identity_id`,`description`, `url`, `node_prev_id`) VALUES(?,?,?,?,?)");
+		p.setInt("@a", type_id);
+		p.setInt("@b", node_identity_id);
+		p.setString("@c", description);
+		p.setString("@d", url);
+		p.setInt("@e", prev_node_id);
+		p.execute();
+		int node_id = p.getInsertId();
+		if(parent_node_id != 0) {
+			this.CreateLink(argument_id, parent_node_id, node_id);
 		}
-		return node;
+		Json attr = json.get("Attributes");
+		this.createAttributes(node_id, attr);
+		return node_id;
 	}
 
-	@Public void InsertLink(int id, DBNode parent, DBNode child) {
-		int masterId = this.GetArgument(id).masterBranchId;
-		this.InsertLink(id, masterId, parent, child);
-	}
-
-	@Public void InsertLink(int id, int branch_id, DBNode parent, DBNode child) {
-		Branch branch = this.GetArgument(id).GetBranch(branch_id);
-		if(branch.AddNode(parent)){
-			this.db.UpdateDBNode(parent,id,branch_id);
+	int updateNodeDataFromJson(int type_id, int node_identity_id, Json json) {
+		int parent_node_id = json.getInt("ParentNodeId");
+		int argument_id    = json.getInt("BelongedArgumentId");
+		String description = json.getString("Description");
+		String url         = json.getString("Url");
+		int prev_node_id   = json.getInt("ThisNodeId");
+		//int next_node_id = json.getInt("NextNodeId");
+		PreparedStatement p = this.db.newPreparedStatement("INSERT INTO `node_data`(`node_type_id`,`node_identity_id`,`description`, `url`, `node_prev_id`) VALUES(?,?,?,?,?)");
+		p.setInt("@a", type_id);
+		p.setInt("@b", node_identity_id);
+		p.setString("@c", description);
+		p.setString("@d", url);
+		p.setInt("@e", prev_node_id);
+		p.execute();
+		int node_id = p.getInsertId();
+		if(parent_node_id != 0) {
+			this.CreateLink(argument_id,parent_node_id, node_id);
 		}
-		if(branch.AddNode(child)){
-			this.db.UpdateDBNode(child,id,branch_id);
+		PreparedStatement p1 = this.db.newPreparedStatement("UPDATE `node_data` SET `node_next_id`=? WHERE `id`=?");
+		p1.setInt("@a", node_id);
+		p1.setInt("@b", prev_node_id);
+		p1.execute();
+
+		Json attr = json.get("Attributes");
+		this.createAttributes(node_id, attr);
+		return node_id;
+	}
+
+	void updateSnapshot(int node_id, int snapshot_id) {
+		PreparedStatement p = this.db.newPreparedStatement("UPDATE `snapshot` SET `root_node_id`=? WHERE `id`=?");
+		p.setInt("@a", node_id);
+		p.setInt("@b", snapshot_id);
+		p.execute();
+	}
+
+	void updateProcessContext(int process_id, int current_snapshot_id) {
+		PreparedStatement p = this.db.newPreparedStatement("UPDATE process_context SET current_snapshot_id=? WHERE id=?");
+		p.setInt("@a", current_snapshot_id);
+		p.setInt("@b", process_id);
+		p.execute();
+	}
+
+	void updateNodeIdentity(int node_identity_id, int node_data_id) {
+		PreparedStatement p = this.db.newPreparedStatement("UPDATE `node_identity` SET `current_node_id`=? WHERE `id`=?");
+		p.setInt("@a", node_data_id);
+		p.setInt("@b", node_identity_id);
+		p.execute();
+	}
+
+	void insertSnapshotNodeData(int snapshot_id, int argument_id) {
+		PreparedStatement p = this.db.newPreparedStatement("INSERT INTO `snapshot_has_node_data`(snapshot_id,node_data_id) SELECT ? AS snapshot_id,current_node_id FROM node_identity WHERE argument_id=?");
+		p.setInt("@a", snapshot_id);
+		p.setInt("@b", argument_id);
+		p.execute();
+	}
+
+	void insertSnapshotNodeLink(int snapshot_id, int argument_id) {
+		PreparedStatement p = this.db.newPreparedStatement("INSERT INTO `node_link_has_snapshot`(node_link_id,snapshot_id) SELECT current_node_link_id,? AS snapshot_id FROM link_identity WHERE argument_id=?");
+		p.setInt("@a", snapshot_id);
+		p.setInt("@b", argument_id);
+		p.execute();
+	}
+
+	void insertProcessContextHasSnapshot(int process_id, int snapshot_id) {
+		PreparedStatement p = this.db.newPreparedStatement("INSERT INTO `process_context_has_snapshot` (`process_context_id`,`snapshot_id`) VALUES(?,?)");
+		p.setInt("@a", process_id);
+		p.setInt("@b", snapshot_id);
+		p.execute();
+	}
+
+	void insertArgumentHasProcessContext(int process_id, int argument_id) {
+		PreparedStatement p = this.db.newPreparedStatement("INSERT INTO `argument_has_process_context` (`argument_id`,`process_context_id`) VALUES(?,?)");
+		p.setInt("@a", argument_id);
+		p.setInt("@b", process_id);
+		p.execute();
+	}
+
+	@Public int CreateTopGoal(String description, int processType, String justification, String commiter) {
+		int snapshot_id = this.initSnapshot(0,0);
+		int process_id  = this.initProcessContext(snapshot_id,processType,justification,commiter);
+		int argument_id = this.initArgument(process_id);
+		int top_goal_identity_id = this.initNode_identity(argument_id);
+		int node_type_id = this.getNodeType("Goal");
+		int node_data_id = this.createNodeData(node_type_id,top_goal_identity_id,description,"");
+		this.updateNodeIdentity(top_goal_identity_id,node_data_id);
+		this.updateSnapshot(node_data_id,snapshot_id); //FIXME
+		this.insertSnapshotNodeData(snapshot_id,argument_id);
+		this.insertProcessContextHasSnapshot(process_id,snapshot_id);
+		this.insertArgumentHasProcessContext(process_id,argument_id);
+
+		return argument_id;
+	}
+
+	//Return newNodeId
+	@Public int DeleteLink(int ParentNodeId, Json /*DBNode*/ TargetNode/*FIXME*/) {
+	}
+
+	//Return NodeId TODO AwayGoal
+	@Public int NewLink(int ParentNodeId,int TargetNodeId) {
+	}
+
+	@Public int CreateNode(int argument_id, Json json) {
+		int node_identity_id = this.initNode_identity(argument_id);
+		int type_id = this.getNodeType(json.getString("NodeType"))
+		int node_data_id = this.createNodeDataFromJson(type_id,node_identity_id,json);
+		this.updateNodeIdentity(node_identity_id,node_data_id);
+		return node_data_id;
+	}
+
+	@Public void UpdateNode(int argument_id, Json json) {
+		int node_identity_id = json.getString("NodeIdentityId").toint;
+		int type_id = this.getNodeType(json.getString("NodeType"));
+		int node_data_id = this.updateNodeDataFromJson(type_id,node_identity_id,json);
+		this.updateNodeIdentity(node_identity_id,node_data_id);
+	}
+
+	@Public void DeleteNode(int argument_id, Json json) {
+		/* //TODO
+		int node_id = json.getString("node_id").toint;
+		int type_id = this.getNodeType(json.getString("type"));
+		int node_data_id = this.createNodeData(type_id,node_id,json.getString("description"),json.getString("url"));
+		this.updateNodeIdentity(node_id,node_data_id);
+		*/
+	}
+
+	//Return Array[NodeId]
+	@Public int[] FindNodeFrom(String NodeType, int NodeIdSearchFrom) { //TODO need refactoring node_link
+	}
+
+	//Return Array[NodeId]
+	@Public int[] FindNodeByDescription(String SearchText) {
+		int[] ret = [];
+		PreparedStatement p = this.db.newPreparedStatement("SELECT node_data.id AS data_id, node_identity.id AS identity_id FROM node_data INNER JOIN node_identity ON node_data.node_identity_id=node_identity.id INNER JOIN node_type ON node_type_id=node_type.id WHERE description LIKE ?");
+		//p.setString("@a",NodeType);
+		p.setString("@a","%"+SearchText+"%"); //FIXME
+		ResultSet r = p.execute();
+		while(r.next()) {
+			ret.add(r.getInt("data_id")); //FIXME
 		}
-		parent.addChild(child);
-		this.db.InsertLink(id,branch_id,parent.node_id,child.node_id);
-		//TODO Commit
+		return ret;
 	}
 
-	//FIXME return boolean
-	//FIXME Json contents
-	@Public boolean UpdateDBNode(int argument_id, DBNode node, Json contents) {
-		int masterId = this.GetArgument(argument_id).masterBranchId;
-		return this.UpdateDBNode(argument_id, masterId, node, contents);
-	}
-
-	@Public boolean UpdateDBNode(int argument_id, int branch_id, DBNode node, Json contents) {
-		node.Update(contents);
-		if(contents.hasKey("description")) {
-			this.db.UpdateDBNode(node, contents.getString("description"));
+	//Return Array[NodeId]
+	@Public int[] FindContextByProperty(String SearchText) {
+		PreparedStatement p = this.db.newPreparedStatement("SELECT node_data.id as node_id,property_key,property_value FROM node_data,node_property WHERE node_data.id=node_property.node_data_id AND( property_key LIKE ? OR property_value LIKE ?)"); //FIXME
+		p.setString("@a",SearchText);
+		p.setString("@b",SearchText);
+		ResultSet r = p.execute();
+		int[] ret = [];
+		while(r.next()) {
+			ret.add(r.getInt("node_id")); //FIXME
 		}
-		if(contents.hasKey("isEvidence")) {
-			this.db.UpdateDBNode(node, contents.getBoolean("isEvidence"));
+		return ret;
+	}
+
+	void updatelinkIdentity(int identity_id,int link_id){
+		PreparedStatement p = this.db.newPreparedStatement("UPDATE `link_identity` SET current_node_link_id=? WHERE `id`=?");
+		p.setInt("@a",link_id);
+		p.setInt("@b",identity_id);
+		p.execute();
+	}
+
+	void CreateLink(int argument_id, int parent_id, int node_id) {
+		PreparedStatement p = this.db.newPreparedStatement("INSERT INTO `link_identity`(`argument_id`) VALUES(?)");
+		p.setInt("@a",argument_id);
+		p.execute();
+		int link_id = p.getInsertId();
+
+		PreparedStatement p_node_link = this.db.newPreparedStatement("INSERT INTO `node_link`(`node_parent_id`,`node_child_id`,`link_identity_id`) VALUES(?,?,?)"); //FIXME
+		p_node_link.setInt("@a",parent_id);
+		p_node_link.setInt("@b",node_id);
+		p_node_link.setInt("@c",link_id);
+		p_node_link.execute();
+		int l_id = p_node_link.getInsertId();
+		this.updatelinkIdentity(link_id,l_id);
+	}
+
+	int getCurrentSnapShot(int argument_id) {
+		PreparedStatement p = this.db.newPreparedStatement("SELECT current_snapshot_id FROM argument INNER JOIN process_context ON current_process_id=process_context.id WHERE argument.id=?");
+		p.setInt("@a", argument_id);
+		ResultSet r = p.execute();
+		r.next();
+		return r.getInt("current_snapshot_id");
+	}
+
+	int getCurrentProcessContext(int argument_id) {
+		PreparedStatement p = this.db.newPreparedStatement("SELECT current_process_id FROM argument WHERE id=?");
+		p.setInt("@a", argument_id);
+		ResultSet r = p.execute();
+		r.next();
+		return r.getInt("current_process_id");
+	}
+
+	void createNodeList(int argument_id, Json node_list) {
+		int i = 0;
+		while(i < node_list.getSize()) {
+			this.CreateNode(argument_id,node_list[i]);
+			i = i + 1;
 		}
-		return true;
 	}
 
-	@Public void UpdateParentLink(DBNode oldParent, DBNode newParent, DBNode node) {
-		oldParent.RemoveChild(node);
-		newParent.AddChild(node);
+	void replaceNodeList(int argument_id, Json node_list) {
+		int i = 0;
+		while(i < node_list.getSize()) {
+			this.UpdateNode(argument_id,node_list[i]);
+			i = i + 1;
+		}
 	}
 
-	@Public void UpdateChildLink(DBNode node, DBNode oldChild, DBNode newChild) {
-		node.RemoveChild(oldChild);
-		node.AddChild(newChild);
+	void deleteNodeList(int argument_id, Json node_list) {
+		int i = 0;
+		while(i < node_list.getSize()) {
+			this.DeleteNode(argument_id,node_list[i]);
+			i = i + 1;
+		}
 	}
 
-	@Public boolean DeleteDBNode(int argument_id, int node_id) {
-		int masterId = this.GetArgument(argument_id).masterBranchId;
-		return this.DeleteDBNode(argument_id, masterId, node_id);
+	@Public void Commit(int argument_id, Json args) {
+		int prev_snapshot_id = this.getCurrentSnapShot(argument_id);
+		int process_id  = this.getCurrentProcessContext(argument_id);
+		int top_goal_id = this.getTopGoalId(prev_snapshot_id);
+		int snapshot_id = this.initSnapshot(prev_snapshot_id,top_goal_id); //FIXME
+		this.updateProcessContext(process_id,snapshot_id);
+
+		Json commit = args;//.get("commit");
+
+		int i = 0;
+		while(i < commit.getSize()) {
+			String command = commit[i].getString("command");
+			Json node_list = commit[i].get("NodeList");
+			if(command == "insert") {
+				this.createNodeList(argument_id,node_list);
+			} else if(command == "replace") {
+				this.replaceNodeList(argument_id,node_list);
+			} else if(command == "delete") {
+				this.deleteNodeList(argument_id,node_list);
+			} else { //FIXME Error Handling
+				System.p("command not found");
+			}
+			i = i + 1;
+		}
+
+		this.insertSnapshotNodeData(snapshot_id,argument_id);
+		this.insertSnapshotNodeLink(snapshot_id,argument_id);
 	}
 
-	@Public boolean DeleteDBNode(int argument_id, int branch_id, int node_id) {
-		Branch branch = this.GetArgument(argument_id).GetBranch(branch_id);
-		DBNode node = branch.GetDBNode(node_id);
-		branch.RemoveNode(node);
-		return this.db.RemoveNode(node);
+// ProcessContext
+	//return ProcessId
+	@Public int OpenProcessContext(int argument_id, int process_type, String justification, String commiter_name) {
+		int current_snapshot_id = this.getCurrentSnapShot(argument_id); //FIXME
+		return this.initProcessContext(current_snapshot_id, process_type, justification, commiter_name);
 	}
 
-	@Public void DeleteLink(String argument_id, String parentId, String childId) {
-		this.DeleteLink(argument_id, "master", parentId, childId);
-	}
-
-	@Public void DeleteLink(String argument_id, String branch_id, String parentId, String childId) {
+	@Public int CloseProcessContext(int argument_id, int process_id, String justification) {
 		//TODO
 	}
 
-	@Public void AddContext(int argument_id, int node_id, Json context) {
-		int branchid = this.GetArgument(argument_id).masterBranchId;
-		this.AddContext(argument_id, branchid, node_id, context);
+	@Public int[] GetProcessContextIds(int argument_id) {
+		PreparedStatement p = this.db.newPreparedStatement("SELECT `process_context_id` FROM  `argument_has_process_context` WHERE `argument_id`=?");
+		p.setInt("@a",argument_id);
+		ResultSet r = p.execute();
+		int[] ret = [];
+		while(r.next()) {
+			ret.add(r.getInt("process_context_id"));
+		}
+		return ret;
 	}
 
-	@Public void AddContext(int argument_id, int branch_id, int node_id, Json context) {
-		DBNode node = this.GetArgument(argument_id).GetBranch(branch_id).GetDBNode(node_id);
-		int id = node.addContext(context);
-		//TODO Add new Context
-		this.db.AddContext(id,context);
+	@Public int[] GetSnapshotList(int argument_id) {
+		int end_id = this.getCurrentSnapShot(argument_id);
+		return this._GetSnapshotList(0, end_id);
 	}
 
-	@Public Json GetContext(DBNode node) {
-		return node.GetContext();
+//### D-Script
+	//return ContextJson
+	@Public Json GetContext(int NodeId) {
 	}
 
-	@Public Json Search(String text) {
-		return this.db.Search(text);
+	@Public void Support(int EvidenceNodeId, int ProcessId) {
 	}
 
-	@Public Json Search(String text,String nodeType) {
-		return this.db.Search(text,nodeType);
-	}
-
-	@Public Json SearchContext(String text) {
-		return this.db.SearchContext(text);
+	@Public void Rebuttal(int EvidenceNodeId, int ProcessId, String Diagnosis) {
 	}
 }

@@ -1,4 +1,4 @@
-load("../dcasecloud_glue.k");
+Import("Deos.DCaseCloud");
 
 
 void main() {

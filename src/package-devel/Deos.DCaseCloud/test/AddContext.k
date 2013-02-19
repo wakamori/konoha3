@@ -1,4 +1,5 @@
-load("../dcasecloud_glue.k");
+Import("Deos.DCaseCloud");
+Import("Type.Json");
 
 
 void main() {
@@ -6,7 +7,7 @@ void main() {
 	API repo = new API("dcasedb","dcasedb");
 	Json Ids = repo.GetArgumentIds();
 	System.p(Ids);
-	DCaseArgument argument = repo.GetArgument(9);
+	DCaseArgument argument = repo.GetArgument(1);
 	System.p(argument.toJson());
 
 	Json json = new Json();
@@ -14,7 +15,7 @@ void main() {
 	json.setString("Architecture","x86_64");
 	json.setString("C Compiler","GCC 4.6.3");
 	json.setString("C++ Compiler","G++ 4.6.3");
-	repo.AddContext(9,argument.GetRoot().node_id,json);
+	repo.AddContext(1,argument.GetRoot().node_id,json);
 	System.p(argument.toJson());
 }
 

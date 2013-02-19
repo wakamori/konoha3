@@ -1,54 +1,41 @@
-Load("../dcasecloud_glue.k");
-Import("JavaStyle.Object");
-//Import("konoha.object");
-
-Strategy makeStrategy(API repo, int argumentId, String description) {
-	Json json = new Json();
-	json.setString("description",description);
-	json.setString("type","Strategy");
-	return repo.CreateDBNode(argumentId,json) as Strategy;
-}
-
-Goal makeGoal(API repo, int argumentId, String description) {
-	Json json = new Json();
-	json.setString("description",description);
-	json.setString("type","Goal");
-	return repo.CreateDBNode(argumentId, json) as Goal;
-}
-
-Evidence makeEvidence(API repo, int argumentId, String description) {
-	Json json = new Json();
-	json.setString("description",description);
-	json.setString("type","Evidence");
-	return repo.CreateDBNode(argumentId, json) as Evidence;
-}
-
-Context makeContext(API repo, int argumentId, String description) {
-	Json json = new Json();
-	json.setString("description",description);
-	json.setString("type","Context");
-	return repo.CreateDBNode(argumentId, json) as Context;
-}
+Import("Deos.DCaseCloud");
+Import("Type.Json");
+Import("JavaScript.Array");
 
 void main() {
-	API repo = new API("dcasedb","dcasedb");
+	DCaseModel model = new DCaseModel("dcasedb","dcasedb");
+	int id = model.CreateTopGoal("description test",1,"this is the test justification","foo commiter");
+	Json nodeTree = model.GetNodeTree(id);
+	int top_id = nodeTree.getInt("top_goal_id");
+	System.p(model.GetNode(top_id));
 
-	DCaseArgument argument = repo.CreateArgument("Basic Syntax");
-	int id = argument.argument_id;
+	Json json = new Json();
+	Json commit = new Json([]);
+	Json commitObj1 = new Json();
+	commitObj1.setString("branch-name","mybranch");
+	commitObj1.setString("command","insert");
+	Json commitObj1_nodelist = new Json([]);
 
-	DBNode root = repo.GetArgument(id).GetRoot();
+	Json json_node1 = new Json();
+	json_node1.setString("NodeType"       , "Context");
+	json_node1.setInt("ParentNodeId"      , top_id);
+	json_node1.setInt("ThisNodeId"        , 0);
+	json_node1.setInt("PrevNodeId"        , 0);
+	json_node1.setInt("NextNodeId"        , 0);
+	json_node1.setInt("BelongedArgumentId", id);
+	json_node1.set("Children"             , new Json([]));
+	json_node1.setString("Description"    , "test description");
+	Json attr = new Json();
+	attr.setString("hoge","hogehjoh");
+	json_node1.set("Attributes"           , attr);
 
-	Strategy s1 = makeStrategy(repo, id, "Separated by Syntax");
-	repo.InsertLink(id, root, s1);
+	commitObj1_nodelist.add(json_node1);
+	commitObj1.set("node-list",commitObj1_nodelist);
+	commit.add(commitObj1);
+	json.set("commit",commit);
+	System.p(json);
 
-	Goal g2_1 = makeGoal(repo, id, "Function Decralation");
-	repo.InsertLink(id, s1 , g2_1);
-
-	Goal g2_2 = makeGoal(repo, id, "Return Statement");
-	repo.InsertLink(id, s1 , g2_2);
-
-	System.p(repo.GetArgument(id).toJson());
-	System.p(repo.GetArgumentIds());
+	model.Commit(id,json.get("commit"));
+	System.p(model.GetNodeTree(id));
 }
-
 main();
