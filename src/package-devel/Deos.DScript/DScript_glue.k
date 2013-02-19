@@ -228,7 +228,7 @@ class DCaseAssurance {
 			int i = 0;
 			while(i < root.getSize()) {
 				//Json json = global.repository.getNode(root[i]);
-				//int a_id = json.getString("BelongedArgumentId").toint();
+				//int a_id = json.getInt("BelongedArgumentId");
 				//Json arg = global.repository.GetNodeTree(a_id);
 				//Json ctx = arg.GetRoot().GetContext();
 				//System.p(arg.toString());
@@ -259,7 +259,7 @@ class DArgument {
 			while(i < root.getSize()) {
 				//Json json = global.repository.getNode(root[i]);
 				//System.p(json.toString());
-				//int a_id = json.getString("BelongedArgumentId").toint();
+				//int a_id = json.getInt("BelongedArgumentId");
 				//Json arg = global.repository.GetNodeTree(a_id);
 				//System.p(arg.toString());
 				//Json ctx = arg.GetRoot().GetContext();
