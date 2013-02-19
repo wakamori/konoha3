@@ -60,7 +60,7 @@ class TaskData {
 
 Json _names = new Json();
 Json _tasks = new Json();
-API repository = new API("dcasedb", "dcasedb"); // TODO
+DCaseModel repository = new DCaseModel("dcasecloud", "dcasecloud"); // TODO
 Json[] _context = [];
 String[] _target = [];
 boolean[] _compiled = [];
@@ -222,23 +222,26 @@ CompileAllDefinedMethod();
 class DCaseAssurance {
 	@Static boolean TypeCheck(String goal) {
 		//System.p("Typecheck Assurance '" + goal + "'");
-		Json root = global.repository.Search(goal);
+		int[] root = global.repository.FindNodeByDescription(goal);
+		System.p(root);
 		if(root.getSize() > 0) {
 			int i = 0;
 			while(i < root.getSize()) {
-				Json json = root[i];
-				int a_id = json.getString("argument_id").toint();
-				DCaseArgument arg = global.repository.GetArgument(a_id);
-				Json ctx = arg.GetRoot().GetContext();
-				if(ctx.getSize() > 0) {
-					//System.p(ctx);
-					DCaseContext.Push(ctx);
-				}
+				//Json json = global.repository.getNode(root[i]);
+				//int a_id = json.getString("BelongedArgumentId").toint();
+				//Json arg = global.repository.GetNodeTree(a_id);
+				//Json ctx = arg.GetRoot().GetContext();
+				//System.p(arg.toString());
+				//Json ctx = arg;
+				//if(ctx.getSize() > 0) {
+				//	//System.p(ctx);
+				//	DCaseContext.Push(ctx);
+				//}
 				i = i + 1;
 			}
 			return true;
 		}
-		root = global.repository.Search(goal, "Evidence");
+		root = global.repository.FindNodeByDescription(goal);
 		if(root.getSize() > 0) {
 			return true;
 		}
@@ -249,18 +252,22 @@ class DCaseAssurance {
 class DArgument {
 	@Static boolean TypeCheck(String goal, String context) {
 		//System.p("Typecheck Argument '" + goal + "' with Context '" + context + "'");
-		Json root = global.repository.Search(goal);
+		int[] root = global.repository.FindNodeByDescription(goal);
+		System.p(root);
 		if(root.getSize() > 0) {
 			int i = 0;
 			while(i < root.getSize()) {
-				Json json = root[i];
-				int a_id = json.getString("argument_id").toint();
-				DCaseArgument arg = global.repository.GetArgument(a_id);
-				Json ctx = arg.GetRoot().GetContext();
-				if(ctx.getSize() > 0) {
-					//System.p(ctx);
-					DCaseContext.Push(ctx);
-				}
+				//Json json = global.repository.getNode(root[i]);
+				//System.p(json.toString());
+				//int a_id = json.getString("BelongedArgumentId").toint();
+				//Json arg = global.repository.GetNodeTree(a_id);
+				//System.p(arg.toString());
+				//Json ctx = arg.GetRoot().GetContext();
+				//Json ctx = arg;
+				//if(ctx.getSize() > 0) {
+				//	//System.p(ctx);
+				//	DCaseContext.Push(ctx);
+				//}
 				i = i + 1;
 			}
 			return true;
